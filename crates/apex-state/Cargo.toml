@@ -7,4 +7,5 @@ rust-version.workspace = true
 
 [dependencies]
 apex-consensus = { path = "../apex-consensus" }
+apex-types.workspace = true
 thiserror.workspace = true
