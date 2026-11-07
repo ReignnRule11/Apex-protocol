@@ -394,15 +394,17 @@ mod tests {
                 RedbStateStore::open_or_initialize(&source, StateVersion(12), &genesis()).unwrap();
             store.apply(&plan(&store)).unwrap();
             store.check_integrity().unwrap();
-            store.snapshot().unwrap()
+            let snapshot = store.snapshot().unwrap();
+            let RedbStateStore { db } = store;
+            db.close().unwrap();
+            snapshot
         };
 
         // This is deliberately a cold copy: the database handle is closed
         // before the file is copied. Copying a live database is unsupported.
         std::fs::copy(&source, &backup).unwrap();
         let restored =
-            RedbStateStore::open_or_initialize(&backup, StateVersion(0), &BTreeMap::new())
-                .unwrap();
+            RedbStateStore::open_or_initialize(&backup, StateVersion(0), &BTreeMap::new()).unwrap();
         assert_eq!(restored.snapshot().unwrap(), expected);
     }
 
@@ -433,12 +435,8 @@ mod tests {
 
         if let Ok(path) = std::env::var("APEX_REDB_CRASH_CHILD_PATH") {
             let mode = std::env::var("APEX_REDB_CRASH_CHILD_MODE").unwrap();
-            let store = RedbStateStore::open_or_initialize(
-                &path,
-                StateVersion(12),
-                &genesis(),
-            )
-            .unwrap();
+            let store =
+                RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
 
             if mode == "uncommitted" {
                 let write = store.db.begin_write().unwrap();
@@ -464,9 +462,7 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("crash-recovery.redb");
-        drop(
-            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap(),
-        );
+        drop(RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap());
 
         for mode in ["uncommitted", "committed"] {
             let status = Command::new(std::env::current_exe().unwrap())
@@ -479,7 +475,10 @@ mod tests {
                 .env("APEX_REDB_CRASH_CHILD_MODE", mode)
                 .status()
                 .unwrap();
-            assert!(!status.success(), "child process unexpectedly exited cleanly");
+            assert!(
+                !status.success(),
+                "child process unexpectedly exited cleanly"
+            );
             let recovered =
                 RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new())
                     .unwrap();
