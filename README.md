@@ -91,7 +91,7 @@ Apex-protocol/
 │   │   ├── phase-11-storage-reliability.md
 │   │   ├── phase-12-concurrency-failure-engineering.md
 │   │   ├── phase-13-storage-lifecycle-and-migration.md
-│   │   └── phase-14-canonical-encoding-and-state-commitments.md
+│   │   ├── phase-14-canonical-encoding-and-state-commitments.md
 │   │   ├── protocol-spec-v0.1.md
 │   │   ├── state-commitments.md
 │   │   ├── storage-architecture.md
