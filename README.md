@@ -68,7 +68,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0034
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0035
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
