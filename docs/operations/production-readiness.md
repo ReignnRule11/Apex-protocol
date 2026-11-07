@@ -118,3 +118,10 @@ This is not cryptographically interchangeable with the APEX Phase 20G2A/20G2B pr
 - **20G2B is merged and post-merge main CI passed** on merge commit `6b4abb3c08279ca91a554ee716dd0980a1b57dcd` (workflow #42413539395). It provides an experimental APEX-native Ed25519 certificate verifier, not Malachite-native finality.
 - **20G2C1 is the current submitted subphase.** It records the pinned Malachite native certificate/verifier API and the required APEX identity and commit ordering. It does not implement code or change release-gate status.
 - **G2 remains BLOCKED.** The actual runtime event loop, native certificate adapter, application commit gate, durable cross-system recovery, signer anti-rollback, multi-process adversarial testing and independent review remain outstanding.
+
+
+### Phase 20G2C2 — isolated native certificate adapter (submitted)
+
+Adds a generic helper in `experiments/malachite-spike` that checks native certificate height, round and value ID; requires an explicit native value-ID-to-canonical-APEX-identity binding; and calls the exact pinned Malachite `VerifierExt::verify_commit_certificate` with the native validator set and explicit thresholds. The direct signing dependency is isolated from the production Cargo workspace. The adapter produces an opaque verified token only after those checks succeed. Exact-head CI is the compile/test gate; no local build is claimed.
+
+This is not a running `Channels` event loop, does not process `AppMsg::Finalized`, does not gate or persist an application commit, and does not prove the native/APEX validator address-key-power mapping or authenticated validator governance. Canonical value decoding, bounded value storage, parent linkage derivation, durable consensus/application/signer atomicity, restart recovery and signer anti-rollback remain blockers. **G2 remains BLOCKED; overall release remains NO-GO.** See the Phase 20G2C2 record and ADR-0049.
