@@ -1,6 +1,6 @@
 # Phase 19 — Deterministic EVM Execution and Fee Accounting
 
-**Status:** revm 43.0.3 pinned; staged state, storage, execution-result and environment adapters merged/in progress.
+**Status:** revm 43.0.3 pinned; staged state, storage, execution-result, environment and builder adapters merged/in progress.
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
@@ -23,11 +23,16 @@ Implement deterministic EVM execution against a complete versioned parent-state 
 - **19I:** revm state-diff extraction into deterministic parent-version-bound APEX deltas.
 - **19J:** success-gated extraction; revert and halt outcomes are rejected.
 - **19K:** immutable APEX block execution context and validated fork activation schedule.
-- **19L:** explicit context-to-revm environment mapping. Requires a matching APEX ForkId/revm SpecId binding; rejects lossy 256-bit-to-u64 conversions; supports only post-Merge/pre-Cancun profiles; rejects missing prevrandao and unsupported fork profiles. Uses revm's mainnet gas table as a provisional compatibility mapping, not approved APEX gas policy.
+- **19L:** explicit context-to-revm environment mapping (merged). Requires a matching APEX ForkId/revm SpecId binding; rejects lossy 256-bit-to-u64 conversions; supports only post-Merge/pre-Cancun profiles; rejects missing prevrandao and unsupported fork profiles. Uses revm's mainnet gas table as a provisional compatibility mapping, not approved APEX gas policy.
+- **19M:** explicit revm builder integration (in progress). Builds the engine from the APEX immutable snapshot and the exact Phase 19L CfgEnv/BlockEnv. No default context or latest fork is selected; no APEX transaction is authenticated or executed yet.
 
 ## Phase 19L limitations
 
 The environment adapter does not authenticate the source block/configuration or execute a transaction. revm 43.0.3 uses u64 chain ID and base fee fields; values outside that range fail closed. Blob-gas inputs, pre-Merge difficulty, Amsterdam slot semantics, fork-specific APEX gas rules, transaction authentication, fee settlement, receipts and full-state commitments remain outstanding.
+
+## Phase 19M limitations
+
+The builder selects revm's standard Ethereum instruction/precompile implementation through the `MainBuilder::build_mainnet` API, but receives the exact explicit APEX `CfgEnv`, `BlockEnv` and snapshot database first. This API name does not mean `Context::mainnet()` is called or a default fork is chosen. Transaction decoding/authentication, canonical TxEnv construction, transaction execution, fee settlement, receipts and atomic persistent state application remain unimplemented.
 
 ## Required next work
 

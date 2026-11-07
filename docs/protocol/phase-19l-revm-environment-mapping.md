@@ -1,6 +1,6 @@
 # Phase 19L — Explicit APEX-to-revm Environment Mapping
 
-**Status:** Implementation on branch `phase-19l/revm-environment-mapping`; validation pending.
+**Status:** Merged in PR #34; post-merge Rust CI passed.
 **Release impact:** G0 and G1 remain BLOCKED.
 
 ## Objective

@@ -25,7 +25,9 @@
 
 **Phase 19K — explicit APEX block context (merged).** Adds immutable block inputs and a validated fork activation schedule. It does not authenticate source blocks or ratify a fork.
 
-**Phase 19L — explicit revm environment mapping (in progress).** Requires an explicit matching APEX ForkId/revm SpecId binding; maps block context into revm 43.0.3 CfgEnv/BlockEnv; rejects chain-ID/base-fee values that would be truncated and unsupported fork profiles. The first adapter supports only post-Merge/pre-Cancun profiles and uses revm's mainnet gas table provisionally, not as ratified APEX gas policy.
+**Phase 19L — explicit revm environment mapping (merged).** Requires an explicit matching APEX ForkId/revm SpecId binding; maps block context into revm 43.0.3 CfgEnv/BlockEnv; rejects chain-ID/base-fee values that would be truncated and unsupported fork profiles. The first adapter supports only post-Merge/pre-Cancun profiles and uses revm's mainnet gas table provisionally, not as ratified APEX gas policy.
+
+**Phase 19M — explicit revm builder integration (in progress).** Adds an APEX-owned builder that binds the immutable EVM snapshot and Phase 19L-mapped CfgEnv/BlockEnv into revm 43.0.3 without Context::mainnet() or SpecId::LATEST. This constructs an EVM instance; it does not yet authenticate or execute APEX transactions.
 
 **Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
@@ -54,6 +56,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
+    │   │   ├── revm_execution.rs
     │   │   ├── state_diff.rs
     │   │   └── lib.rs
     │   ├── apex-evm-redb/
@@ -62,7 +65,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0036
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0037
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/

@@ -1,10 +1,12 @@
 //! APEX-owned EVM integration boundary.
 //!
-//! The full-width state model is an immutable, version-bound read view. It is
-//! not yet wired to revm's Database trait or a persistent protocol state backend.
+//! The full-width state model is an immutable, version-bound read view with a
+//! read-only revm Database adapter and an explicit execution-builder boundary.
+//! Persistent execution and protocol-level transaction processing remain incomplete.
 
 pub mod execution_context;
 pub mod revm_environment;
+pub mod revm_execution;
 pub mod state_diff;
 
 use std::collections::BTreeMap;
