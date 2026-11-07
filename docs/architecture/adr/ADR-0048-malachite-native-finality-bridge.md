@@ -1,0 +1,10 @@
+# ADR-0048 — Malachite-native certificate verification boundary
+
+- **Status:** Accepted for isolated implementation planning only; not a ratified protocol decision.
+- **Date:** 2026-11-07
+- **Context:** Phase 20G2B introduced an APEX Ed25519 certificate verifier using the Phase 20G2A APEX signing preimage. The pinned Malachite v0.8.2 runtime emits a native `CommitCertificate<Ctx>` whose signatures are produced and verified through Malachite's `Ctx::SigningScheme`. Its channel API distinguishes early `Decided` from `Finalized` and requires an application response before advancing.
+- **Decision:** The first runtime integration must verify Malachite's native commit certificate with the pinned native `VerifierExt::verify_commit_certificate` API and native validator set. It must separately bind the verified native decision to canonical APEX block bytes, recomputed APEX block identity, chain ID, protocol version, parent and APEX validator-set context before constructing `VerifiedFinalizedBlock`. Only the successful durable commit path may acknowledge `Finalized` with `Next::Start`.
+- **Cryptographic consequence:** Malachite-native signatures MUST NOT be reinterpreted as signatures over `APEX-CONSENSUS-MSG-V1` or copied into the Phase 20G2B certificate type. The two signing domains are distinct. A unified APEX signing profile would require a separately designed and tested Malachite signing adapter.
+- **Operational consequence:** `Decided` is not permission to advance application height. The application must not respond with a successful next-height transition until finality verification and durable commit have succeeded.
+- **Explicit non-decisions:** No native runtime adapter, APEX block codec, validator governance proof, atomic consensus/application/signer commit, rollback-resistant signer journal, production key custody or BFT safety/liveness evidence is implemented by this ADR.
+- **Safety:** Malachite remains an isolated research dependency. No production validator keys, funds, public validator network or mainnet use is authorized.

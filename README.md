@@ -92,7 +92,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── malachite-spike/          # Pinned Malachite API + typed EngineBuilder adapter
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0047
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0048
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/

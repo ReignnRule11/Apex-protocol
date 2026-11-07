@@ -1,6 +1,6 @@
 # Phase 20G2B — Authenticated Consensus Signatures and Commit Certificates
 
-**Status:** Implementation submitted for exact-head CI; experimental and not ratified.
+**Status:** Merged; exact-head and post-merge main CI passed. Experimental and not ratified.
 **Base main:** 75d2bafb80b9dcb12211712e97399bc7a0131a38
 **Scope:** Ed25519 validator identity binding, canonical authenticated validator-set hashing, and strict precommit certificate verification.
 
