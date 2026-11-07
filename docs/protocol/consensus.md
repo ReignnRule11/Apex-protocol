@@ -16,7 +16,7 @@ These checks are deterministic and fail closed. They are not canonical block dec
 
 ## Transaction-admission boundary
 
-The crate also provides static transaction-admission checks; see transaction-admission.md. These validate only chain/version identity, gas-limit bounds, fee-cap ordering and overflow-safe maximum-fee arithmetic. They do not consult account state, verify signatures, decode canonical bytes, execute transactions or establish validity. The block gas limit is caller-supplied, not an approved network parameter.
+The crate also provides static transaction-admission checks; see transaction-admission.md. These validate only chain/version identity, gas-limit bounds, fee-cap ordering and overflow-safe maximum-fee arithmetic. The Phase 5 state-aware prototype also checks account existence, exact nonce equality and balance sufficiency against a caller-supplied read-only state view. That view must be a stable snapshot of the candidate parent state; this is a caller obligation, not enforced persistence or snapshot isolation. Sender identity remains unauthenticated, and these checks do not verify signatures, decode canonical bytes, execute transactions or establish complete validity. The block gas limit is caller-supplied, not an approved network parameter.
 
 ## Candidate constraints
 
