@@ -206,7 +206,6 @@ pub fn verify_account_membership_proof_v1(
     Ok(())
 }
 
-
 /// Authenticated absence proof for an AccountId in the numerically ordered account set.
 /// Neighbor inclusion proofs bind the predecessor/successor to the same root and count.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -249,14 +248,12 @@ pub fn account_non_membership_proof_v1(
         .next()
         .and_then(|(id, _)| account_membership_proof_v1(accounts, *id));
     match (predecessor, successor) {
-        (None, Some(successor)) => Some(AccountNonMembershipProof::BeforeFirst {
-            query,
-            successor,
-        }),
-        (Some(predecessor), None) => Some(AccountNonMembershipProof::AfterLast {
-            query,
-            predecessor,
-        }),
+        (None, Some(successor)) => {
+            Some(AccountNonMembershipProof::BeforeFirst { query, successor })
+        }
+        (Some(predecessor), None) => {
+            Some(AccountNonMembershipProof::AfterLast { query, predecessor })
+        }
         (Some(predecessor), Some(successor)) => Some(AccountNonMembershipProof::Between {
             query,
             predecessor,
@@ -446,7 +443,10 @@ mod tests {
         let empty = BTreeMap::new();
         let empty_root = account_state_root_v1(&empty);
         let empty_proof = account_non_membership_proof_v1(&empty, AccountId(7)).unwrap();
-        assert_eq!(verify_account_non_membership_proof_v1(&empty_proof, empty_root), Ok(()));
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&empty_proof, empty_root),
+            Ok(())
+        );
 
         let accounts = BTreeMap::from([
             (AccountId(10), account(0, 100)),
@@ -456,16 +456,34 @@ mod tests {
         let root = account_state_root_v1(&accounts);
 
         let before = account_non_membership_proof_v1(&accounts, AccountId(5)).unwrap();
-        assert!(matches!(before, AccountNonMembershipProof::BeforeFirst { .. }));
-        assert_eq!(verify_account_non_membership_proof_v1(&before, root), Ok(()));
+        assert!(matches!(
+            before,
+            AccountNonMembershipProof::BeforeFirst { .. }
+        ));
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&before, root),
+            Ok(())
+        );
 
         let between = account_non_membership_proof_v1(&accounts, AccountId(15)).unwrap();
-        assert!(matches!(between, AccountNonMembershipProof::Between { .. }));
-        assert_eq!(verify_account_non_membership_proof_v1(&between, root), Ok(()));
+        assert!(matches!(
+            between,
+            AccountNonMembershipProof::Between { .. }
+        ));
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&between, root),
+            Ok(())
+        );
 
         let after = account_non_membership_proof_v1(&accounts, AccountId(40)).unwrap();
-        assert!(matches!(after, AccountNonMembershipProof::AfterLast { .. }));
-        assert_eq!(verify_account_non_membership_proof_v1(&after, root), Ok(()));
+        assert!(matches!(
+            after,
+            AccountNonMembershipProof::AfterLast { .. }
+        ));
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&after, root),
+            Ok(())
+        );
     }
 
     #[test]
@@ -519,12 +537,15 @@ mod tests {
             Err(ProofError::RootMismatch)
         );
         let tampered_query = match proof {
-            AccountNonMembershipProof::Between { predecessor, successor, .. } =>
-                AccountNonMembershipProof::Between {
-                    query: AccountId(10),
-                    predecessor,
-                    successor,
-                },
+            AccountNonMembershipProof::Between {
+                predecessor,
+                successor,
+                ..
+            } => AccountNonMembershipProof::Between {
+                query: AccountId(10),
+                predecessor,
+                successor,
+            },
             _ => unreachable!(),
         };
         assert_eq!(
@@ -559,5 +580,4 @@ mod tests {
             Err(ProofError::RootMismatch)
         );
     }
-
 }
