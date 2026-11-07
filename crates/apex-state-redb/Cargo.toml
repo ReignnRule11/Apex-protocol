@@ -1,0 +1,15 @@
+[package]
+name = "apex-state-redb"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+apex-consensus = { path = "../apex-consensus" }
+apex-state = { path = "../apex-state" }
+redb.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

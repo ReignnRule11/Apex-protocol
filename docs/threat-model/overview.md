@@ -7,12 +7,13 @@ Consensus safety/liveness; balances and contract state; validator keys; transact
 Byzantine validators, colluding stake holders, eclipse/Sybil peers, spam senders, malicious contracts, compromised RPC operators, stolen keys, malicious dependencies, governance attackers and infrastructure outages.
 
 ## Principal controls
-- Consensus: mature protocol, explicit assumptions, adversarial simulation and independent review. Malachite is an alpha research candidate, not an integrated or audited APEX component; its upstream MSRV (Rust 1.88) exceeds APEX's declared MSRV (Rust 1.85).
+- Consensus: mature protocol, explicit assumptions, adversarial simulation and independent review. Malachite is an alpha research candidate, not an integrated or audited APEX component.
 - Proposal preflight: compare chain ID, protocol version, sequential height and parent hash. Structural guard only, not cryptographic or consensus verification.
 - Transaction admission: static envelope checks plus prototype account existence, nonce and affordability checks. Parent state must be stable and versioned. Sender identity is unauthenticated.
 - Block planning: preserve transaction order, reject duplicate temporary IDs, enforce cumulative declared gas, merge writes through an overlay and fail the whole plan on any invalid transaction.
-- State application: bind plans to a parent StateVersion, compare-and-swap the version, validate every before-state before writing, and commit all account changes plus version atomically. The reference in-memory adapter is not durable or multi-process.
-- Persistent storage: production adapters must provide consistent snapshots, atomic account-plus-version commits, explicit durability semantics, fail-closed corruption handling, and recovery to a complete committed state. Fault injection, concurrent-writer and reopen tests are mandatory. No durable adapter is currently implemented.
+- State application: bind plans to a parent StateVersion, compare-and-swap the version, validate every before-state before writing, and commit all account changes plus version atomically.
+- Persistent storage: `apex-state-redb` is a prototype adapter pinned to redb 4.5.0 and Rust 1.90.0. It uses immediate-durability transactions and one atomic account-plus-version commit. It is currently single-process/single-handle and has no process-kill/power-loss harness, disk-full injection, multi-process conformance, or production backup/restore workflow. Backend checksums are not state commitments.
+- Corruption: malformed metadata, unsupported schema versions and malformed account records fail closed. Commit errors may be indeterminate; close/reopen and reconcile persisted version before retrying.
 - State commitments: never trust database page checksums or physical storage roots as consensus commitments. Canonical bytes, deterministic ordering, domain-separated cryptographic hashes, and authenticated-tree semantics require a separate reviewed specification. No state root is implemented.
 - Replay/signatures: chain- and version-bound signing domain, canonical encoding and test vectors.
 - Execution: pinned EVM revision, deterministic host interface, differential tests and fuzzing.

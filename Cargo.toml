@@ -1,15 +1,23 @@
 [workspace]
 resolver = "2"
-members = ["crates/apex-types", "crates/apex-codec", "crates/apex-consensus", "crates/apex-state", "crates/apex-node"]
+members = [
+    "crates/apex-types",
+    "crates/apex-codec",
+    "crates/apex-consensus",
+    "crates/apex-state",
+    "crates/apex-state-redb",
+    "crates/apex-node",
+]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "UNLICENSED"
-rust-version = "1.85"
+rust-version = "1.90"
 authors = ["APEX Protocol Contributors"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 apex-types = { path = "crates/apex-types" }
+redb = "=4.5.0"

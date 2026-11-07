@@ -1,7 +1,7 @@
 //! Versioned snapshots and an atomic state-application boundary.
 //!
-//! The included in-memory adapter is a reference implementation for tests.
-//! It is not durable storage or suitable for production.
+//! The in-memory adapter is a reference implementation for tests. Durable
+//! adapters live in separate crates and must preserve the same contract.
 
 use apex_consensus::{
     AccountId, AccountState, AdmissionContext, AdmissionState, BlockTransaction,
@@ -59,7 +59,7 @@ pub fn plan_versioned_block_transition(
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
+#[derive(Clone, Debug, Eq, PartialEq, Error)]
 pub enum StateStoreError {
     #[error("plan parent version is stale: expected {expected:?}, current {actual:?}")]
     StaleVersion {
@@ -72,13 +72,23 @@ pub enum StateStoreError {
     DuplicateOrUnorderedAccountUpdate,
     #[error("state version cannot be incremented")]
     VersionOverflow,
+    #[error("persistent state store is not initialized")]
+    Uninitialized,
+    #[error("persistent state store schema version {0} is not supported")]
+    UnsupportedSchema(u64),
+    #[error("persistent state metadata is malformed")]
+    CorruptMetadata,
+    #[error("persisted account {0:?} has an invalid representation")]
+    CorruptAccount(AccountId),
+    #[error("storage backend error: {0}")]
+    Backend(String),
 }
 
 /// Implementations must provide consistent snapshots and a linearizable
 /// compare-and-swap apply: validate all preconditions, then publish every
 /// account update and the next version atomically, or publish nothing.
 pub trait StateStore {
-    fn snapshot(&self) -> VersionedStateSnapshot;
+    fn snapshot(&self) -> Result<VersionedStateSnapshot, StateStoreError>;
     fn apply(
         &mut self,
         plan: &VersionedBlockTransitionPlan,
@@ -99,8 +109,8 @@ impl InMemoryStateStore {
 }
 
 impl StateStore for InMemoryStateStore {
-    fn snapshot(&self) -> VersionedStateSnapshot {
-        VersionedStateSnapshot::new(self.version, self.accounts.clone())
+    fn snapshot(&self) -> Result<VersionedStateSnapshot, StateStoreError> {
+        Ok(VersionedStateSnapshot::new(self.version, self.accounts.clone()))
     }
 
     fn apply(
@@ -156,37 +166,15 @@ mod tests {
         InMemoryStateStore::new(
             StateVersion(12),
             BTreeMap::from([
-                (
-                    AccountId(1),
-                    AccountState {
-                        nonce: 0,
-                        balance: 1_000_000,
-                    },
-                ),
-                (
-                    AccountId(2),
-                    AccountState {
-                        nonce: 0,
-                        balance: 500,
-                    },
-                ),
-                (
-                    AccountId(3),
-                    AccountState {
-                        nonce: 0,
-                        balance: 700,
-                    },
-                ),
+                (AccountId(1), AccountState { nonce: 0, balance: 1_000_000 }),
+                (AccountId(2), AccountState { nonce: 0, balance: 500 }),
+                (AccountId(3), AccountState { nonce: 0, balance: 700 }),
             ]),
         )
     }
 
     fn context() -> AdmissionContext {
-        AdmissionContext {
-            chain_id: ChainId(7),
-            protocol_version: 1,
-            block_gas_limit: 100_000,
-        }
+        AdmissionContext { chain_id: ChainId(7), protocol_version: 1, block_gas_limit: 100_000 }
     }
 
     fn txs() -> [BlockTransaction; 2] {
@@ -207,14 +195,14 @@ mod tests {
     }
 
     fn planned(s: &InMemoryStateStore) -> VersionedBlockTransitionPlan {
-        let snapshot = s.snapshot();
+        let snapshot = s.snapshot().unwrap();
         plan_versioned_block_transition(context(), &txs(), &snapshot).unwrap()
     }
 
     #[test]
     fn snapshot_and_plan_are_bound_to_version() {
         let s = store();
-        let snapshot = s.snapshot();
+        let snapshot = s.snapshot().unwrap();
         let plan = plan_versioned_block_transition(context(), &txs(), &snapshot).unwrap();
         assert_eq!(snapshot.version(), StateVersion(12));
         assert_eq!(plan.parent_version, StateVersion(12));
@@ -225,14 +213,8 @@ mod tests {
     fn applies_all_updates_and_advances_version_once() {
         let mut s = store();
         assert_eq!(s.apply(&planned(&s)), Ok(StateVersion(13)));
-        let after = s.snapshot();
-        assert_eq!(
-            after.account(AccountId(1)).unwrap(),
-            AccountState {
-                nonce: 2,
-                balance: 957_700
-            }
-        );
+        let after = s.snapshot().unwrap();
+        assert_eq!(after.account(AccountId(1)).unwrap(), AccountState { nonce: 2, balance: 957_700 });
         assert_eq!(after.account(AccountId(2)).unwrap().balance, 600);
         assert_eq!(after.account(AccountId(3)).unwrap().balance, 900);
     }
@@ -243,22 +225,14 @@ mod tests {
         let old = planned(&s);
         let current = planned(&s);
         assert_eq!(s.apply(&current), Ok(StateVersion(13)));
-        let before = s.snapshot();
-        assert_eq!(
-            s.apply(&old),
-            Err(StateStoreError::StaleVersion {
-                expected: StateVersion(12),
-                actual: StateVersion(13),
-            })
-        );
-        assert_eq!(s.snapshot(), before);
-        assert_eq!(
-            s.apply(&current),
-            Err(StateStoreError::StaleVersion {
-                expected: StateVersion(12),
-                actual: StateVersion(13),
-            })
-        );
+        let before = s.snapshot().unwrap();
+        assert_eq!(s.apply(&old), Err(StateStoreError::StaleVersion {
+            expected: StateVersion(12), actual: StateVersion(13),
+        }));
+        assert_eq!(s.snapshot().unwrap(), before);
+        assert_eq!(s.apply(&current), Err(StateStoreError::StaleVersion {
+            expected: StateVersion(12), actual: StateVersion(13),
+        }));
     }
 
     #[test]
@@ -266,12 +240,9 @@ mod tests {
         let mut s = store();
         let mut p = planned(&s);
         p.transition.account_updates[1].before.balance += 1;
-        let before = s.snapshot();
-        assert_eq!(
-            s.apply(&p),
-            Err(StateStoreError::BeforeStateMismatch(AccountId(2)))
-        );
-        assert_eq!(s.snapshot(), before);
+        let before = s.snapshot().unwrap();
+        assert_eq!(s.apply(&p), Err(StateStoreError::BeforeStateMismatch(AccountId(2))));
+        assert_eq!(s.snapshot().unwrap(), before);
     }
 
     #[test]
@@ -279,20 +250,17 @@ mod tests {
         let mut s = store();
         let mut p = planned(&s);
         p.transition.account_updates.swap(0, 1);
-        let before = s.snapshot();
-        assert_eq!(
-            s.apply(&p),
-            Err(StateStoreError::DuplicateOrUnorderedAccountUpdate)
-        );
-        assert_eq!(s.snapshot(), before);
+        let before = s.snapshot().unwrap();
+        assert_eq!(s.apply(&p), Err(StateStoreError::DuplicateOrUnorderedAccountUpdate));
+        assert_eq!(s.snapshot().unwrap(), before);
     }
 
     #[test]
     fn version_overflow_fails_without_mutation() {
         let mut s = InMemoryStateStore::new(StateVersion(u64::MAX), store().accounts);
         let p = planned(&s);
-        let before = s.snapshot();
+        let before = s.snapshot().unwrap();
         assert_eq!(s.apply(&p), Err(StateStoreError::VersionOverflow));
-        assert_eq!(s.snapshot(), before);
+        assert_eq!(s.snapshot().unwrap(), before);
     }
 }
