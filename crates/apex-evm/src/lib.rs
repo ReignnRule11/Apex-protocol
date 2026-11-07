@@ -271,7 +271,6 @@ impl Database for EvmDatabaseView<'_> {
     }
 }
 
-
 /// One account replacement in a deterministic state delta. Updates are
 /// ordered by address and carry the expected prior value for conflict checks.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -325,7 +324,10 @@ impl fmt::Display for EvmStateApplyError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::StaleParent { expected, actual } => {
-                write!(f, "EVM delta parent version {expected} is stale; current version is {actual}")
+                write!(
+                    f,
+                    "EVM delta parent version {expected} is stale; current version is {actual}"
+                )
             }
             Self::VersionOverflow => write!(f, "EVM state version cannot be incremented"),
             Self::UnorderedAccountUpdates => write!(f, "account updates must be strictly ordered"),
@@ -338,7 +340,10 @@ impl fmt::Display for EvmStateApplyError {
                 write!(f, "code before-state mismatch at {hash:?}")
             }
             Self::StorageBeforeMismatch(address, key) => {
-                write!(f, "storage before-state mismatch at {address:?} slot {key:?}")
+                write!(
+                    f,
+                    "storage before-state mismatch at {address:?} slot {key:?}"
+                )
             }
             Self::InvalidResultingSnapshot(error) => {
                 write!(f, "resulting EVM snapshot is invalid: {error}")
@@ -410,7 +415,10 @@ impl EvmStateStore {
             }
             previous_storage = Some(key);
             if self.snapshot.storage.get(&key).copied() != update.before {
-                return Err(EvmStateApplyError::StorageBeforeMismatch(update.address, update.key));
+                return Err(EvmStateApplyError::StorageBeforeMismatch(
+                    update.address,
+                    update.key,
+                ));
             }
         }
 
@@ -556,8 +564,6 @@ mod tests {
         ));
     }
 
-
-
     fn empty_delta(parent_state_version: u64) -> EvmStateDelta {
         EvmStateDelta {
             parent_state_version,
@@ -592,7 +598,10 @@ mod tests {
         assert_eq!(store.apply(&delta), Ok(43));
         let view = store.snapshot().database_view();
         assert_eq!(view.parent_state_version(), 43);
-        assert_eq!(view.basic(address(1)).unwrap().balance, U256Word([0x81; 32]));
+        assert_eq!(
+            view.basic(address(1)).unwrap().balance,
+            U256Word([0x81; 32])
+        );
         assert_eq!(
             view.storage(address(1), U256Word::from_u64(3)),
             U256Word([0x66; 32])
@@ -661,7 +670,9 @@ mod tests {
         };
         assert!(matches!(
             store.apply(&delta),
-            Err(EvmStateApplyError::InvalidResultingSnapshot(EvmStateError::CodeMissing(_)))
+            Err(EvmStateApplyError::InvalidResultingSnapshot(
+                EvmStateError::CodeMissing(_)
+            ))
         ));
         assert_eq!(store.snapshot(), &before);
     }
