@@ -7,7 +7,7 @@
 use crate::execution_context::{BlockExecutionContext, ForkId};
 use revm::{
     context::{block::BlockEnv, cfg::CfgEnv},
-    primitives::{hardfork::SpecId, Address, B256, U256},
+    primitives::{Address, B256, U256, hardfork::SpecId},
 };
 use std::fmt;
 
@@ -52,10 +52,16 @@ impl fmt::Display for RevmEnvironmentError {
                 "revm fork binding {binding:?} does not match active APEX fork {context:?}"
             ),
             Self::ChainIdExceedsRevmU64 => {
-                write!(f, "APEX 256-bit chain ID cannot be represented by revm's u64 chain ID")
+                write!(
+                    f,
+                    "APEX 256-bit chain ID cannot be represented by revm's u64 chain ID"
+                )
             }
             Self::BaseFeeExceedsRevmU64 => {
-                write!(f, "APEX 256-bit base fee cannot be represented by revm's u64 base fee")
+                write!(
+                    f,
+                    "APEX 256-bit base fee cannot be represented by revm's u64 base fee"
+                )
             }
             Self::UnsupportedSpecId(spec) => write!(
                 f,
@@ -121,9 +127,12 @@ impl RevmExecutionEnvironment {
         if (spec as u8) < (SpecId::MERGE as u8) || (spec as u8) >= (SpecId::CANCUN as u8) {
             return Err(RevmEnvironmentError::UnsupportedSpecId(spec));
         }
-        let prevrandao = context
-            .prevrandao()
-            .ok_or(RevmEnvironmentError::MissingPrevrandaoForPostMergeSpec(spec))?;
+        let prevrandao =
+            context
+                .prevrandao()
+                .ok_or(RevmEnvironmentError::MissingPrevrandaoForPostMergeSpec(
+                    spec,
+                ))?;
 
         let mut cfg = CfgEnv::default();
         cfg.set_spec_and_mainnet_gas_params(spec);
@@ -170,8 +179,13 @@ mod tests {
         ForkId::from_bytes([byte; 32])
     }
 
-    fn context(chain_id: ChainId256, base_fee: U256Word, prevrandao: Option<[u8; 32]>) -> BlockExecutionContext {
-        let schedule = ForkActivationSchedule::try_new(vec![ForkActivation::new(0, fork(7), false)]).unwrap();
+    fn context(
+        chain_id: ChainId256,
+        base_fee: U256Word,
+        prevrandao: Option<[u8; 32]>,
+    ) -> BlockExecutionContext {
+        let schedule =
+            ForkActivationSchedule::try_new(vec![ForkActivation::new(0, fork(7), false)]).unwrap();
         BlockExecutionContext::try_from_validated_block(
             chain_id,
             &schedule,
@@ -192,8 +206,13 @@ mod tests {
     #[test]
     fn maps_every_supported_context_field_without_mainnet_defaults() {
         let randomness = [0x55; 32];
-        let context = context(ChainId256::from_u64(77), U256Word::from_u64(9), Some(randomness));
-        let env = RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::SHANGHAI)).unwrap();
+        let context = context(
+            ChainId256::from_u64(77),
+            U256Word::from_u64(9),
+            Some(randomness),
+        );
+        let env = RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::SHANGHAI))
+            .unwrap();
 
         assert_eq!(env.cfg.chain_id, 77);
         assert_eq!(env.cfg.spec, SpecId::SHANGHAI);
@@ -215,16 +234,24 @@ mod tests {
             RevmForkBinding::new(fork(8), SpecId::MERGE),
         )
         .unwrap_err();
-        assert!(matches!(error, RevmEnvironmentError::ForkBindingMismatch { .. }));
+        assert!(matches!(
+            error,
+            RevmEnvironmentError::ForkBindingMismatch { .. }
+        ));
     }
 
     #[test]
     fn rejects_chain_id_that_revm_would_truncate() {
         let mut bytes = [0; 32];
         bytes[0] = 1;
-        let context = context(ChainId256::from_be_bytes(bytes), U256Word::ZERO, Some([1; 32]));
+        let context = context(
+            ChainId256::from_be_bytes(bytes),
+            U256Word::ZERO,
+            Some([1; 32]),
+        );
         assert_eq!(
-            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE)).unwrap_err(),
+            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE))
+                .unwrap_err(),
             RevmEnvironmentError::ChainIdExceedsRevmU64
         );
     }
@@ -233,7 +260,11 @@ mod tests {
     fn rejects_base_fee_that_revm_would_truncate() {
         let mut bytes = [0; 32];
         bytes[0] = 1;
-        let context = context(ChainId256::from_u64(1), U256Word::from_be_bytes(bytes), Some([1; 32]));
+        let context = context(
+            ChainId256::from_u64(1),
+            U256Word::from_be_bytes(bytes),
+            Some([1; 32]),
+        );
         assert_eq!(
             RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE)).unwrap_err(),
             RevmEnvironmentError::BaseFeeExceedsRevmU64
@@ -244,11 +275,13 @@ mod tests {
     fn rejects_forks_outside_the_bounded_environment_profile() {
         let context = context(ChainId256::from_u64(1), U256Word::ZERO, Some([1; 32]));
         assert_eq!(
-            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::FRONTIER)).unwrap_err(),
+            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::FRONTIER))
+                .unwrap_err(),
             RevmEnvironmentError::UnsupportedSpecId(SpecId::FRONTIER)
         );
         assert_eq!(
-            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::CANCUN)).unwrap_err(),
+            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::CANCUN))
+                .unwrap_err(),
             RevmEnvironmentError::UnsupportedSpecId(SpecId::CANCUN)
         );
     }
