@@ -31,7 +31,9 @@
 
 **Phase 19N — validated type-2 transaction environment (merged).** Adds a bounded adapter from caller-authenticated type-2 fields into revm TxEnv, with exact chain-ID binding and caller-supplied input/access-list bounds. It does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees.
 
-**Phase 20A — consensus-engine candidate revalidation (in progress).** Pins Malachite v0.8.2 at exact upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` for research only. Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0, but upstream labels it alpha and not externally audited. No engine dependency or production adoption is approved. See `docs/protocol/phase-20a-consensus-engine-revalidation.md` and ADR-0039.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 20A — consensus-engine candidate revalidation (in progress).** Pins Malachite v0.8.2 at exact upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` for research only. Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0, but upstream labels it alpha and not externally audited. No engine dependency or production adoption is approved. See `docs/protocol/phase-20a-consensus-engine-revalidation.md` and ADR-0039.
+
+**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
