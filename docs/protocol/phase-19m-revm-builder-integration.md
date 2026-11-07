@@ -1,6 +1,6 @@
 # Phase 19M — Explicit revm Builder Integration
 
-**Status:** Implementation on branch `phase-19m/revm-builder-integration`; validation pending.
+**Status:** Merged and exact-head CI verified. Merge commit `0eaa0468d126c6f9b37d0ded3d383eda6d1144ac`; CI run `42397107372` passed (Format, Clippy, Tests).
 **Release impact:** G0 and G1 remain BLOCKED.
 
 ## Objective
