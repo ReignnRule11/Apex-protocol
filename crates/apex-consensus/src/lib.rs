@@ -346,8 +346,10 @@ mod tests {
         let mut tx = admission_tx();
         tx.gas_limit = u64::MAX;
         tx.max_fee_per_gas = u128::MAX;
+        let mut context = admission_context();
+        context.block_gas_limit = u64::MAX;
         assert_eq!(
-            validate_transaction_admission(admission_context(), tx),
+            validate_transaction_admission(context, tx),
             Err(TransactionAdmissionError::MaximumFeeOverflow)
         );
     }
