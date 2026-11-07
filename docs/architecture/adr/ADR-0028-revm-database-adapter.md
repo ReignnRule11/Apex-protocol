@@ -1,6 +1,6 @@
 # ADR-0028: revm database adapter over immutable EVM snapshots
 
-- **Status:** Proposed pending CI validation
+- **Status:** Accepted after PR #24 and post-merge CI passed
 - **Date:** 2026-11-07
 - **Related:** ADR-0024 through ADR-0027, Phase 19D
 
@@ -24,10 +24,3 @@ Phase 19C established a full-width, immutable EVM state view. The pinned revm 43
 - Engine reads cannot mutate the parent snapshot.
 - The adapter remains dependent on snapshot validation and the eventual fork/context contract.
 - G1 remains blocked until transaction authentication, state-diff application, fee settlement, receipts, complete commitments and conformance evidence exist.
-
-## Rejected alternatives
-
-- Passing the legacy AccountId(u64)/u128 state into revm.
-- Returning empty bytecode when a requested code hash is missing.
-- Implementing mutable database commits before atomic full-width state application is designed.
-- Deriving block context from host time or mutable process state.

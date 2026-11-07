@@ -76,6 +76,7 @@ pub struct EvmStateSnapshot {
     code: BTreeMap<EvmCodeHash, Vec<u8>>,
     storage: BTreeMap<(EvmAddress, U256Word), U256Word>,
     block_hashes: BTreeMap<u64, [u8; 32]>,
+    limits: SnapshotLimits,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -150,6 +151,7 @@ impl EvmStateSnapshot {
             code,
             storage,
             block_hashes,
+            limits,
         })
     }
 
@@ -269,6 +271,199 @@ impl Database for EvmDatabaseView<'_> {
     }
 }
 
+
+/// One account replacement in a deterministic state delta. Updates are
+/// ordered by address and carry the expected prior value for conflict checks.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EvmAccountUpdate {
+    pub address: EvmAddress,
+    pub before: Option<EvmAccount>,
+    pub after: Option<EvmAccount>,
+}
+
+/// One code-blob replacement in a deterministic state delta.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EvmCodeUpdate {
+    pub code_hash: EvmCodeHash,
+    pub before: Option<Vec<u8>>,
+    pub after: Option<Vec<u8>>,
+}
+
+/// One storage-slot replacement in a deterministic state delta.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EvmStorageUpdate {
+    pub address: EvmAddress,
+    pub key: U256Word,
+    pub before: Option<U256Word>,
+    pub after: Option<U256Word>,
+}
+
+/// APEX-owned state changes produced by one execution against a single parent
+/// snapshot. Each update list must be strictly increasing by its full key.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EvmStateDelta {
+    pub parent_state_version: u64,
+    pub account_updates: Vec<EvmAccountUpdate>,
+    pub code_updates: Vec<EvmCodeUpdate>,
+    pub storage_updates: Vec<EvmStorageUpdate>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EvmStateApplyError {
+    StaleParent { expected: u64, actual: u64 },
+    VersionOverflow,
+    UnorderedAccountUpdates,
+    UnorderedCodeUpdates,
+    UnorderedStorageUpdates,
+    AccountBeforeMismatch(EvmAddress),
+    CodeBeforeMismatch(EvmCodeHash),
+    StorageBeforeMismatch(EvmAddress, U256Word),
+    InvalidResultingSnapshot(EvmStateError),
+}
+
+impl fmt::Display for EvmStateApplyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::StaleParent { expected, actual } => {
+                write!(f, "EVM delta parent version {expected} is stale; current version is {actual}")
+            }
+            Self::VersionOverflow => write!(f, "EVM state version cannot be incremented"),
+            Self::UnorderedAccountUpdates => write!(f, "account updates must be strictly ordered"),
+            Self::UnorderedCodeUpdates => write!(f, "code updates must be strictly ordered"),
+            Self::UnorderedStorageUpdates => write!(f, "storage updates must be strictly ordered"),
+            Self::AccountBeforeMismatch(address) => {
+                write!(f, "account before-state mismatch at {address:?}")
+            }
+            Self::CodeBeforeMismatch(hash) => {
+                write!(f, "code before-state mismatch at {hash:?}")
+            }
+            Self::StorageBeforeMismatch(address, key) => {
+                write!(f, "storage before-state mismatch at {address:?} slot {key:?}")
+            }
+            Self::InvalidResultingSnapshot(error) => {
+                write!(f, "resulting EVM snapshot is invalid: {error}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for EvmStateApplyError {}
+
+/// Process-local reference store for atomic full-width EVM state application.
+/// It is intentionally not persistent, concurrent or crash-safe.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EvmStateStore {
+    snapshot: EvmStateSnapshot,
+}
+
+impl EvmStateStore {
+    pub fn new(snapshot: EvmStateSnapshot) -> Self {
+        Self { snapshot }
+    }
+
+    pub fn snapshot(&self) -> &EvmStateSnapshot {
+        &self.snapshot
+    }
+
+    /// Validates the parent version, ordering and every before-state before
+    /// constructing a replacement snapshot. The store is changed only after
+    /// all updates and resulting snapshot invariants have passed.
+    pub fn apply(&mut self, delta: &EvmStateDelta) -> Result<u64, EvmStateApplyError> {
+        let actual_version = self.snapshot.parent_state_version;
+        if delta.parent_state_version != actual_version {
+            return Err(EvmStateApplyError::StaleParent {
+                expected: delta.parent_state_version,
+                actual: actual_version,
+            });
+        }
+        let next_version = actual_version
+            .checked_add(1)
+            .ok_or(EvmStateApplyError::VersionOverflow)?;
+
+        let mut previous_account = None;
+        for update in &delta.account_updates {
+            if previous_account.is_some_and(|address| address >= update.address) {
+                return Err(EvmStateApplyError::UnorderedAccountUpdates);
+            }
+            previous_account = Some(update.address);
+            if self.snapshot.accounts.get(&update.address).cloned() != update.before {
+                return Err(EvmStateApplyError::AccountBeforeMismatch(update.address));
+            }
+        }
+
+        let mut previous_code = None;
+        for update in &delta.code_updates {
+            if previous_code.is_some_and(|hash| hash >= update.code_hash) {
+                return Err(EvmStateApplyError::UnorderedCodeUpdates);
+            }
+            previous_code = Some(update.code_hash);
+            if self.snapshot.code.get(&update.code_hash).cloned() != update.before {
+                return Err(EvmStateApplyError::CodeBeforeMismatch(update.code_hash));
+            }
+        }
+
+        let mut previous_storage = None;
+        for update in &delta.storage_updates {
+            let key = (update.address, update.key);
+            if previous_storage.is_some_and(|previous| previous >= key) {
+                return Err(EvmStateApplyError::UnorderedStorageUpdates);
+            }
+            previous_storage = Some(key);
+            if self.snapshot.storage.get(&key).copied() != update.before {
+                return Err(EvmStateApplyError::StorageBeforeMismatch(update.address, update.key));
+            }
+        }
+
+        let mut accounts = self.snapshot.accounts.clone();
+        let mut code = self.snapshot.code.clone();
+        let mut storage = self.snapshot.storage.clone();
+        for update in &delta.account_updates {
+            match &update.after {
+                Some(account) => {
+                    accounts.insert(update.address, account.clone());
+                }
+                None => {
+                    accounts.remove(&update.address);
+                }
+            }
+        }
+        for update in &delta.code_updates {
+            match &update.after {
+                Some(bytes) => {
+                    code.insert(update.code_hash, bytes.clone());
+                }
+                None => {
+                    code.remove(&update.code_hash);
+                }
+            }
+        }
+        for update in &delta.storage_updates {
+            let key = (update.address, update.key);
+            match update.after {
+                Some(value) => {
+                    storage.insert(key, value);
+                }
+                None => {
+                    storage.remove(&key);
+                }
+            }
+        }
+
+        let next = EvmStateSnapshot::try_new(
+            next_version,
+            accounts,
+            code,
+            storage,
+            self.snapshot.block_hashes.clone(),
+            self.snapshot.limits,
+        )
+        .map_err(EvmStateApplyError::InvalidResultingSnapshot)?;
+
+        self.snapshot = next;
+        Ok(next_version)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -359,6 +554,159 @@ mod tests {
             Database::code_by_hash(&mut database, B256::from([9; 32])),
             Err(RevmDatabaseError::CodeMissing(EvmCodeHash(bytes))) if bytes == [9; 32]
         ));
+    }
+
+
+
+    fn empty_delta(parent_state_version: u64) -> EvmStateDelta {
+        EvmStateDelta {
+            parent_state_version,
+            account_updates: Vec::new(),
+            code_updates: Vec::new(),
+            storage_updates: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn state_delta_applies_full_width_updates_atomically() {
+        let mut store = EvmStateStore::new(snapshot());
+        let before = store.snapshot().accounts.get(&address(1)).unwrap().clone();
+        let mut after = before.clone();
+        after.balance = U256Word([0x81; 32]);
+        let delta = EvmStateDelta {
+            parent_state_version: 42,
+            account_updates: vec![EvmAccountUpdate {
+                address: address(1),
+                before: Some(before),
+                after: Some(after),
+            }],
+            code_updates: Vec::new(),
+            storage_updates: vec![EvmStorageUpdate {
+                address: address(1),
+                key: U256Word::from_u64(3),
+                before: Some(U256Word([0x55; 32])),
+                after: Some(U256Word([0x66; 32])),
+            }],
+        };
+
+        assert_eq!(store.apply(&delta), Ok(43));
+        let view = store.snapshot().database_view();
+        assert_eq!(view.parent_state_version(), 43);
+        assert_eq!(view.basic(address(1)).unwrap().balance, U256Word([0x81; 32]));
+        assert_eq!(
+            view.storage(address(1), U256Word::from_u64(3)),
+            U256Word([0x66; 32])
+        );
+    }
+
+    #[test]
+    fn stale_delta_and_replay_are_rejected_without_mutation() {
+        let mut store = EvmStateStore::new(snapshot());
+        let delta = empty_delta(42);
+        assert_eq!(store.apply(&delta), Ok(43));
+        let before = store.snapshot().clone();
+        assert_eq!(
+            store.apply(&delta),
+            Err(EvmStateApplyError::StaleParent {
+                expected: 42,
+                actual: 43
+            })
+        );
+        assert_eq!(store.snapshot(), &before);
+    }
+
+    #[test]
+    fn late_before_state_mismatch_leaves_all_domains_unchanged() {
+        let mut store = EvmStateStore::new(snapshot());
+        let account_before = store.snapshot().accounts.get(&address(1)).unwrap().clone();
+        let mut account_after = account_before.clone();
+        account_after.balance = U256Word::from_u64(123);
+        let before = store.snapshot().clone();
+        let delta = EvmStateDelta {
+            parent_state_version: 42,
+            account_updates: vec![EvmAccountUpdate {
+                address: address(1),
+                before: Some(account_before),
+                after: Some(account_after),
+            }],
+            code_updates: Vec::new(),
+            storage_updates: vec![EvmStorageUpdate {
+                address: address(1),
+                key: U256Word::from_u64(3),
+                before: Some(U256Word::from_u64(999)),
+                after: None,
+            }],
+        };
+        assert!(matches!(
+            store.apply(&delta),
+            Err(EvmStateApplyError::StorageBeforeMismatch(_, _))
+        ));
+        assert_eq!(store.snapshot(), &before);
+    }
+
+    #[test]
+    fn removing_referenced_code_is_rejected_atomically() {
+        let mut store = EvmStateStore::new(snapshot());
+        let hash = EvmCodeHash([7; 32]);
+        let before = store.snapshot().clone();
+        let delta = EvmStateDelta {
+            parent_state_version: 42,
+            account_updates: Vec::new(),
+            code_updates: vec![EvmCodeUpdate {
+                code_hash: hash,
+                before: Some(vec![0x60, 0x00]),
+                after: None,
+            }],
+            storage_updates: Vec::new(),
+        };
+        assert!(matches!(
+            store.apply(&delta),
+            Err(EvmStateApplyError::InvalidResultingSnapshot(EvmStateError::CodeMissing(_)))
+        ));
+        assert_eq!(store.snapshot(), &before);
+    }
+
+    #[test]
+    fn unordered_duplicate_updates_are_rejected() {
+        let mut store = EvmStateStore::new(snapshot());
+        let account = store.snapshot().accounts.get(&address(1)).unwrap().clone();
+        let delta = EvmStateDelta {
+            parent_state_version: 42,
+            account_updates: vec![
+                EvmAccountUpdate {
+                    address: address(1),
+                    before: Some(account.clone()),
+                    after: Some(account.clone()),
+                },
+                EvmAccountUpdate {
+                    address: address(1),
+                    before: Some(account.clone()),
+                    after: Some(account),
+                },
+            ],
+            code_updates: Vec::new(),
+            storage_updates: Vec::new(),
+        };
+        assert_eq!(
+            store.apply(&delta),
+            Err(EvmStateApplyError::UnorderedAccountUpdates)
+        );
+    }
+
+    #[test]
+    fn state_version_overflow_does_not_mutate_snapshot() {
+        let current = snapshot();
+        let max = EvmStateSnapshot {
+            parent_state_version: u64::MAX,
+            ..current
+        };
+        let mut store = EvmStateStore::new(max);
+        let before = store.snapshot().clone();
+        assert_eq!(
+            store.apply(&empty_delta(u64::MAX)),
+            Err(EvmStateApplyError::VersionOverflow)
+        );
+        assert_eq!(store.snapshot(), &before);
     }
 
     #[test]
