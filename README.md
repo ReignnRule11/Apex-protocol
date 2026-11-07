@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 15 — Merkle account membership proofs (review branch).** Adds generation and independent verification of account inclusion proofs while preserving the exact Phase 14 root. Non-membership and consensus root activation remain deferred. See `docs/protocol/phase-15-merkle-membership-proofs.md`.
+**Phase 15 — Merkle account membership proofs (merged; CI green).** Adds generation and independent verification of account inclusion proofs while preserving the exact Phase 14 root. PR #14 merged as `b76913d4d8aed099e0e051af4e6d344c698a6820`; CI passed formatting, Clippy and workspace tests. Non-membership and consensus root activation remain deferred. See `docs/protocol/phase-15-merkle-membership-proofs.md`.
 
 **Phase 14 — canonical account encoding and state commitment prototype (merged; implementation CI passed).** The 38-byte account codec and SHA-256 Merkle commitment are limited to the current AccountId/nonce/balance model; this is not the complete protocol state root.
 
