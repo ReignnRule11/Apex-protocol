@@ -1,7 +1,7 @@
 //! Deterministic account-state commitments and membership proofs.
 //! This remains an account-only prototype, not the complete APEX state root.
 
-use apex_codec::{encode_account_record_v1, AccountRecordV1};
+use apex_codec::{AccountRecordV1, encode_account_record_v1};
 use apex_consensus::{AccountId, AccountState};
 use apex_types::Hash32;
 use sha2::{Digest, Sha256};
@@ -49,10 +49,7 @@ fn merkle_root(leaves: &[Hash32]) -> Hash32 {
         1 => leaves[0],
         n => {
             let split = largest_power_of_two_less_than(n);
-            node_hash(
-                merkle_root(&leaves[..split]),
-                merkle_root(&leaves[split..]),
-            )
+            node_hash(merkle_root(&leaves[..split]), merkle_root(&leaves[split..]))
         }
     }
 }
@@ -327,10 +324,7 @@ mod tests {
             siblings: vec![],
         };
         assert_eq!(
-            verify_account_membership_proof_v1(
-                &proof,
-                account_state_root_v1(&BTreeMap::new())
-            ),
+            verify_account_membership_proof_v1(&proof, account_state_root_v1(&BTreeMap::new())),
             Err(ProofError::EmptyTree)
         );
     }
