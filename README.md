@@ -15,9 +15,9 @@
 
 ## Current engineering status
 
-**Phase 10 — durable state storage spike.** A separate `apex-state-redb` crate now implements a prototype persistent StateStore adapter using redb 4.5.0. Account updates and the next state version are committed in one immediate-durability database transaction. Snapshots are read consistently, stale plans are rejected, and existing initialized data is not overwritten by later bootstrap input. The adapter has close/reopen, atomicity and integrity-check tests.
+**Phase 10 — durable state storage spike.** A separate `apex-state-redb` crate implements a prototype persistent StateStore adapter using redb 4.5.0. Account updates and the next state version are committed in one immediate-durability database transaction. Snapshots are read consistently, stale plans are rejected, and existing initialized data is not overwritten by later bootstrap input. Tests cover close/reopen persistence, atomicity, stale-plan rejection, bootstrap non-overwrite and integrity checking.
 
-The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. This is a contained evaluation, not production approval; multi-process modes are not enabled.
+The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. The Phase 10 PR's format, Clippy and workspace tests passed on the pinned toolchain. This is a contained evaluation, not production approval; multi-process modes are not enabled.
 
 The account record is a private 24-byte little-endian storage schema (u64 nonce + u128 balance). It is not protocol encoding or a consensus commitment. Canonical encoding remains undecided and the codec continues to fail closed. No state root or Merkle proof is implemented.
 
