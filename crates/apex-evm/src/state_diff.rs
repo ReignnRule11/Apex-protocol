@@ -213,7 +213,7 @@ mod tests {
         .unwrap();
 
         let info = AccountInfo::new(U256::from(100_u64), 1, bytecode.hash_slow(), bytecode);
-        let mut account = Account::default().with_info(info).with_touched_mark();
+        let mut account = Account::from(info).with_touched_mark();
         account.storage.insert(
             U256::ZERO,
             EvmStorageSlot::new_changed(U256::ZERO, U256::from(0x42_u8), TransactionId::ZERO),
