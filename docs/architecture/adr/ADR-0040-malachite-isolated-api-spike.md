@@ -18,9 +18,9 @@ Keep this workspace outside the APEX root workspace. Do not add Malachite to pro
 - Upstream package manifest identifies the facade package as `arc-malachitebft-app-channel`.
 - Its dependencies include `arc-malachitebft-app`, `arc-malachitebft-engine`, config, signing and the network/sync/WAL stack.
 - The facade's optional `byzantine` feature is not enabled.
-- APEX CI generates an isolated Cargo.lock and uploads it with `cargo tree`, Cargo metadata and a package-license inventory.
+- APEX CI generates an isolated Cargo.lock and uploads it with `cargo tree`, Cargo metadata and a package-license inventory. The first reviewed artifact contained 415 package records: 397 registry packages, 17 Malachite Git packages at the exact pinned revision, and one path package; none lacked license metadata. This is not a legal compatibility review.\n- A separate CI job reproduces the upstream v0.8.2 Rust unit-test workflow using cargo-nextest at the exact commit, excluding upstream test harness, MBT and discovery-test crates as upstream itself does.
 - The lockfile is an artifact at this stage, not a committed source lock. A reviewed committed lockfile is a remaining reproducibility gate.
-- License metadata inventory does not replace legal review; RustSec advisory scanning remains outstanding.
+- License metadata inventory does not replace legal review; RustSec advisory scanning remains outstanding. The upstream Maelstrom integration and Quint/MBT model-checking suites are not yet reproduced.
 
 ## Consequences
 

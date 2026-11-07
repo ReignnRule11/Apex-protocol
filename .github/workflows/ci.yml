@@ -76,3 +76,30 @@ jobs:
             experiments/malachite-spike/dependency-licenses.txt
           if-no-files-found: warn
           retention-days: 30
+
+  malachite-upstream-unit-tests:
+    name: Pinned Malachite v0.8.2 upstream unit suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: upstream/malachite/code
+    steps:
+      - name: Checkout exact Malachite source revision
+        uses: actions/checkout@v4
+        with:
+          repository: circlefin/malachite
+          ref: a453b32155f4ba9f959724279b52f601bae92e09
+          path: upstream/malachite
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.91.0
+      - name: Install upstream test runner
+        uses: taiki-e/install-action@554bdce7edf79d43854a6b7c1e392e7da7eb97a9
+        with:
+          tool: cargo-nextest
+      - name: Reproduce upstream unit-test command
+        run: |
+          cargo nextest run --locked --workspace --all-features --no-fail-fast --failure-output final \
+            --exclude arc-malachitebft-test \
+            --exclude arc-malachitebft-test-mbt \
+            --exclude arc-malachitebft-discovery-test
