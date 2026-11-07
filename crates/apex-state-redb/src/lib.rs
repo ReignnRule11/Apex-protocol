@@ -540,8 +540,8 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("serialized-writers.redb");
-        let store = RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis())
-            .unwrap();
+        let store =
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
         let first_plan = plan(&store);
         let second_plan = first_plan.clone();
         let store = Arc::new(Mutex::new(store));
@@ -557,7 +557,10 @@ mod tests {
 
         let results = [first.join().unwrap(), second.join().unwrap()];
         assert_eq!(
-            results.iter().filter(|result| **result == Ok(StateVersion(13))).count(),
+            results
+                .iter()
+                .filter(|result| **result == Ok(StateVersion(13)))
+                .count(),
             1
         );
         assert_eq!(
@@ -662,5 +665,4 @@ mod tests {
         );
         assert_eq!(reopened.snapshot().unwrap(), persisted);
     }
-
 }
