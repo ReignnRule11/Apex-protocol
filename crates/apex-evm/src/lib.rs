@@ -87,7 +87,9 @@ impl fmt::Display for EvmStateError {
             Self::ResourceLimitExceeded(resource) => {
                 write!(f, "EVM snapshot exceeds configured {resource} limit")
             }
-            Self::CodeMissing(hash) => write!(f, "account references unavailable code hash {hash:?}"),
+            Self::CodeMissing(hash) => {
+                write!(f, "account references unavailable code hash {hash:?}")
+            }
             Self::StorageOwnerMissing(address) => {
                 write!(f, "storage is attached to absent account {address:?}")
             }
@@ -120,9 +122,9 @@ impl EvmStateSnapshot {
             return Err(EvmStateError::ResourceLimitExceeded("block-hash"));
         }
 
-        let total_code_bytes = code.values().try_fold(0_usize, |total, bytes| {
-            total.checked_add(bytes.len())
-        });
+        let total_code_bytes = code
+            .values()
+            .try_fold(0_usize, |total, bytes| total.checked_add(bytes.len()));
         if total_code_bytes.is_none_or(|total| total > limits.max_code_bytes) {
             return Err(EvmStateError::ResourceLimitExceeded("code-byte"));
         }
@@ -132,9 +134,9 @@ impl EvmStateSnapshot {
                 return Err(EvmStateError::CodeMissing(account.code_hash));
             }
         }
-        for (address, _) in storage.keys() {
-            if !accounts.contains_key(address) {
-                return Err(EvmStateError::StorageOwnerMissing(*address));
+        for key in storage.keys() {
+            if !accounts.contains_key(&key.0) {
+                return Err(EvmStateError::StorageOwnerMissing(key.0));
             }
         }
 
@@ -238,7 +240,10 @@ mod tests {
         assert_eq!(account.nonce, 9);
         assert_eq!(account.balance, U256Word([0x80; 32]));
         assert_eq!(account.code_hash, EvmCodeHash([7; 32]));
-        assert_eq!(view.code_by_hash(account.code_hash), Some(&[0x60, 0x00][..]));
+        assert_eq!(
+            view.code_by_hash(account.code_hash),
+            Some(&[0x60, 0x00][..])
+        );
         assert_eq!(
             view.storage(address(1), U256Word::from_u64(3)),
             U256Word([0x55; 32])
@@ -259,8 +264,14 @@ mod tests {
         let snapshot = snapshot();
         let view = snapshot.database_view();
         assert!(view.basic(address(2)).is_none());
-        assert_eq!(view.storage(address(1), U256Word::from_u64(99)), U256Word::ZERO);
-        assert_eq!(view.storage(address(2), U256Word::from_u64(3)), U256Word::ZERO);
+        assert_eq!(
+            view.storage(address(1), U256Word::from_u64(99)),
+            U256Word::ZERO
+        );
+        assert_eq!(
+            view.storage(address(2), U256Word::from_u64(3)),
+            U256Word::ZERO
+        );
     }
 
     #[test]
@@ -285,7 +296,10 @@ mod tests {
             BTreeMap::new(),
             LIMITS,
         );
-        assert_eq!(result, Err(EvmStateError::CodeMissing(EvmCodeHash([9; 32]))));
+        assert_eq!(
+            result,
+            Err(EvmStateError::CodeMissing(EvmCodeHash([9; 32])))
+        );
     }
 
     #[test]
@@ -298,7 +312,10 @@ mod tests {
             BTreeMap::new(),
             LIMITS,
         );
-        assert_eq!(result, Err(EvmStateError::StorageOwnerMissing(address(1))));
+        assert_eq!(
+            result,
+            Err(EvmStateError::StorageOwnerMissing(address(1)))
+        );
     }
 
     #[test]
@@ -320,7 +337,10 @@ mod tests {
             BTreeMap::new(),
             limits,
         );
-        assert_eq!(result, Err(EvmStateError::ResourceLimitExceeded("account")));
+        assert_eq!(
+            result,
+            Err(EvmStateError::ResourceLimitExceeded("account"))
+        );
     }
 
     #[test]
@@ -335,7 +355,10 @@ mod tests {
             BTreeMap::new(),
             limits,
         );
-        assert_eq!(result, Err(EvmStateError::ResourceLimitExceeded("code-byte")));
+        assert_eq!(
+            result,
+            Err(EvmStateError::ResourceLimitExceeded("code-byte"))
+        );
     }
 }
 
@@ -352,12 +375,29 @@ mod revm_harness_tests {
     };
 
     const INIT_CODE: &[u8] = &[
-        opcode::PUSH1, 0x01, opcode::PUSH1, 0x17, opcode::PUSH1, 0x1f,
-        opcode::CODECOPY, opcode::PUSH0, opcode::MLOAD, opcode::PUSH0, opcode::SSTORE,
+        opcode::PUSH1,
+        0x01,
+        opcode::PUSH1,
+        0x17,
+        opcode::PUSH1,
+        0x1f,
+        opcode::CODECOPY,
+        opcode::PUSH0,
+        opcode::MLOAD,
+        opcode::PUSH0,
+        opcode::SSTORE,
     ];
     const RETURN_RUNTIME: &[u8] = &[
-        opcode::PUSH1, 0x02, opcode::PUSH1, 0x15, opcode::PUSH0, opcode::CODECOPY,
-        opcode::PUSH1, 0x02, opcode::PUSH0, opcode::RETURN,
+        opcode::PUSH1,
+        0x02,
+        opcode::PUSH1,
+        0x15,
+        opcode::PUSH0,
+        opcode::CODECOPY,
+        opcode::PUSH1,
+        0x02,
+        opcode::PUSH0,
+        opcode::RETURN,
     ];
     const RUNTIME_BYTECODE: &[u8] = &[opcode::PUSH0, opcode::SLOAD];
 
