@@ -23,7 +23,7 @@ Critical systems not implemented or production-selected:
 | Gate | Required evidence | Current status |
 |---|---|---|
 | G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 chain-ID/envelope proposals pending ratification |
-| G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED |
+| G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED — revm compile-only candidate spike; no execution adapter |
 | G2 — Consensus correctness | Pinned engine, authenticated votes/certificates, validator transitions, anti-double-sign, restart recovery and safety/liveness evidence | BLOCKED |
 | G3 — Network correctness | Versioned P2P, bounded parsing, DoS controls, partitions/recovery and multi-node integration | BLOCKED |
 | G4 — Durable operation | Atomic cross-subsystem commits, crash/power-loss testing, migrations, backup/restore, state sync and rollback | BLOCKED |
@@ -40,7 +40,7 @@ Merged draft specification v0.2, state-domain model and unresolved decision regi
 In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Review the secp256k1/EVM transaction-authentication proposal; settle chain-ID representation and canonical envelope before implementing verification. Consensus signature selection remains dependent on the selected BFT engine. No production signature code is claimed.
 
 ### Phase 19 — Deterministic execution and fee accounting
-In progress: evaluate revm as preferred candidate, prove toolchain/MSRV compatibility, ratify a named fork, then implement an APEX-owned adapter, complete state access, gas/receipts/fee settlement and cross-client differential tests. No engine or fork is pinned yet.
+In progress. revm 43.0.3 is now an exact, isolated compile-only candidate in `crates/apex-evm`, using Rust 1.90.0 with default features disabled and `std` enabled explicitly. This is not an execution adapter or engine approval. Dependency graph review, fork ratification, state adapter, official fixtures, differential tests, fee settlement and complete-state commitment remain open. See Phase 19A and ADR-0025.
 
 ### Phase 20 — Consensus engine integration
 Select pinned BFT revision; implement authenticated proposals/votes/certificates, validator changes, evidence, durable anti-double-sign and multi-node Byzantine/recovery tests.

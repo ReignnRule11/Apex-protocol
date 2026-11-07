@@ -7,6 +7,7 @@ members = [
     "crates/apex-state",
     "crates/apex-state-redb",
     "crates/apex-commitments",
+    "crates/apex-evm",
     "crates/apex-node",
 ]
 
