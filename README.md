@@ -17,11 +17,11 @@
 
 ## Current engineering status
 
-**Phase 4 — static transaction-admission preflight.** The Rust `apex-consensus` crate now contains tested proposal-header preflight and static transaction-admission checks. Admission checks chain ID, protocol version, nonzero gas limit, caller-supplied block gas bound, priority-fee/max-fee ordering and overflow-safe maximum-fee arithmetic. It returns a fee upper bound, not a charged fee. It does not verify signatures, nonce against state, balances, intrinsic gas, canonical decoding or EVM execution.
+**Phase 5 — state-aware transaction-admission prototype.** The Rust `apex-consensus` crate contains tested proposal-header preflight, static admission and a minimal read-only state-aware admission helper. The latter checks account existence, exact nonce equality and balance sufficiency for value plus the maximum-fee upper bound using checked arithmetic. It relies on the caller to supply a stable view of the exact candidate parent state; snapshot/version binding is not enforced. Sender identity remains unauthenticated. No signature verification, canonical address/encoding, intrinsic gas, state mutation, fee settlement or EVM execution is implemented.
 
 Phase 2's consensus integration documentation and compatibility updates are committed. Malachite remains the preferred research candidate, but it is not integrated or approved as a production dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open. See the consensus evaluation, ADR-0004 and integration-spike plan.
 
-The `apex-consensus` crate's voting-power helper, proposal-header preflight and static transaction-admission checks are primitives only, not a BFT engine or full transaction validator. The `apex-codec` crate deliberately fails closed because a canonical wire encoding has not been selected. No validator networking, consensus state machine, commit-certificate verification, block production or transaction execution is implemented.
+The `apex-consensus` crate's voting-power helper, proposal-header preflight and static/state-aware admission checks are primitives only, not a BFT engine or full transaction validator. The `apex-codec` crate deliberately fails closed because a canonical wire encoding has not been selected. No validator networking, consensus state machine, commit-certificate verification, block production or transaction execution is implemented.
 
 ## Repository structure
 
@@ -36,7 +36,7 @@ Apex-protocol/
 │   │   └── src/lib.rs                     # Fail-closed codec boundary
 │   ├── apex-consensus/
 │   │   ├── Cargo.toml
-│   │   └── src/lib.rs                     # Quorum + proposal/transaction preflight
+│   │   └── src/lib.rs                     # Quorum + proposal/transaction admission
 │   ├── apex-node/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs                    # Placeholder CLI; not a running node
