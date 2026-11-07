@@ -5,13 +5,8 @@
 //! decode/authenticate transactions, execute a block, settle fees, or commit
 //! the resulting state delta.
 
-use crate::{
-    revm_environment::RevmExecutionEnvironment, EvmDatabaseView, EvmStateSnapshot,
-};
-use revm::{
-    context::Cfg,
-    Context, MainBuilder, MainnetContext, MainnetEvm,
-};
+use crate::{EvmDatabaseView, EvmStateSnapshot, revm_environment::RevmExecutionEnvironment};
+use revm::{Context, MainBuilder, MainnetContext, MainnetEvm, context::Cfg};
 
 /// Builds a revm EVM using only the supplied APEX snapshot and mapped
 /// environment.
@@ -38,19 +33,22 @@ pub fn build_revm_evm<'a>(
 mod tests {
     use super::*;
     use crate::{
-        execution_context::{BlockExecutionContext, ForkActivation, ForkActivationSchedule, ForkId},
-        revm_environment::{RevmForkBinding, RevmExecutionEnvironment},
         EvmAddress, SnapshotLimits, U256Word,
+        execution_context::{
+            BlockExecutionContext, ForkActivation, ForkActivationSchedule, ForkId,
+        },
+        revm_environment::{RevmExecutionEnvironment, RevmForkBinding},
     };
     use apex_types::ChainId256;
-    use revm::{context_interface::{Block, JournalTr}, primitives::hardfork::SpecId};
+    use revm::{
+        context_interface::{Block, JournalTr},
+        primitives::hardfork::SpecId,
+    };
 
     fn environment() -> RevmExecutionEnvironment {
         let fork_id = ForkId::from_bytes([0x19; 32]);
-        let schedule = ForkActivationSchedule::try_new(vec![
-            ForkActivation::new(0, fork_id, false),
-        ])
-        .unwrap();
+        let schedule =
+            ForkActivationSchedule::try_new(vec![ForkActivation::new(0, fork_id, false)]).unwrap();
         let block = BlockExecutionContext::try_from_validated_block(
             ChainId256::from_u64(77),
             &schedule,
