@@ -449,6 +449,7 @@ mod tests {
                     accounts.insert(AccountId(1).0, changed.as_slice()).unwrap();
                 }
                 // The process terminates with a live, uncommitted transaction.
+                eprintln!("APEX_REDB_CHILD_ABORT:uncommitted");
                 std::process::abort();
             }
 
@@ -457,6 +458,7 @@ mod tests {
             let transition = plan(&store);
             store.apply(&transition).unwrap();
             // Terminate immediately after the adapter reports commit success.
+            eprintln!("APEX_REDB_CHILD_ABORT:committed");
             std::process::abort();
         }
 
@@ -465,7 +467,7 @@ mod tests {
         drop(RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap());
 
         for mode in ["uncommitted", "committed"] {
-            let status = Command::new(std::env::current_exe().unwrap())
+            let output = Command::new(std::env::current_exe().unwrap())
                 .args([
                     "--exact",
                     "tests::abrupt_process_exit_recovers_only_committed_state",
@@ -473,12 +475,12 @@ mod tests {
                 ])
                 .env("APEX_REDB_CRASH_CHILD_PATH", &path)
                 .env("APEX_REDB_CRASH_CHILD_MODE", mode)
-                .status()
+                .output()
                 .unwrap();
-            assert!(
-                !status.success(),
-                "child process unexpectedly exited cleanly"
-            );
+            assert!(!output.status.success(), "child process unexpectedly exited cleanly");
+            let marker = format!("APEX_REDB_CHILD_ABORT:{mode}");
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains(&marker), "child did not reach abort point: {stderr}");
             let recovered =
                 RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new())
                     .unwrap();
@@ -494,5 +496,4 @@ mod tests {
             }
         }
     }
-
 }
