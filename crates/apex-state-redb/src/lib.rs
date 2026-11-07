@@ -5,8 +5,7 @@
 
 use apex_consensus::{AccountId, AccountState, PlannedAccountUpdate};
 use apex_state::{
-    StateStore, StateStoreError, StateVersion, VersionedBlockTransitionPlan,
-    VersionedStateSnapshot,
+    StateStore, StateStoreError, StateVersion, VersionedBlockTransitionPlan, VersionedStateSnapshot,
 };
 use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 use std::collections::BTreeMap;
@@ -40,8 +39,14 @@ impl RedbStateStore {
 
         let existing = {
             let meta = write.open_table(META).map_err(backend)?;
-            let schema = meta.get(META_SCHEMA_KEY).map_err(backend)?.map(|v| v.value());
-            let version = meta.get(META_STATE_VERSION_KEY).map_err(backend)?.map(|v| v.value());
+            let schema = meta
+                .get(META_SCHEMA_KEY)
+                .map_err(backend)?
+                .map(|v| v.value());
+            let version = meta
+                .get(META_STATE_VERSION_KEY)
+                .map_err(backend)?
+                .map(|v| v.value());
             match (schema, version) {
                 (Some(schema), Some(version)) => {
                     if schema != SCHEMA_VERSION {
@@ -67,8 +72,10 @@ impl RedbStateStore {
             }
             {
                 let mut meta = write.open_table(META).map_err(backend)?;
-                meta.insert(META_SCHEMA_KEY, SCHEMA_VERSION).map_err(backend)?;
-                meta.insert(META_STATE_VERSION_KEY, initial_version.0).map_err(backend)?;
+                meta.insert(META_SCHEMA_KEY, SCHEMA_VERSION)
+                    .map_err(backend)?;
+                meta.insert(META_STATE_VERSION_KEY, initial_version.0)
+                    .map_err(backend)?;
             }
         }
 
@@ -89,13 +96,18 @@ impl StateStore for RedbStateStore {
         let read = self.db.begin_read().map_err(backend)?;
         let version = {
             let meta = read.open_table(META).map_err(backend)?;
-            let schema = meta.get(META_SCHEMA_KEY).map_err(backend)?
-                .ok_or(StateStoreError::Uninitialized)?.value();
+            let schema = meta
+                .get(META_SCHEMA_KEY)
+                .map_err(backend)?
+                .ok_or(StateStoreError::Uninitialized)?
+                .value();
             if schema != SCHEMA_VERSION {
                 return Err(StateStoreError::UnsupportedSchema(schema));
             }
-            meta.get(META_STATE_VERSION_KEY).map_err(backend)?
-                .ok_or(StateStoreError::CorruptMetadata)?.value()
+            meta.get(META_STATE_VERSION_KEY)
+                .map_err(backend)?
+                .ok_or(StateStoreError::CorruptMetadata)?
+                .value()
         };
 
         let mut accounts = BTreeMap::new();
@@ -136,7 +148,9 @@ impl StateStore for RedbStateStore {
             });
         }
         let next_version = StateVersion(
-            current_version.checked_add(1).ok_or(StateStoreError::VersionOverflow)?,
+            current_version
+                .checked_add(1)
+                .ok_or(StateStoreError::VersionOverflow)?,
         );
 
         let mut previous = None;
@@ -147,7 +161,9 @@ impl StateStore for RedbStateStore {
                     return Err(StateStoreError::DuplicateOrUnorderedAccountUpdate);
                 }
                 previous = Some(update.account);
-                let stored = accounts.get(update.account.0).map_err(backend)?
+                let stored = accounts
+                    .get(update.account.0)
+                    .map_err(backend)?
                     .ok_or(StateStoreError::BeforeStateMismatch(update.account))?;
                 let current = decode_account(update.account, stored.value())?;
                 if current != update.before {
@@ -158,13 +174,16 @@ impl StateStore for RedbStateStore {
             // All account preconditions are checked before the first mutation.
             for PlannedAccountUpdate { account, after, .. } in &plan.transition.account_updates {
                 let bytes = encode_account(*after);
-                accounts.insert(account.0, bytes.as_slice()).map_err(backend)?;
+                accounts
+                    .insert(account.0, bytes.as_slice())
+                    .map_err(backend)?;
             }
         }
 
         {
             let mut meta = write.open_table(META).map_err(backend)?;
-            meta.insert(META_STATE_VERSION_KEY, next_version.0).map_err(backend)?;
+            meta.insert(META_STATE_VERSION_KEY, next_version.0)
+                .map_err(backend)?;
         }
 
         // redb defaults to Durability::Immediate: success is returned only
@@ -185,8 +204,16 @@ fn decode_account(id: AccountId, bytes: &[u8]) -> Result<AccountState, StateStor
     if bytes.len() != 24 {
         return Err(StateStoreError::CorruptAccount(id));
     }
-    let nonce = u64::from_le_bytes(bytes[..8].try_into().map_err(|_| StateStoreError::CorruptAccount(id))?);
-    let balance = u128::from_le_bytes(bytes[8..].try_into().map_err(|_| StateStoreError::CorruptAccount(id))?);
+    let nonce = u64::from_le_bytes(
+        bytes[..8]
+            .try_into()
+            .map_err(|_| StateStoreError::CorruptAccount(id))?,
+    );
+    let balance = u128::from_le_bytes(
+        bytes[8..]
+            .try_into()
+            .map_err(|_| StateStoreError::CorruptAccount(id))?,
+    );
     Ok(AccountState { nonce, balance })
 }
 
@@ -197,18 +224,34 @@ fn backend(error: impl std::fmt::Display) -> StateStoreError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apex_consensus::{
-        AdmissionContext, BlockTransaction, TransactionAdmission, TransactionId,
-    };
-    use apex_state::{plan_versioned_block_transition, StateStore};
+    use apex_consensus::{AdmissionContext, BlockTransaction, TransactionAdmission, TransactionId};
+    use apex_state::{StateStore, plan_versioned_block_transition};
     use apex_types::ChainId;
     use std::collections::BTreeMap;
 
     fn genesis() -> BTreeMap<AccountId, AccountState> {
         BTreeMap::from([
-            (AccountId(1), AccountState { nonce: 0, balance: 1_000_000 }),
-            (AccountId(2), AccountState { nonce: 0, balance: 500 }),
-            (AccountId(3), AccountState { nonce: 0, balance: 700 }),
+            (
+                AccountId(1),
+                AccountState {
+                    nonce: 0,
+                    balance: 1_000_000,
+                },
+            ),
+            (
+                AccountId(2),
+                AccountState {
+                    nonce: 0,
+                    balance: 500,
+                },
+            ),
+            (
+                AccountId(3),
+                AccountState {
+                    nonce: 0,
+                    balance: 700,
+                },
+            ),
         ])
     }
 
@@ -232,10 +275,15 @@ mod tests {
     fn plan(store: &RedbStateStore) -> VersionedBlockTransitionPlan {
         let snapshot = store.snapshot().unwrap();
         plan_versioned_block_transition(
-            AdmissionContext { chain_id: ChainId(7), protocol_version: 1, block_gas_limit: 100_000 },
+            AdmissionContext {
+                chain_id: ChainId(7),
+                protocol_version: 1,
+                block_gas_limit: 100_000,
+            },
             &transactions(),
             &snapshot,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]
@@ -243,16 +291,25 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("state.redb");
         {
-            let mut store = RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
+            let mut store =
+                RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
             assert_eq!(store.snapshot().unwrap().version(), StateVersion(12));
             assert_eq!(store.apply(&plan(&store)), Ok(StateVersion(13)));
             store.check_integrity().unwrap();
         }
         {
-            let store = RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new()).unwrap();
+            let store =
+                RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new())
+                    .unwrap();
             let snapshot = store.snapshot().unwrap();
             assert_eq!(snapshot.version(), StateVersion(13));
-            assert_eq!(snapshot.account(AccountId(1)).unwrap(), AccountState { nonce: 2, balance: 957_700 });
+            assert_eq!(
+                snapshot.account(AccountId(1)).unwrap(),
+                AccountState {
+                    nonce: 2,
+                    balance: 957_700
+                }
+            );
             assert_eq!(snapshot.account(AccountId(2)).unwrap().balance, 600);
             assert_eq!(snapshot.account(AccountId(3)).unwrap().balance, 900);
         }
@@ -262,12 +319,16 @@ mod tests {
     fn stale_plan_is_rejected_and_state_is_unchanged() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("state.redb");
-        let mut store = RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
+        let mut store =
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
         let stale = plan(&store);
         let current = plan(&store);
         assert_eq!(store.apply(&current), Ok(StateVersion(13)));
         let before = store.snapshot().unwrap();
-        assert!(matches!(store.apply(&stale), Err(StateStoreError::StaleVersion { .. })));
+        assert!(matches!(
+            store.apply(&stale),
+            Err(StateStoreError::StaleVersion { .. })
+        ));
         assert_eq!(store.snapshot().unwrap(), before);
     }
 
@@ -279,7 +340,10 @@ mod tests {
         let mut invalid = plan(&store);
         invalid.transition.account_updates[1].before.balance += 1;
         let before = store.snapshot().unwrap();
-        assert_eq!(store.apply(&invalid), Err(StateStoreError::BeforeStateMismatch(AccountId(2))));
+        assert_eq!(
+            store.apply(&invalid),
+            Err(StateStoreError::BeforeStateMismatch(AccountId(2)))
+        );
         assert_eq!(store.snapshot().unwrap(), before);
     }
 
@@ -287,9 +351,11 @@ mod tests {
     fn existing_database_is_never_reinitialized_from_new_genesis_input() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("state.redb");
-        let first = RedbStateStore::open_or_initialize(&path, StateVersion(8), &genesis()).unwrap();
+        let first =
+            RedbStateStore::open_or_initialize(&path, StateVersion(8), &genesis()).unwrap();
         drop(first);
-        let second = RedbStateStore::open_or_initialize(&path, StateVersion(99), &BTreeMap::new()).unwrap();
+        let second =
+            RedbStateStore::open_or_initialize(&path, StateVersion(99), &BTreeMap::new()).unwrap();
         assert_eq!(second.snapshot().unwrap().version(), StateVersion(8));
         assert_eq!(second.snapshot().unwrap().accounts().len(), 3);
     }

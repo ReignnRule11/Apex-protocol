@@ -110,7 +110,10 @@ impl InMemoryStateStore {
 
 impl StateStore for InMemoryStateStore {
     fn snapshot(&self) -> Result<VersionedStateSnapshot, StateStoreError> {
-        Ok(VersionedStateSnapshot::new(self.version, self.accounts.clone()))
+        Ok(VersionedStateSnapshot::new(
+            self.version,
+            self.accounts.clone(),
+        ))
     }
 
     fn apply(
@@ -166,7 +169,10 @@ mod tests {
         InMemoryStateStore::new(
             StateVersion(12),
             BTreeMap::from([
-                (AccountId(1), AccountState { nonce: 0, balance: 1_000_000 }),
+                (
+                    AccountId(1),
+                    AccountState { nonce: 0, balance: 1_000_000 },
+                ),
                 (AccountId(2), AccountState { nonce: 0, balance: 500 }),
                 (AccountId(3), AccountState { nonce: 0, balance: 700 }),
             ]),
@@ -174,7 +180,11 @@ mod tests {
     }
 
     fn context() -> AdmissionContext {
-        AdmissionContext { chain_id: ChainId(7), protocol_version: 1, block_gas_limit: 100_000 }
+        AdmissionContext {
+            chain_id: ChainId(7),
+            protocol_version: 1,
+            block_gas_limit: 100_000,
+        }
     }
 
     fn txs() -> [BlockTransaction; 2] {
@@ -214,7 +224,10 @@ mod tests {
         let mut s = store();
         assert_eq!(s.apply(&planned(&s)), Ok(StateVersion(13)));
         let after = s.snapshot().unwrap();
-        assert_eq!(after.account(AccountId(1)).unwrap(), AccountState { nonce: 2, balance: 957_700 });
+        assert_eq!(
+            after.account(AccountId(1)).unwrap(),
+            AccountState { nonce: 2, balance: 957_700 }
+        );
         assert_eq!(after.account(AccountId(2)).unwrap().balance, 600);
         assert_eq!(after.account(AccountId(3)).unwrap().balance, 900);
     }
@@ -226,13 +239,21 @@ mod tests {
         let current = planned(&s);
         assert_eq!(s.apply(&current), Ok(StateVersion(13)));
         let before = s.snapshot().unwrap();
-        assert_eq!(s.apply(&old), Err(StateStoreError::StaleVersion {
-            expected: StateVersion(12), actual: StateVersion(13),
-        }));
+        assert_eq!(
+            s.apply(&old),
+            Err(StateStoreError::StaleVersion {
+                expected: StateVersion(12),
+                actual: StateVersion(13),
+            })
+        );
         assert_eq!(s.snapshot().unwrap(), before);
-        assert_eq!(s.apply(&current), Err(StateStoreError::StaleVersion {
-            expected: StateVersion(12), actual: StateVersion(13),
-        }));
+        assert_eq!(
+            s.apply(&current),
+            Err(StateStoreError::StaleVersion {
+                expected: StateVersion(12),
+                actual: StateVersion(13),
+            })
+        );
     }
 
     #[test]
@@ -241,7 +262,10 @@ mod tests {
         let mut p = planned(&s);
         p.transition.account_updates[1].before.balance += 1;
         let before = s.snapshot().unwrap();
-        assert_eq!(s.apply(&p), Err(StateStoreError::BeforeStateMismatch(AccountId(2))));
+        assert_eq!(
+            s.apply(&p),
+            Err(StateStoreError::BeforeStateMismatch(AccountId(2)))
+        );
         assert_eq!(s.snapshot().unwrap(), before);
     }
 
@@ -251,7 +275,10 @@ mod tests {
         let mut p = planned(&s);
         p.transition.account_updates.swap(0, 1);
         let before = s.snapshot().unwrap();
-        assert_eq!(s.apply(&p), Err(StateStoreError::DuplicateOrUnorderedAccountUpdate));
+        assert_eq!(
+            s.apply(&p),
+            Err(StateStoreError::DuplicateOrUnorderedAccountUpdate)
+        );
         assert_eq!(s.snapshot().unwrap(), before);
     }
 
