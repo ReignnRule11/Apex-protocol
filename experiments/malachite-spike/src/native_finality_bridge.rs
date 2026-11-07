@@ -49,7 +49,7 @@ pub trait ApexValueIdBinding<Ctx: Context> {
 ///
 /// Durable application storage must enforce uniqueness on this complete
 /// identity and treat retries using the same key as idempotent.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FinalityCommitKey {
     identity: ApexBlockIdentity,
 }
