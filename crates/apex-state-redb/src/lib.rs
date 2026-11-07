@@ -54,19 +54,35 @@ pub fn migrate_v1_to_v2(path: impl AsRef<Path>) -> Result<(), StateStoreError> {
             let (key, value) = entry.map_err(backend)?;
             let id = AccountId(key.value());
             let bytes = value.value();
-            if bytes.len() != 24 { return Err(StateStoreError::CorruptAccount(id)); }
-            let nonce = u64::from_le_bytes(bytes[..8].try_into().map_err(|_| StateStoreError::CorruptAccount(id))?);
-            let balance = u128::from_le_bytes(bytes[8..24].try_into().map_err(|_| StateStoreError::CorruptAccount(id))?);
+            if bytes.len() != 24 {
+                return Err(StateStoreError::CorruptAccount(id));
+            }
+            let nonce = u64::from_le_bytes(
+                bytes[..8]
+                    .try_into()
+                    .map_err(|_| StateStoreError::CorruptAccount(id))?,
+            );
+            let balance = u128::from_le_bytes(
+                bytes[8..24]
+                    .try_into()
+                    .map_err(|_| StateStoreError::CorruptAccount(id))?,
+            );
             records.push((id.0, encode_account_v2(AccountState { nonce, balance })));
         }
         records
     };
     {
         let mut table = write.open_table(ACCOUNTS).map_err(backend)?;
-        for (id, bytes) in records { table.insert(id, bytes.as_slice()).map_err(backend)?; }
+        for (id, bytes) in records {
+            table.insert(id, bytes.as_slice()).map_err(backend)?;
+        }
     }
     write.delete_table(LEGACY_ACCOUNTS).map_err(backend)?;
-    { let mut meta = write.open_table(META).map_err(backend)?; meta.insert(META_SCHEMA_KEY, SCHEMA_VERSION).map_err(backend)?; }
+    {
+        let mut meta = write.open_table(META).map_err(backend)?;
+        meta.insert(META_SCHEMA_KEY, SCHEMA_VERSION)
+            .map_err(backend)?;
+    }
     write.commit().map_err(backend)?;
     Ok(())
 }
@@ -125,7 +141,10 @@ impl RedbStateStore {
         }
 
         write.commit().map_err(backend)?;
-        Ok(Self { db, lifecycle: StoreLifecycle::Ready })
+        Ok(Self {
+            db,
+            lifecycle: StoreLifecycle::Ready,
+        })
     }
 
     /// Run redb's integrity verification explicitly. Opening the database
@@ -138,7 +157,9 @@ impl RedbStateStore {
 
 impl StateStore for RedbStateStore {
     fn snapshot(&self) -> Result<VersionedStateSnapshot, StateStoreError> {
-        if self.lifecycle != StoreLifecycle::Ready { return Err(StateStoreError::ReopenRequired); }
+        if self.lifecycle != StoreLifecycle::Ready {
+            return Err(StateStoreError::ReopenRequired);
+        }
         let read = self.db.begin_read().map_err(backend)?;
         let version = {
             let meta = read.open_table(META).map_err(backend)?;
@@ -255,7 +276,9 @@ fn encode_account_v2(state: AccountState) -> [u8; 32] {
     bytes[24..].copy_from_slice(&0_u64.to_le_bytes());
     bytes
 }
-fn encode_account(state: AccountState) -> [u8; 32] { encode_account_v2(state) }
+fn encode_account(state: AccountState) -> [u8; 32] {
+    encode_account_v2(state)
+}
 
 fn decode_account(id: AccountId, bytes: &[u8]) -> Result<AccountState, StateStoreError> {
     if bytes.len() != 32 || bytes[24..] != [0_u8; 8] {
@@ -745,14 +768,17 @@ mod tests {
         create_legacy_fixture(&path, false);
         migrate_v1_to_v2(&path).unwrap();
         migrate_v1_to_v2(&path).unwrap();
-        let store = RedbStateStore::open_or_initialize(
-            &path, StateVersion(0), &BTreeMap::new()
-        ).unwrap();
+        let store =
+            RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new()).unwrap();
         let snapshot = store.snapshot().unwrap();
         assert_eq!(snapshot.version(), StateVersion(41));
-        assert_eq!(snapshot.account(AccountId(5)), Some(AccountState {
-            nonce: 7, balance: 900
-        }));
+        assert_eq!(
+            snapshot.account(AccountId(5)),
+            Some(AccountState {
+                nonce: 7,
+                balance: 900
+            })
+        );
     }
 
     #[test]
@@ -771,5 +797,4 @@ mod tests {
         let old = read.open_table(LEGACY_ACCOUNTS).unwrap();
         assert_eq!(old.get(5).unwrap().unwrap().value().len(), 23);
     }
-
 }
