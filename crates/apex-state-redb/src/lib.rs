@@ -54,7 +54,7 @@ pub fn migrate_v1_to_v2(path: impl AsRef<Path>) -> Result<(), StateStoreError> {
             let (key, value) = entry.map_err(backend)?;
             let id = AccountId(key.value());
             let bytes = value.value();
-            if bytes.len() != 32 || bytes[24..] != [0_u8; 8] { return Err(StateStoreError::CorruptAccount(id)); }
+            if bytes.len() != 24 { return Err(StateStoreError::CorruptAccount(id)); }
             let nonce = u64::from_le_bytes(bytes[..8].try_into().map_err(|_| StateStoreError::CorruptAccount(id))?);
             let balance = u128::from_le_bytes(bytes[8..24].try_into().map_err(|_| StateStoreError::CorruptAccount(id))?);
             records.push((id.0, encode_account_v2(AccountState { nonce, balance })));
@@ -258,7 +258,7 @@ fn encode_account_v2(state: AccountState) -> [u8; 32] {
 fn encode_account(state: AccountState) -> [u8; 32] { encode_account_v2(state) }
 
 fn decode_account(id: AccountId, bytes: &[u8]) -> Result<AccountState, StateStoreError> {
-    if bytes.len() != 24 {
+    if bytes.len() != 32 || bytes[24..] != [0_u8; 8] {
         return Err(StateStoreError::CorruptAccount(id));
     }
     let nonce = u64::from_le_bytes(
