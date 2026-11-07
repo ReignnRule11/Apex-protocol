@@ -34,7 +34,7 @@ A production network MUST distinguish:
 4. **Execution fork:** explicit EVM ruleset active at a deterministic height/epoch.
 5. **Software version:** implementation release metadata; software version alone MUST NOT change consensus rules.
 
-A chain ID MUST be unique and represented in a fixed-width canonical form. Its exact width, allocation and registry policy remain **TBD** pending EVM signing compatibility and collision analysis. A display name or RPC URL is not a chain identity.
+A production EVM chain ID MUST be an unsigned 256-bit integer, represented internally as 32-byte big-endian bytes. This aligns with the EVM CHAINID opcode's 256-bit stack value. For RLP transaction fields, it MUST be encoded as a canonical positive integer (minimal big-endian bytes; zero as the empty byte string), not as a fixed 32-byte RLP string. The production network MUST assign a unique, immutable, non-zero value in genesis; no APEX chain-ID number or registry allocation is approved yet. The existing ChainId(u64) remains a historical prototype type and MUST NOT be used in production EVM, genesis or transaction-authentication interfaces.
 
 Every signature and hash MUST include a versioned, purpose-specific domain and the chain identity. Transaction, consensus vote, validator registration, governance, state commitment and checkpoint signatures MUST use distinct domains. A key MUST NOT be reused across roles by assumption.
 
@@ -81,7 +81,7 @@ The logical envelope MUST define:
 - access-list or equivalent execution hints only if adopted;
 - canonical transaction identity derived from canonical signed bytes.
 
-The target is compatibility with typed EVM transactions, including EIP-1559-style fee semantics, but exact envelope types, canonical wire encoding, signature recovery rules, chain-ID width, access-list behavior and supported transaction features remain subject to a pinned EVM revision and explicit ADR. APEX MUST NOT claim Ethereum transaction compatibility until official upstream vectors and differential tests pass.
+The initial transaction-envelope candidate is the EIP-2718 typed envelope with EIP-1559 transaction type 0x02 only. Its payload follows the EIP-1559 field order and RLP rules, including chain ID, nonce, priority-fee cap, fee cap, gas limit, destination, value, calldata, access list and signature fields. The signing digest is Keccak-256 over 0x02 concatenated with the RLP-encoded unsigned fields; the transaction ID is Keccak-256 over the complete canonical signed envelope. Transaction type 0x02 MUST be present in the signing preimage. Legacy transactions, type 0x01 access-list transactions, blob transactions, authorization-list transactions and unknown types are excluded from the initial candidate profile unless a later ADR explicitly adds them with fork activation and conformance vectors. The type-2 profile inherits the access-list field semantics defined by EIP-2930. The candidate requires secp256k1 ECDSA signature recovery with parity 0/1 and low-s validation according to the selected EVM fork. The exact execution fork, codec implementation and supported field bounds remain subject to pinning a specific EVM engine revision. APEX MUST NOT claim Ethereum transaction compatibility until official upstream vectors and differential tests pass.
 
 ### 4.1 Admission and execution order
 

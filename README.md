@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 18 — Cryptographic identity and transaction-authentication proposal (under review).** Establishes separate EVM transaction, BFT consensus and P2P peer identity roles; proposes Ethereum-compatible secp256k1 transaction authorization; leaves consensus signing dependent on BFT engine selection; and records chain-ID, envelope, key lifecycle and conformance gates. No production signature implementation is claimed. See `docs/protocol/phase-18-cryptographic-identity.md` and ADR-0022.
+**Phase 18 — Cryptographic identity and transaction-authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive, keeps transaction/consensus/P2P key roles separate, and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, RLP decoder or signature verifier is implemented. See docs/protocol/phase-18-cryptographic-identity.md and ADR-0022/0023.
 
 **Phase 17 — Protocol completeness baseline (merged; draft).** Adds Protocol Specification v0.2, a complete state-domain model, transaction/block/consensus contracts, monetary invariants, genesis/upgrade requirements and an explicit unresolved decision register. G0 remains blocked; this is not a ratified production protocol. See `docs/protocol/protocol-spec-v0.2.md` and `docs/protocol/phase-17-protocol-completeness.md`.
 
@@ -47,9 +47,9 @@ Apex-protocol/
 │   ├── apex-state/
 │   ├── apex-state-redb/
 │   ├── apex-node/                  # Placeholder CLI; not a running node
-│   └── apex-types/
+│   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
 ├── docs/
-│   ├── architecture/adr/           # ADR-0001 through ADR-0022
+│   ├── architecture/adr/           # ADR-0001 through ADR-0023
 │   ├── protocol/                   # Specifications and phase records
 │   ├── operations/                 # Production readiness and release gates
 │   └── threat-model/

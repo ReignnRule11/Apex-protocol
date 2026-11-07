@@ -1,131 +1,91 @@
 # Phase 18 — Cryptographic Identity and Transaction Authentication
 
-**Status:** Design baseline submitted for review; no cryptographic implementation or protocol algorithm is ratified by this phase.
+**Status:** Chain-ID type implemented as a non-wire primitive; transaction-envelope profile proposed for review. Cryptographic verification is not implemented.
 **Release impact:** G0 and G1 remain BLOCKED.
-**Scope:** Separate cryptographic roles, establish the EVM transaction-authentication candidate, and define the evidence required before keys, signatures or signed bytes become consensus-critical.
 
-## 1. Why this phase is split into a design gate
-
-The repository does not yet have a canonical production transaction envelope, an assigned chain ID, a selected BFT engine or a production P2P stack. Implementing signature verification before those boundaries are fixed would encode assumptions into consensus-critical code and create avoidable migration risk.
-
-Phase 18 therefore starts with an explicit cryptographic role model and a reviewable algorithm proposal. It does not claim authenticated transaction processing is implemented.
-
-## 2. Three non-interchangeable key roles
+## 1. Three non-interchangeable key roles
 
 | Role | Purpose | Candidate / constraint | Must not be reused for |
 |---|---|---|---|
-| EVM transaction authorization | Authorize a state-changing EVM transaction and derive its 20-byte sender | secp256k1 ECDSA with Ethereum-compatible recovery semantics; proposal only | Validator votes or libp2p peer identity |
-| Consensus validator signing | Authenticate proposals, votes and commit evidence | Unselected until the BFT engine and its exact revision are selected | Transaction authorization or peer identity |
-| P2P peer identity | Authenticate a network peer and derive a stable peer ID | libp2p identity abstraction; Ed25519 support is mandatory in the libp2p peer-ID specification | EVM account identity or validator consensus identity |
+| EVM transaction authorization | Authorize an EVM transaction and derive its 20-byte sender | secp256k1 ECDSA with Ethereum-compatible recovery, parity and low-s rules; candidate | Validator votes or libp2p peer identity |
+| Consensus validator signing | Authenticate proposals, votes and commit evidence | Unselected until the BFT engine and exact revision are selected | Transaction authorization or peer identity |
+| P2P peer identity | Authenticate a network peer and derive a stable peer ID | libp2p identity abstraction; Ed25519 support | EVM account identity or validator consensus identity |
 
-A validator may operate all three roles on one machine, but the private keys, storage permissions, rotation procedures, backup policies and protocol domains remain separate. Key reuse is prohibited unless a future ADR proves a narrowly scoped compatibility requirement and security review approves it.
+Private keys, storage permissions, rotation procedures, backup policies and protocol domains remain separate. Key reuse across roles is prohibited by the current design.
 
-## 3. EVM transaction-signature proposal
+## 2. Production chain identity
 
-**Recommendation for review:** use secp256k1 ECDSA transaction authorization with the Ethereum-compatible recoverable-signature model, subject to the exact EVM fork and transaction types selected in Phase 19.
+The EVM CHAINID opcode exposes a 256-bit value. A production chain identifier therefore cannot be represented by the existing prototype ChainId(u64).
 
-The proposal is grounded in these compatibility constraints:
+This phase adds ChainId256([u8; 32]) to apex-types:
+- in-memory representation is fixed-width 32-byte big-endian;
+- conversion to/from bytes is lossless;
+- from_u64 is a convenience constructor, not a restriction on the identifier space;
+- zero detection is available, but genesis validation—not this primitive—must reject zero and duplicate network IDs;
+- this type does not allocate an APEX network number and does not define RLP encoding.
 
-- EIP-155 defines chain-bound signing for legacy transactions and replay protection through a chain identifier.
-- EIP-2718 defines typed transaction envelopes. Its security guidance strongly recommends including the transaction type in the signed data to prevent cross-type signature reuse.
-- EIP-2 requires low-s transaction signatures after the Homestead fork to remove the simple ECDSA signature malleability described there.
-- EIP-1344 exposes CHAINID as a 256-bit EVM value. Therefore the production chain-identity representation must not be prematurely constrained to the current prototype `ChainId(u64)`.
+For the proposed EIP-1559 envelope, chain ID is encoded as an RLP integer: minimal big-endian bytes with no leading zeroes; integer zero uses the empty byte string. It MUST NOT be encoded as a fixed 32-byte RLP string. Dev, staging, public-test and production genesis artifacts must each use distinct chain IDs and genesis hashes.
 
-This is a compatibility proposal, not a decision to support every Ethereum transaction type or every historical fork. The exact accepted legacy/typed transaction set, EVM revision, signature recovery rules, precompile behavior and fork activation schedule must be pinned together.
+## 3. Initial transaction-envelope candidate
 
-## 4. Chain binding and replay protection
+**Proposed initial profile:** EIP-2718 typed envelope, transaction type 0x02 (EIP-1559) only.
 
-The production transaction signing domain MUST bind at least:
-- the exact chain identity;
-- transaction type and envelope version;
-- the active execution/fork domain where required;
-- every execution and fee field whose alteration must invalidate authorization.
+The signed payload field order is:
+chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, value, data, access_list, y_parity, r, s.
 
-The protocol MUST derive the sender from verified signature material. A caller-supplied sender field is never authoritative unless a future explicitly specified account-abstraction transaction type defines a different authentication model.
+The signing digest is Keccak-256 over the type byte 0x02 concatenated with RLP of the unsigned fields.
 
-The protocol MUST reject:
-- signatures that fail verification or recovery;
-- invalid scalar ranges and zero values;
-- high-s transaction signatures where the selected EVM rules require low-s;
-- unsupported transaction types and non-canonical encodings;
-- wrong-chain and wrong-fork signing domains;
-- signature reuse across transaction types where the signing domain should differ;
-- arithmetic overflow and out-of-bound inputs.
+The transaction ID is Keccak-256 over the complete canonical signed envelope, including type byte 0x02.
 
-Nonce checking remains state-dependent and must be performed against the evolving block state. Chain binding does not replace nonce-based replay protection.
+The type byte is part of the signing domain. Signature recovery uses secp256k1 and y-parity 0 or 1; low-s validation follows the selected EVM fork. The type-2 envelope includes an access list, even if empty.
 
-## 5. Canonical transaction identity
+Initial exclusions: unprotected legacy transactions, EIP-155 legacy transactions, type 0x01 envelopes, blob transactions, authorization-list transactions and unknown types. These are rejected unless a future ADR adds explicit support and fork activation. This deliberately narrow profile aligns with the proposed base-fee burn / priority-fee model while reducing initial transaction-type ambiguity.
 
-A transaction ID MUST be derived from the exact canonical signed transaction bytes using the hash function specified by the selected EVM transaction format. The signing digest and transaction ID are distinct values and MUST NOT be conflated.
+The profile remains **proposed**, not ratified, until the EVM engine and fork are pinned and official transaction vectors pass differential tests.
 
-Before implementation, the transaction codec decision must specify:
-- legacy and typed envelope support;
-- exact byte grammar and canonicality rules;
-- maximum transaction bytes and field lengths;
-- transaction-type allocation and fork activation;
-- signing preimage for every supported type;
-- transaction hash preimage;
-- sender recovery and low-s validation;
-- chain-ID width, encoding and allocation;
-- error precedence for malformed versus invalid signatures.
+## 4. Standards basis
 
-No transaction hash or signing digest is currently standardized by APEX. Phase 14's SHA-256 account commitment hash is not an EVM transaction hash.
+- EIP-2718 defines typed envelopes and recommends including the type byte in signed data to prevent cross-type signature reuse.
+- EIP-1559 defines type 0x02, its exact field order, RLP payload and Keccak-256 signing preimage.
+- EIP-1344 defines CHAINID as a 256-bit value exposed to EVM code.
+- EIP-2 requires low-s transaction signatures after Homestead.
+- EIP-2930 defines the access-list structure used by type 0x02.
+
+The exact EVM fork, supported precompiles, field bounds, transaction size limits, RLP decoder and cryptographic crate are still unselected. No crate dependency is added until the engine/toolchain compatibility review is complete.
+
+## 5. Canonicality and replay requirements
+
+The eventual decoder MUST reject non-canonical RLP integers (including leading zero bytes), malformed or trailing bytes, oversized fields, transaction types outside the active profile, chain IDs that differ from configured genesis identity, invalid signature scalars, zero scalars, high-s values where forbidden, parity outside 0/1, invalid signature recovery and nonce mismatch against the evolving block state.
+
+The sender MUST be derived from the recovered public key, never trusted from an input field. The signing digest and transaction ID are distinct. Transaction identity is computed from canonical signed bytes. Chain binding and account nonce both participate in replay protection.
 
 ## 6. Consensus signing remains engine-dependent
 
-No consensus signature algorithm is selected here. The selected BFT engine determines message types, signing bytes, key formats, vote extensions, validator identity and compatibility constraints. APEX must not wrap an arbitrary signature scheme around an engine and assume interoperability.
+No consensus signature algorithm is selected. The selected BFT engine determines message types, signing bytes, key formats, vote extensions, validator identity and compatibility constraints. Its exact revision, key formats, commit-certificate rules, durable anti-double-sign behavior, signer threat model, dependency/license/MSRV and audit evidence must be reviewed before implementation.
 
-The engine evaluation must establish:
-- exact engine and immutable revision;
-- supported consensus key algorithms and signature encoding;
-- canonical sign bytes, including chain/height/round/step and block identity;
-- validator public-key registration and rotation;
-- commit-certificate verification rules;
-- durable anti-double-sign state and signer/application crash consistency;
-- hardware signer or remote signer support and threat model;
-- dependency, license, MSRV, maintenance and audit review.
-
-A consensus key must be distinct from both the EVM account key and peer identity key.
+Consensus keys remain distinct from EVM transaction keys and peer identity keys.
 
 ## 7. P2P identity boundary
 
-The network layer should consume the selected libp2p identity abstraction rather than directly depending on a concrete cryptographic crate's private-key representation. The libp2p peer-ID specification requires Ed25519 support and defines deterministic public-key serialization and peer-ID derivation.
-
-The final network ADR must pin the libp2p release and specify:
-- supported key types and peer-ID derivation;
-- canonical key serialization and secure key-at-rest format;
-- authenticated handshake binding chain ID, protocol version and capabilities;
-- peer key rotation/replacement semantics;
-- connection-level authorization and rate/resource limits.
+The network layer should consume the selected libp2p identity abstraction. The libp2p peer-ID specification requires Ed25519 support and defines deterministic public-key serialization and peer-ID derivation. Pin the actual libp2p release and define secure key storage, rotation, authenticated handshake, chain/version binding and resource controls in the network ADR.
 
 A peer ID authenticates a network identity only; it does not prove validator membership or transaction ownership.
 
-## 8. Required implementation sequence
+## 8. Implementation sequence
 
-1. Ratify chain-ID representation and allocation policy.
-2. Select the EVM fork and supported transaction envelope set.
-3. Ratify canonical transaction codec and exact signing/hash preimages.
-4. Implement signature validation, sender derivation and transaction IDs behind a narrow crate boundary.
-5. Add published known-answer vectors, negative vectors, differential tests against the pinned EVM client and fuzzing.
-6. Only then connect authenticated transactions to state admission and execution.
-7. Separately select the BFT engine and consensus signer after engine compatibility evaluation.
-8. Separately pin libp2p and implement peer identity/handshake.
+1. Ratify chain-ID representation and network allocation policy.
+2. Pin EVM engine revision and execution fork.
+3. Ratify type-2-only initial envelope profile, exact codec and field/resource bounds.
+4. Add official EIP-1559 known-answer vectors and cross-implementation tests.
+5. Implement bounded RLP decoding, signature validation, sender recovery and transaction IDs behind a narrow crate boundary.
+6. Add malformed-input fuzzing, wrong-chain/type tests and signed-field mutation properties.
+7. Connect authenticated transactions to state admission and deterministic execution.
+8. Separately select the BFT engine/signature and libp2p release/key management.
 
-## 9. Required test evidence
+## 9. Explicit non-deliverables
 
-- Ethereum official vectors for every supported transaction type.
-- APEX-specific chain/fork/type-domain vectors.
-- Cross-implementation sender recovery and transaction-ID agreement.
-- Invalid scalar, malformed encoding, high-s, wrong-chain, wrong-type and replay cases.
-- Fuzzing of transaction decoding and signature parsing.
-- Property tests that mutation of any signed field invalidates authorization.
-- Deterministic tests proving that no untrusted sender field can override recovered identity.
-- Secret-handling tests and documented key-rotation/recovery procedures for each role.
+No wallet, private key, transaction signing, signature verification, transaction pool, consensus signer, validator key manager or P2P networking is implemented. No chain ID number is assigned. The candidate envelope is not ratified. No private keys or secrets belong in the repository or CI.
 
-## 10. Explicit non-deliverables
+## 10. Exit criteria
 
-This phase does not implement production keys, a wallet, transaction signing, transaction signature verification, a transaction pool, consensus signatures, validator key management or libp2p networking. It does not select a chain ID, BFT engine, consensus signature algorithm, transaction codec or full cryptographic suite. No private keys or secrets belong in the repository or CI.
-
-## 11. Exit criteria
-
-Phase 18 is not complete until the chain identity and transaction format decisions are ratified, transaction authentication is implemented and tested against official vectors, and the consensus/P2P key choices are independently resolved against their selected upstream engines. G0 remains BLOCKED until all required protocol decisions and cross-language vectors are reviewed.
+Phase 18 remains open until chain identity allocation and the initial transaction profile are ratified; bounded canonical decoding, signature recovery, transaction IDs and replay protection are implemented against official vectors; and consensus/P2P key choices are resolved against their selected upstream engines. G0 and G1 remain BLOCKED.
