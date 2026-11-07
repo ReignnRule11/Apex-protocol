@@ -22,7 +22,7 @@ It does not yet attach to `Channels` or process `AppMsg::Finalized`; it does not
 
 ## Validation
 
-The exact-head CI workflow must compile and test the isolated workspace against the pinned Malachite revision. No local Cargo, rustfmt, test, or build result is claimed. CI success is necessary but does not prove production correctness.
+The first exact-head CI attempt identified a compile error: Malachite's `Height::as_u64` extension method requires the upstream `Height` trait to be in scope. The adapter now imports that trait explicitly. The corrective commit is `e76a1b3b0b4bbeebe5dbf51028857c2d8cafd546`; a fresh exact-head CI run is still required before this phase can be considered validated. No local Cargo, rustfmt, test, or build result is claimed. CI success is necessary but does not prove production correctness.
 
 ## Next subphase
 
