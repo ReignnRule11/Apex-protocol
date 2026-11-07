@@ -94,7 +94,7 @@ mod tests {
 
         assert_eq!(evm.ctx.cfg.chain_id, 77);
         assert_eq!(*evm.ctx.cfg.spec(), SpecId::SHANGHAI);
-        assert_eq!(evm.ctx.block.number(), 123_u64.into());
+        assert_eq!(evm.ctx.block.number(), revm::primitives::U256::from(123_u64));
         assert_eq!(evm.ctx.block.timestamp(), 1_800_000_123);
         assert_eq!(evm.ctx.block.gas_limit(), 30_000_000);
         assert_eq!(evm.ctx.block.basefee(), 9);
