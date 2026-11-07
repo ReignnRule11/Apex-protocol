@@ -6,7 +6,10 @@
 //! the resulting state delta.
 
 use crate::{EvmDatabaseView, EvmStateSnapshot, revm_environment::RevmExecutionEnvironment};
-use revm::{Context, MainBuilder, MainnetContext, MainnetEvm, context::Cfg};
+use revm::{
+    Context, MainBuilder, MainnetEvm,
+    context::{BlockEnv, CfgEnv, TxEnv},
+};
 
 /// Builds a revm EVM using only the supplied APEX snapshot and mapped
 /// environment.
@@ -19,9 +22,9 @@ use revm::{Context, MainBuilder, MainnetContext, MainnetEvm, context::Cfg};
 pub fn build_revm_evm<'a>(
     snapshot: &'a EvmStateSnapshot,
     environment: RevmExecutionEnvironment,
-) -> MainnetEvm<MainnetContext<EvmDatabaseView<'a>>> {
+) -> MainnetEvm<Context<BlockEnv, TxEnv, CfgEnv, EvmDatabaseView<'a>>> {
     let (cfg, block) = environment.into_parts();
-    let spec = cfg.spec();
+    let spec = *cfg.spec();
 
     Context::new(snapshot.database_view(), spec)
         .with_cfg(cfg)
