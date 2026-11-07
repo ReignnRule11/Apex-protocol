@@ -185,7 +185,7 @@ impl RedbEvmStateStore {
     /// a protocol state-root or semantic correctness proof.
     pub fn check_integrity(&mut self) -> Result<(), PersistentEvmStateError> {
         self.ensure_ready()?;
-        self.db.check_integrity().map_err(backend)
+        self.db.check_integrity().map(|_| ()).map_err(backend)
     }
 
     fn ensure_ready(&self) -> Result<(), PersistentEvmStateError> {
