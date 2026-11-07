@@ -8,7 +8,7 @@ This document is the authoritative engineering release register. A green CI run 
 
 APEX remains a research-stage Layer-1. Phases 0–17 provide Rust infrastructure and bounded account/storage prototypes plus a protocol v0.2 completeness draft; they do not constitute a functioning blockchain. Phase 18 adds a 256-bit chain-ID value type and proposes a type-2 EIP-1559 transaction profile; no numeric chain ID, canonical transaction decoder or signature verification is implemented.
 
-Phase 19A pins revm 43.0.3 and Rust 1.91.0. Phase 19B contains a passing minimal test-only execution harness. Phase 19C adds a full-width immutable EVM state model. Phase 19D implements the revm Database read adapter. Phase 19E adds atomic in-memory full-width delta application. Phase 19F introduces a separate full-width redb persistence prototype with versioned records and atomic current-version publication; it is not a production storage selection and has no state-root or consensus commit integration.
+Phase 19A pins revm 43.0.3 and Rust 1.91.0. Phase 19B contains a passing minimal test-only execution harness. Phase 19C adds a full-width immutable EVM state model. Phase 19D implements the revm Database read adapter. Phase 19E adds atomic in-memory full-width delta application. Phase 19F merges a separate full-width redb persistence prototype with versioned records and atomic current-version publication (PR #26; post-merge CI #42388315877 passed); it is not a production storage selection and has no state-root or consensus commit integration.
 
 Critical systems not implemented or production-selected:
 - Ratified full protocol specification and complete state model.

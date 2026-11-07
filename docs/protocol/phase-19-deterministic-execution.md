@@ -1,6 +1,6 @@
 # Phase 19 — Deterministic EVM Execution and Fee Accounting
 
-**Status:** revm 43.0.3 candidate pinned; execution harness, full-width state model, read adapter, atomic in-memory deltas and a durable redb prototype are staged.
+**Status:** revm 43.0.3 candidate pinned; execution harness, full-width state model, read adapter, atomic in-memory deltas and a durable redb prototype are merged.
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
@@ -33,17 +33,16 @@ PR #24 and post-merge CI passed. Implements revm Database over the immutable sna
 ### 19E — atomic full-width EVM state deltas
 PR #25 and post-merge CI passed. Ordered before/after account, code and storage updates are bound to a parent version. A process-local in-memory store validates every precondition and the complete resulting snapshot before publishing a replacement.
 
-### 19F — persistent full-width EVM state prototype
-Adds `apex-evm-redb`, separate from the legacy `apex-state-redb` adapter. Account, code, storage and block-hash records use fixed-width big-endian keys/fields and a private storage schema. Each state version is written under version-prefixed keys. A single redb write transaction inserts the complete next snapshot and updates the metadata current-version pointer. Historical versions are retained, making publication atomic without mutating old records.
+### 19F — persistent full-width EVM state prototype (merged)
+PR #26 and post-merge CI passed. Adds `apex-evm-redb`, separate from the legacy `apex-state-redb` adapter. Account, code, storage and block-hash records use fixed-width big-endian keys/fields and a private storage schema. Each state version is written under version-prefixed keys. A single redb write transaction inserts the complete next snapshot and updates the metadata current-version pointer. Historical versions are retained, making publication atomic without mutating old records.
 
 The adapter uses redb's default exclusive file lock and Immediate durability. It is single-process/single-writer. Resource limits are caller supplied and not protocol parameters. It has no garbage collection, online backup, multi-process coordination, canonical wire encoding, state root or atomic consensus/signer commit. Commit errors latch the instance as requiring reopen/reconciliation.
 
 ## Required next work
 
-1. Validate Phase 19F with CI and inspect all test output.
-2. Add fault-injection and restart/recovery tests around commit ambiguity, schema corruption and orphaned records.
-3. Connect actual revm execution state changes to EvmStateDelta without bypassing validation.
-4. Define a typed explicit execution context supplied by validated block data: fork ID, block number, timestamp, gas limit, base fee, coinbase/fee recipient, chain ID and randomness/prevrandao fields where required. No host-derived values.
+1. Add fault-injection and restart/recovery tests around commit ambiguity, schema corruption and orphaned records.
+2. Connect actual revm execution state changes to EvmStateDelta without bypassing validation.
+3. Define a typed explicit execution context supplied by validated block data: fork ID, block number, timestamp, gas limit, base fee, coinbase/fee recipient, chain ID and randomness/prevrandao fields where required. No host-derived values.
 5. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review.
 6. Implement canonical type-2 transaction decoding and signature recovery before treating sender identity as trusted.
 7. Implement EIP-1559 fee settlement: affordability, escrow, actual gas, base-fee burn, priority-fee credit and unused-gas refund with exact overflow/rounding rules.
