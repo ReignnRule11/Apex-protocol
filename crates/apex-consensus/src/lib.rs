@@ -95,12 +95,31 @@ pub fn validate_proposal_header(
     Ok(())
 }
 
-/// Internal transaction fields for static admission; not signed or encoded.
+/// Internal account key for the stateful admission prototype; not a wire address.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct AccountId(pub u64);
+
+/// Minimal account data read from the candidate parent state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AccountState {
+    pub nonce: u64,
+    pub balance: u128,
+}
+
+/// Read-only state view. Implementations must return the same account data for
+/// the same parent-state version throughout one validation operation.
+pub trait AdmissionState {
+    fn account(&self, id: AccountId) -> Option<AccountState>;
+}
+
+/// Internal transaction fields for admission; not signed or encoded.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TransactionAdmission {
     pub chain_id: ChainId,
     pub protocol_version: u32,
+    pub sender: AccountId,
     pub nonce: u64,
+    pub value: u128,
     pub gas_limit: u64,
     pub max_fee_per_gas: u128,
     pub max_priority_fee_per_gas: u128,
@@ -128,6 +147,14 @@ pub enum TransactionAdmissionError {
     PriorityFeeExceedsMaxFee,
     #[error("maximum fee multiplied by gas limit overflows u128")]
     MaximumFeeOverflow,
+    #[error("sender account does not exist in the supplied parent state")]
+    UnknownSender,
+    #[error("transaction nonce does not equal the sender account nonce")]
+    NonceMismatch,
+    #[error("transaction value plus maximum fee overflows u128")]
+    RequiredBalanceOverflow,
+    #[error("sender balance is below value plus maximum fee upper bound")]
+    InsufficientBalance,
 }
 
 /// Checks static envelope fields and returns a maximum-fee upper bound.
@@ -155,6 +182,35 @@ pub fn validate_transaction_admission(
     u128::from(transaction.gas_limit)
         .checked_mul(transaction.max_fee_per_gas)
         .ok_or(TransactionAdmissionError::MaximumFeeOverflow)
+}
+
+/// Performs state-aware admission against a caller-selected parent-state view.
+/// Returns the maximum-fee upper bound after checking nonce and affordability.
+/// The sender identifier is not authenticated: callers must verify the
+/// transaction signature and signing domain before trusting this lookup.
+pub fn validate_transaction_against_state<S: AdmissionState>(
+    context: AdmissionContext,
+    transaction: TransactionAdmission,
+    state: &S,
+) -> Result<u128, TransactionAdmissionError> {
+    let maximum_fee = validate_transaction_admission(context, transaction)?;
+    let account = state
+        .account(transaction.sender)
+        .ok_or(TransactionAdmissionError::UnknownSender)?;
+
+    if transaction.nonce != account.nonce {
+        return Err(TransactionAdmissionError::NonceMismatch);
+    }
+
+    let required_balance = transaction
+        .value
+        .checked_add(maximum_fee)
+        .ok_or(TransactionAdmissionError::RequiredBalanceOverflow)?;
+    if account.balance < required_balance {
+        return Err(TransactionAdmissionError::InsufficientBalance);
+    }
+
+    Ok(maximum_fee)
 }
 
 #[cfg(test)]
@@ -276,7 +332,9 @@ mod tests {
         TransactionAdmission {
             chain_id: ChainId(7),
             protocol_version: 1,
+            sender: AccountId(1),
             nonce: 4,
+            value: 500,
             gas_limit: 21_000,
             max_fee_per_gas: 100,
             max_priority_fee_per_gas: 2,
@@ -351,6 +409,77 @@ mod tests {
         assert_eq!(
             validate_transaction_admission(context, tx),
             Err(TransactionAdmissionError::MaximumFeeOverflow)
+        );
+    }
+
+    struct TestState {
+        account: Option<AccountState>,
+    }
+
+    impl AdmissionState for TestState {
+        fn account(&self, id: AccountId) -> Option<AccountState> {
+            if id == AccountId(1) { self.account } else { None }
+        }
+    }
+
+    fn funded_state() -> TestState {
+        TestState {
+            account: Some(AccountState {
+                nonce: 4,
+                balance: 2_100_500,
+            }),
+        }
+    }
+
+    #[test]
+    fn stateful_admission_accepts_matching_nonce_and_sufficient_balance() {
+        assert_eq!(
+            validate_transaction_against_state(admission_context(), admission_tx(), &funded_state()),
+            Ok(2_100_000)
+        );
+    }
+
+    #[test]
+    fn stateful_admission_rejects_unknown_sender() {
+        let state = TestState { account: None };
+        assert_eq!(
+            validate_transaction_against_state(admission_context(), admission_tx(), &state),
+            Err(TransactionAdmissionError::UnknownSender)
+        );
+    }
+
+    #[test]
+    fn stateful_admission_rejects_nonce_mismatch() {
+        let state = TestState {
+            account: Some(AccountState { nonce: 5, balance: u128::MAX }),
+        };
+        assert_eq!(
+            validate_transaction_against_state(admission_context(), admission_tx(), &state),
+            Err(TransactionAdmissionError::NonceMismatch)
+        );
+    }
+
+    #[test]
+    fn stateful_admission_rejects_insufficient_balance() {
+        let state = TestState {
+            account: Some(AccountState { nonce: 4, balance: 2_100_499 }),
+        };
+        assert_eq!(
+            validate_transaction_against_state(admission_context(), admission_tx(), &state),
+            Err(TransactionAdmissionError::InsufficientBalance)
+        );
+    }
+
+    #[test]
+    fn stateful_admission_rejects_value_fee_sum_overflow() {
+        let mut tx = admission_tx();
+        tx.value = u128::MAX;
+        let state = TestState {
+            account: Some(AccountState { nonce: 4, balance: u128::MAX }),
+        };
+        assert_eq!(
+            validate_transaction_against_state(admission_context(), tx, &state),
+            Err(TransactionAdmissionError::RequiredBalanceOverflow)
         );
     }
 
