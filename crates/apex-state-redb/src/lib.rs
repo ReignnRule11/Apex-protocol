@@ -717,4 +717,59 @@ mod tests {
         );
         assert_eq!(reopened.snapshot().unwrap(), persisted);
     }
+
+    fn create_legacy_fixture(path: &Path, malformed: bool) {
+        let db = Database::create(path).unwrap();
+        let write = db.begin_write().unwrap();
+        {
+            let mut meta = write.open_table(META).unwrap();
+            meta.insert(META_SCHEMA_KEY, LEGACY_SCHEMA_VERSION).unwrap();
+            meta.insert(META_STATE_VERSION_KEY, 41).unwrap();
+        }
+        {
+            let mut accounts = write.open_table(LEGACY_ACCOUNTS).unwrap();
+            let mut bytes = vec![0_u8; if malformed { 23 } else { 24 }];
+            if !malformed {
+                bytes[..8].copy_from_slice(&7_u64.to_le_bytes());
+                bytes[8..].copy_from_slice(&900_u128.to_le_bytes());
+            }
+            accounts.insert(5, bytes.as_slice()).unwrap();
+        }
+        write.commit().unwrap();
+    }
+
+    #[test]
+    fn schema_one_migration_preserves_state_and_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.redb");
+        create_legacy_fixture(&path, false);
+        migrate_v1_to_v2(&path).unwrap();
+        migrate_v1_to_v2(&path).unwrap();
+        let store = RedbStateStore::open_or_initialize(
+            &path, StateVersion(0), &BTreeMap::new()
+        ).unwrap();
+        let snapshot = store.snapshot().unwrap();
+        assert_eq!(snapshot.version(), StateVersion(41));
+        assert_eq!(snapshot.account(AccountId(5)), Some(AccountState {
+            nonce: 7, balance: 900
+        }));
+    }
+
+    #[test]
+    fn malformed_legacy_record_does_not_publish_schema_upgrade() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("malformed.redb");
+        create_legacy_fixture(&path, true);
+        assert!(matches!(
+            migrate_v1_to_v2(&path),
+            Err(StateStoreError::CorruptAccount(AccountId(5)))
+        ));
+        let db = Database::create(&path).unwrap();
+        let read = db.begin_read().unwrap();
+        let meta = read.open_table(META).unwrap();
+        assert_eq!(meta.get(META_SCHEMA_KEY).unwrap().unwrap().value(), 1);
+        let old = read.open_table(LEGACY_ACCOUNTS).unwrap();
+        assert_eq!(old.get(5).unwrap().unwrap().value().len(), 23);
+    }
+
 }
