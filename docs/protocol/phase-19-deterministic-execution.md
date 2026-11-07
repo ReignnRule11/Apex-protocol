@@ -24,7 +24,7 @@ Implement deterministic EVM execution against a complete versioned parent-state 
 - **19J:** success-gated extraction; revert and halt outcomes are rejected.
 - **19K:** immutable APEX block execution context and validated fork activation schedule.
 - **19L:** explicit context-to-revm environment mapping (merged). Requires a matching APEX ForkId/revm SpecId binding; rejects lossy 256-bit-to-u64 conversions; supports only post-Merge/pre-Cancun profiles; rejects missing prevrandao and unsupported fork profiles. Uses revm's mainnet gas table as a provisional compatibility mapping, not approved APEX gas policy.
-- **19M:** explicit revm builder integration (in progress). Builds the engine from the APEX immutable snapshot and the exact Phase 19L CfgEnv/BlockEnv. No default context or latest fork is selected; no APEX transaction is authenticated or executed yet.
+- **19M:** explicit revm builder integration (merged). Builds the engine from the APEX immutable snapshot and the exact Phase 19L CfgEnv/BlockEnv. No default context or latest fork is selected; no APEX transaction is authenticated or executed yet.
 
 ## Phase 19L limitations
 
@@ -34,7 +34,7 @@ The environment adapter does not authenticate the source block/configuration or 
 
 The builder selects revm's standard Ethereum instruction/precompile implementation through the `MainBuilder::build_mainnet` API, but receives the exact explicit APEX `CfgEnv`, `BlockEnv` and snapshot database first. This API name does not mean `Context::mainnet()` is called or a default fork is chosen. Transaction decoding/authentication, canonical TxEnv construction, transaction execution, fee settlement, receipts and atomic persistent state application remain unimplemented.
 
-## Required next work
+## Phase 19N — validated type-2 transaction environment (in progress)\n\nAdds an APEX-owned AuthenticatedType2Transaction execution input and bounded conversion to revm 43.0.3 TxEnv. It maps caller, nonce, chain ID, max fee, priority fee, gas limit, call/create destination, value, input and access list. Chain ID must match the explicit execution environment. Zero chain ID/gas limit, invalid fee ordering and caller-supplied input/access-list limit violations fail closed. This does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees. The public constructor relies on an upstream authentication precondition; it cannot prove provenance.\n\n## Required next work
 
 1. Ratify APEX fork semantics, activation rules and the explicit mapping to revm SpecIds.
 2. Resolve 256-bit APEX chain-ID/base-fee versus revm u64 limits.
