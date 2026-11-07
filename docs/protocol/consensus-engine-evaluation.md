@@ -141,3 +141,8 @@ The pinned Malachite v0.8.2 source exposes a native `CommitCertificate<Ctx>` wit
 This native certificate is not the same object or signing domain as APEX Phase 20G2B's Ed25519 certificate. The APEX verifier reconstructs `APEX-CONSENSUS-MSG-V1`; Malachite signatures must instead be verified by Malachite's native verifier. The integration then separately binds the verified native value ID to canonical APEX value bytes and recomputed block identity, checks APEX chain/version/height/parent and validator-set correspondence, and passes only the resulting private verified identity to the engine-neutral application boundary.
 
 The application must not advance on `Decided`. It must send `Next::Start` after successful durable commit of `Finalized`, and take a fail-closed restart/error path on verification or commit failure. This phase is a source-audited contract only; it does not implement the adapter, event loop, codec, atomic persistence or safety/liveness evidence. See the Phase 20G2C1 record and ADR-0048.
+
+
+## Current verified Phase 20 status
+
+Phase 20G2B is merged and its post-merge main workflow #42413539395 passed on `6b4abb3c08279ca91a554ee716dd0980a1b57dcd`. Its Ed25519 certificate verifier is APEX-native and is not a substitute for Malachite's native verifier. Phase 20G2C1 records the required native verification and APEX identity-binding contract only; no runtime adapter is implemented. G2 remains blocked.
