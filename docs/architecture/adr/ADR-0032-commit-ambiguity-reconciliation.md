@@ -1,6 +1,6 @@
 # ADR-0032: Commit-ambiguity reconciliation for persistent EVM state
 
-- **Status:** Proposed pending CI and review
+- **Status:** Accepted for the Phase 19H implementation; adapter-level test contract only
 - **Date:** 2026-11-07
 - **Related:** ADR-0030, ADR-0031, Phases 19F–19H
 

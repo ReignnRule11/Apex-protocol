@@ -1,6 +1,9 @@
 # Phase 19H — Commit ambiguity and orphaned-version recovery tests
 
-**Status:** Implementation submitted for CI and review.
+**Status:** Merged.
+**PR:** #29 — https://github.com/ReignnRule11/Apex-protocol/pull/29
+**Merge commit:** `5062fafeab885ec0b603bd8f9784d3d80e6ea129`
+**Validation:** PR CI #42390234287 and post-merge main CI #42390288716 passed Format, Clippy and full workspace tests.
 **Release impact:** G1 and G4 remain BLOCKED; overall release remains NO-GO.
 
 ## Objective
@@ -30,7 +33,8 @@ Exercise the persistent full-width EVM adapter's commit/reopen contract at the p
 
 ## Validation
 
-PR and CI evidence will be recorded after Format, Clippy and the full workspace test suite complete.
+- PR CI #42390234287 passed Format, Clippy and full workspace tests on implementation head `e68ec35de8a2ba424de6d4ed92346cc66bf113fc`.
+- Post-merge main CI #42390288716 passed Format, Clippy and full workspace tests on merge commit `5062fafeab885ec0b603bd8f9784d3d80e6ea129`.
 
 ## Production decision
 
