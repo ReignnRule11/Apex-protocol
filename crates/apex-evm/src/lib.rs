@@ -199,7 +199,6 @@ impl<'a> EvmDatabaseView<'a> {
     }
 }
 
-
 /// Error surfaced by the revm database adapter. Missing or malformed code is
 /// fatal to execution; it is never silently replaced with empty bytecode.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -306,7 +305,6 @@ mod tests {
         )
         .unwrap()
     }
-
 
     #[test]
     fn revm_database_trait_reads_full_width_snapshot_values() {
