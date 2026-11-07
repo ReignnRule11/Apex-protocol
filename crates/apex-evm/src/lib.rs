@@ -345,7 +345,7 @@ mod tests {
         let snapshot = EvmStateSnapshot::try_new(
             3,
             BTreeMap::new(),
-            BTreeMap::from([(hash, vec![0xef, 0x00])]),
+            BTreeMap::from([(hash, vec![0xef, 0x01])]),
             BTreeMap::new(),
             BTreeMap::new(),
             LIMITS,
