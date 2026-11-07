@@ -287,7 +287,6 @@ pub fn plan_transaction_transition<S: AdmissionState>(
 }
 
 
-
 /// Temporary caller-supplied transaction identity used only for duplicate
 /// detection inside one candidate block. This is not a transaction hash,
 /// signature, replay-protection primitive, or canonical protocol identifier.
@@ -319,7 +318,10 @@ struct OverlayState<'a, S> {
 
 impl<S: AdmissionState> AdmissionState for OverlayState<'_, S> {
     fn account(&self, id: AccountId) -> Option<AccountState> {
-        self.current.get(&id).copied().or_else(|| self.parent.account(id))
+        self.current
+            .get(&id)
+            .copied()
+            .or_else(|| self.parent.account(id))
     }
 }
 
@@ -367,7 +369,9 @@ pub fn plan_block_transition<S: AdmissionState>(
         current.insert(sender.account, sender.after);
 
         if let Some(recipient) = transaction_plan.recipient {
-            original.entry(recipient.account).or_insert(recipient.before);
+            original
+                .entry(recipient.account)
+                .or_insert(recipient.before);
             current.insert(recipient.account, recipient.after);
         }
     }
@@ -780,7 +784,6 @@ mod tests {
     }
 
 
-
     struct MapState(BTreeMap<AccountId, AccountState>);
 
     impl AdmissionState for MapState {
@@ -791,9 +794,27 @@ mod tests {
 
     fn block_state() -> MapState {
         MapState(BTreeMap::from([
-            (AccountId(1), AccountState { nonce: 0, balance: 10_000_000 }),
-            (AccountId(2), AccountState { nonce: 0, balance: 1_000 }),
-            (AccountId(3), AccountState { nonce: 0, balance: 2_000 }),
+            (
+                AccountId(1),
+                AccountState {
+                    nonce: 0,
+                    balance: 10_000_000,
+                },
+            ),
+            (
+                AccountId(2),
+                AccountState {
+                    nonce: 0,
+                    balance: 1_000,
+                },
+            ),
+            (
+                AccountId(3),
+                AccountState {
+                    nonce: 0,
+                    balance: 2_000,
+                },
+            ),
         ]))
     }
 
@@ -843,10 +864,7 @@ mod tests {
     #[test]
     fn block_plan_rejects_duplicate_opaque_transaction_ids() {
         let state = block_state();
-        let transactions = [
-            block_tx(9, 1, 2, 0, 100),
-            block_tx(9, 1, 3, 1, 100),
-        ];
+        let transactions = [block_tx(9, 1, 2, 0, 100), block_tx(9, 1, 3, 1, 100)];
         assert_eq!(
             plan_block_transition(admission_context(), &transactions, &state),
             Err(TransactionAdmissionError::DuplicateTransactionId)
@@ -858,10 +876,7 @@ mod tests {
         let state = block_state();
         let mut context = admission_context();
         context.block_gas_limit = 30_000;
-        let transactions = [
-            block_tx(1, 1, 2, 0, 100),
-            block_tx(2, 1, 3, 1, 100),
-        ];
+        let transactions = [block_tx(1, 1, 2, 0, 100), block_tx(2, 1, 3, 1, 100)];
         assert_eq!(
             plan_block_transition(context, &transactions, &state),
             Err(TransactionAdmissionError::CumulativeBlockGasLimitExceeded)
@@ -871,10 +886,7 @@ mod tests {
     #[test]
     fn block_plan_failure_on_late_transaction_returns_no_plan_and_preserves_parent() {
         let state = block_state();
-        let transactions = [
-            block_tx(1, 1, 2, 0, 100),
-            block_tx(2, 1, 3, 99, 100),
-        ];
+        let transactions = [block_tx(1, 1, 2, 0, 100), block_tx(2, 1, 3, 99, 100)];
         assert_eq!(
             plan_block_transition(admission_context(), &transactions, &state),
             Err(TransactionAdmissionError::NonceMismatch)
@@ -887,10 +899,7 @@ mod tests {
     #[test]
     fn block_plan_is_deterministic_for_identical_ordered_inputs() {
         let state = block_state();
-        let transactions = [
-            block_tx(4, 1, 2, 0, 123),
-            block_tx(5, 1, 3, 1, 456),
-        ];
+        let transactions = [block_tx(4, 1, 2, 0, 123), block_tx(5, 1, 3, 1, 456)];
         let first = plan_block_transition(admission_context(), &transactions, &state).unwrap();
         let second = plan_block_transition(admission_context(), &transactions, &state).unwrap();
         assert_eq!(first, second);
