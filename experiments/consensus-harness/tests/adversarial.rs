@@ -87,6 +87,10 @@ fn replicated_scenario(root: &Path) -> Vec<Vec<u8>> {
     let mut workers: Vec<Worker> = (0..4)
         .map(|id| Worker::start(id, &root.join(format!("node-{id}.log"))))
         .collect();
+    let mut process_ids: Vec<u32> = workers.iter().map(|worker| worker.child.id()).collect();
+    process_ids.sort_unstable();
+    process_ids.dedup();
+    assert_eq!(process_ids.len(), 4, "workers must be distinct OS processes");
 
     // Initial common prefix.
     for worker in &mut workers {
@@ -187,6 +191,9 @@ fn deterministic_replay_and_per_message_resource_bounds() {
         append(&mut worker, 1, &"ab".repeat(513)),
         "ERR_PAYLOAD_TOO_LARGE"
     );
+    assert_eq!(append(&mut worker, 0, "ab"), "ERR_SEQUENCE");
+    let oversized_frame = format!("UNKNOWN {}", "x".repeat(2_050));
+    assert_eq!(worker.command(&oversized_frame), "ERR_TOO_LARGE");
     assert_eq!(worker.command("STATUS"), "STATUS 0 0");
     assert_eq!(append(&mut worker, 1, "ab"), "APPENDED");
     worker.stop();
