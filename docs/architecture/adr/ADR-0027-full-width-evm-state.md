@@ -1,6 +1,6 @@
 # ADR-0027: Full-width EVM state and immutable read boundary
 
-- **Status:** Proposed pending CI validation
+- **Status:** Accepted after PR #23 and post-merge CI passed
 - **Date:** 2026-11-07
 - **Related:** ADR-0024, ADR-0025, ADR-0026, Phase 19C
 
@@ -24,10 +24,3 @@ The historical APEX state prototypes use AccountId(u64), u64 nonce and u128 bala
 - APEX can test full-width state lookup and snapshot isolation independently from engine-specific types.
 - The current redb adapter remains a legacy prototype and is not the backend for this model.
 - G1 remains blocked; release remains NO-GO.
-
-## Rejected alternatives
-
-- Widening the old account ID by convention while leaving its serialized/database formats unchanged.
-- Reusing u128 balances or u64 identifiers for EVM accounts.
-- Making mutable host storage directly visible to the EVM during execution.
-- Silently selecting code-hash, fork, pruning or resource-limit rules before protocol ratification.
