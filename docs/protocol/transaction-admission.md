@@ -1,35 +1,38 @@
-# Transaction Admission — Phase 4
+# Transaction Admission — Phase 5
 
-**Status:** limited static preflight implemented; full transaction validity is not implemented.
+**Status:** static preflight and a minimal state-aware admission prototype are implemented. This is not full transaction validity.
 
-## Implemented checks
+## Static checks
 
-The validate_transaction_admission function in crates/apex-consensus accepts an internal TransactionAdmission and caller-provided AdmissionContext. It checks:
+`validate_transaction_admission` checks chain ID, protocol version, nonzero gas limit, caller-supplied block gas limit, priority-fee/max-fee ordering, and checked multiplication of gas limit by maximum fee per gas. It returns the maximum-fee upper bound, not a charged or settled fee.
 
-1. Transaction chain ID equals configured chain ID.
-2. Transaction protocol version equals configured version.
-3. Gas limit is greater than zero.
-4. Gas limit does not exceed the supplied block gas limit.
-5. Priority fee per gas does not exceed maximum fee per gas.
-6. Gas limit multiplied by maximum fee per gas fits in u128.
+## State-aware checks
 
-On success it returns gas_limit multiplied by max_fee_per_gas as a maximum-fee upper bound. This is not a fee charged, debited, burned or paid to a proposer.
+`validate_transaction_against_state` first runs static checks, then reads the sender account from a caller-supplied read-only `AdmissionState` view. It rejects a missing account, requires exact equality between transaction nonce and the account nonce, and requires balance to cover:
 
-## Deliberate non-goals
+`transaction.value + (gas_limit × max_fee_per_gas)`
 
-The function does not verify signatures, derive or authenticate sender identity, check nonce against account state, check balances, calculate intrinsic gas, validate recipient/calldata/access lists, enforce transaction ordering, decode canonical bytes, execute EVM code or settle fees. The nonce field is carried as data only and is not checked. Zero maximum fee is accepted because no minimum-fee policy has been approved.
+Both multiplication and addition are checked for overflow. The affordability rule is deliberately conservative: it reserves the full maximum-fee upper bound plus value. It does not predict actual gas usage or calculate a refund.
 
-The structures are in-memory Rust types, not a canonical wire format. A successful preflight result is not proof that a transaction is valid or executable.
+The state provider must supply a stable view of the exact candidate parent state for the duration of validation. A production adapter must bind the view to a versioned state root or immutable snapshot; this prototype trait does not enforce that operational guarantee.
 
-## Required next work
+## Trust boundary and limitations
 
-- Ratify canonical transaction encoding and signing domain.
-- Specify sender authentication and signature verification with a reviewed algorithm.
-- Define account nonce and balance semantics against deterministic parent state.
-- Specify intrinsic gas, transaction ordering, block gas accounting and fee settlement.
-- Add stateful admission tests, replay tests, malformed-input fuzzing and cross-implementation vectors.
-- Integrate execution only after an ADR pins the EVM implementation and fork rules.
+`AccountId(u64)` is an internal placeholder, not a canonical address. The sender field is untrusted until a selected signature algorithm and chain/version-bound signing domain authenticate it. The state lookup must not be treated as proof of sender ownership.
 
-## Test coverage
+Not implemented: signature verification, sender derivation, canonical transaction decoding, replay protection beyond the unauthenticated nonce comparison, intrinsic gas, recipient/code validation, access-list validation, transaction ordering, cumulative block gas accounting, state mutation, fee debit/refund, receipts, EVM execution, or consensus finality. The state trait does not provide persistence, snapshot isolation, or a state root.
 
-Unit tests cover valid admission, chain/version mismatch, zero gas, gas above block limit, priority-fee ordering, multiplication overflow and the currently permitted zero-fee case. They do not test signatures, account state or execution.
+Zero fee remains permitted until the monetary/fee policy is ratified. The block gas limit remains caller-supplied rather than a protocol constant.
+
+## Tests
+
+Tests cover static checks and state-aware success, unknown sender, nonce mismatch, insufficient balance, and value-plus-fee overflow. They do not establish signature validity, persistent-state correctness, cross-node determinism, or execution correctness.
+
+## Next gates
+
+1. Ratify canonical encoding and signing domain.
+2. Select reviewed sender/signature algorithms and add verification vectors.
+3. Replace the placeholder account identifier with the approved address type.
+4. Bind state reads to an immutable, versioned parent-state snapshot.
+5. Specify nonce advancement, transaction ordering, intrinsic gas, cumulative block gas and fee settlement.
+6. Add replay, property, fuzz, persistence and cross-implementation tests before execution integration.
