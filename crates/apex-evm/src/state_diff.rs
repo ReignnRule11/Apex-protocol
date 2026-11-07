@@ -6,7 +6,10 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use revm::state::EvmState;
+use revm::{
+    context_interface::result::{ExecResultAndState, ExecutionResult},
+    state::EvmState,
+};
 
 use crate::{
     EvmAccount, EvmAccountUpdate, EvmAddress, EvmCodeHash, EvmCodeUpdate, EvmStateDelta,
@@ -26,6 +29,10 @@ pub enum RevmStateDiffError {
     StorageParentMismatch(EvmAddress, U256Word),
     /// Account deletion semantics require a fork-specific rule not yet ratified.
     ForkSensitiveAccountDeletion(EvmAddress),
+    /// A reverted EVM transaction must never publish its state.
+    ExecutionReverted,
+    /// A halted EVM transaction must never publish its state.
+    ExecutionHalted,
 }
 
 impl fmt::Display for RevmStateDiffError {
@@ -55,6 +62,18 @@ impl fmt::Display for RevmStateDiffError {
                     "account deletion for {address:?} requires a ratified fork context"
                 )
             }
+            Self::ExecutionReverted => {
+                write!(
+                    f,
+                    "reverted EVM execution cannot produce a committed state delta"
+                )
+            }
+            Self::ExecutionHalted => {
+                write!(
+                    f,
+                    "halted EVM execution cannot produce a committed state delta"
+                )
+            }
         }
     }
 }
@@ -69,8 +88,8 @@ impl std::error::Error for RevmStateDiffError {}
 /// `EvmStateStore::apply` or the persistent adapter's equivalent checks.
 ///
 /// This function does not settle fees, create receipts, select a fork, or
-/// authorize a transaction. Reverted/failed execution results must not be
-/// passed here as committed state.
+/// authorize a transaction. Prefer `extract_successful_revm_result_delta` so
+/// revert and halt outcomes are structurally rejected before extraction.
 pub fn extract_revm_state_delta(
     parent: &EvmStateSnapshot,
     state: &EvmState,
@@ -171,12 +190,28 @@ pub fn extract_revm_state_delta(
     })
 }
 
+/// Extract a state delta only from a revm transaction result marked successful.
+///
+/// This wrapper binds the execution outcome and state in one revm result value.
+/// Revert and halt outcomes are rejected before the state map is inspected.
+pub fn extract_successful_revm_result_delta(
+    parent: &EvmStateSnapshot,
+    execution: &ExecResultAndState<ExecutionResult, EvmState>,
+) -> Result<EvmStateDelta, RevmStateDiffError> {
+    match &execution.result {
+        ExecutionResult::Success { .. } => extract_revm_state_delta(parent, &execution.state),
+        ExecutionResult::Revert { .. } => Err(RevmStateDiffError::ExecutionReverted),
+        ExecutionResult::Halt { .. } => Err(RevmStateDiffError::ExecutionHalted),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{EvmStateStore, SnapshotLimits};
     use revm::{
-        primitives::{Address, U256},
+        context_interface::result::{HaltReason, Output, ResultGas, SuccessReason},
+        primitives::{Address, Bytes, U256},
         state::{Account, AccountInfo, Bytecode, EvmStorageSlot, TransactionId},
     };
 
@@ -258,6 +293,57 @@ mod tests {
             extract_revm_state_delta(&parent, &state),
             Err(RevmStateDiffError::StorageParentMismatch(_, _))
         ));
+    }
+
+    #[test]
+    fn success_gated_result_extracts_state() {
+        let (parent, state) = parent_and_state();
+        let execution = ExecResultAndState::new(
+            ExecutionResult::Success {
+                reason: SuccessReason::Stop,
+                gas: ResultGas::default(),
+                logs: Vec::new(),
+                output: Output::Call(Bytes::new()),
+            },
+            state,
+        );
+        let delta = extract_successful_revm_result_delta(&parent, &execution).unwrap();
+        assert_eq!(delta.parent_state_version, 17);
+        assert_eq!(delta.storage_updates.len(), 1);
+    }
+
+    #[test]
+    fn reverted_result_cannot_produce_a_state_delta() {
+        let (parent, state) = parent_and_state();
+        let execution = ExecResultAndState::new(
+            ExecutionResult::Revert {
+                gas: ResultGas::default(),
+                logs: Vec::new(),
+                output: Bytes::new(),
+            },
+            state,
+        );
+        assert_eq!(
+            extract_successful_revm_result_delta(&parent, &execution),
+            Err(RevmStateDiffError::ExecutionReverted)
+        );
+    }
+
+    #[test]
+    fn halted_result_cannot_produce_a_state_delta() {
+        let (parent, state) = parent_and_state();
+        let execution = ExecResultAndState::new(
+            ExecutionResult::Halt {
+                reason: HaltReason::NotActivated,
+                gas: ResultGas::default(),
+                logs: Vec::new(),
+            },
+            state,
+        );
+        assert_eq!(
+            extract_successful_revm_result_delta(&parent, &execution),
+            Err(RevmStateDiffError::ExecutionHalted)
+        );
     }
 
     #[test]

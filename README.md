@@ -31,9 +31,11 @@
 
 **Phase 19H — commit ambiguity and orphaned-version recovery tests (merged).** PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`; PR CI #42390234287 and post-merge CI #42390288716 passed. Adds test-only pre-commit failure, lost-acknowledgement-after-commit and orphaned-future-version tests. These validate reopen reconciliation semantics but do not simulate OS crash, power loss or device I/O faults.
 
-**Phase 19I — revm state-diff extraction (PR #31; CI #42391470992 passed, review pending).** Adds `crates/apex-evm/src/state_diff.rs`, which converts revm `EvmState` into deterministic APEX account/code/storage deltas bound to the exact parent `StateVersion`. It checks supplied bytecode hashes and collisions, validates revm original storage values against the parent, and leaves publication to the existing atomic apply boundary. Selfdestruct/account deletion fails closed until fork-specific semantics are ratified. Tests exercise constructed revm state values; they are not official execution fixtures or a complete transaction-to-state integration. The caller must pass only successful execution state; the API does not yet accept a success-gated transaction result type.
+**Phase 19I — revm state-diff extraction (merged).** PR #31 merged at `1682c0d81502c4d5905f9f97c466af8e71383519`; PR CI #42391544055 and post-merge CI #42391594192 passed. The adapter converts revm `EvmState` into deterministic, parent-version-bound APEX account/code/storage deltas, validates bytecode hashes and storage originals, and rejects fork-sensitive account deletion. Adds `crates/apex-evm/src/state_diff.rs`, which converts revm `EvmState` into deterministic APEX account/code/storage deltas bound to the exact parent `StateVersion`. It checks supplied bytecode hashes and collisions, validates revm original storage values against the parent, and leaves publication to the existing atomic apply boundary. Selfdestruct/account deletion fails closed until fork-specific semantics are ratified. Tests exercise constructed revm state values; they are not official execution fixtures or a complete transaction-to-state integration. The caller must pass only successful execution state; the API does not yet accept a success-gated transaction result type.
 
-**Phase 19 — remaining work.** Explicit fork/block context, success-gated transaction execution, canonical transaction authentication, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 19J — success-gated revm outcomes (PR #32; CI #42391906701 passed, review pending).** Adds `extract_successful_revm_result_delta` over revm's paired result/state value. Only `ExecutionResult::Success` is eligible for extraction; `Revert` and `Halt` are rejected before state translation. This does not authenticate the transaction or settle fees.
+
+**Phase 19 — remaining work.** Explicit validated block context, fork selection/activation, canonical transaction authentication, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -66,7 +68,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0033
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0034
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
