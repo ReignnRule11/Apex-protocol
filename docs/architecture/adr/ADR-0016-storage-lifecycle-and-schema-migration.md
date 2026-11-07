@@ -1,6 +1,6 @@
 # ADR-0016: Storage Lifecycle and Schema Migration
 
-- **Status:** Proposed for review
+- **Status:** Accepted for prototype implementation; production approval withheld
 - **Date:** 2026-11-07
 
 ## Context
