@@ -145,7 +145,7 @@ where
 pub async fn run_channels_finality_gate<Ctx, App, Other, OtherFuture>(
     channels: &mut Channels<Ctx>,
     app: &mut App,
-    mut handle_other: Other,
+    handle_other: Other,
 ) -> Result<(), ChannelsClosed>
 where
     Ctx: Context,
@@ -187,12 +187,13 @@ pub struct ChannelsClosed;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::native_finality_bridge::ApexBlockIdentity;
     use malachitebft_app_channel::app::types::{
         MisbehaviorEvidence,
-        core::{CommitCertificate, Height, HeightParams, LinearTimeouts, Round, ValueId, VoteExtensions},
+        core::{CommitCertificate, HeightParams, LinearTimeouts, Round, VoteExtensions},
     };
     use malachitebft_engine::host::Next;
-    use malachitebft_test::{Height as TestHeight, PrivateKey, TestContext, Validator, ValidatorSet};
+    use malachitebft_test::{Height as TestHeight, PrivateKey, TestContext, Validator, ValidatorSet, ValueId};
     use rand::{SeedableRng, rngs::StdRng};
     use tokio::sync::oneshot;
 
