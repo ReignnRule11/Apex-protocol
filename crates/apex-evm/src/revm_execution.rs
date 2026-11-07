@@ -43,7 +43,7 @@ mod tests {
         EvmAddress, SnapshotLimits, U256Word,
     };
     use apex_types::ChainId256;
-    use revm::{context_interface::Block, primitives::hardfork::SpecId};
+    use revm::{context_interface::{Block, JournalTr}, primitives::hardfork::SpecId};
 
     fn environment() -> RevmExecutionEnvironment {
         let fork_id = ForkId::from_bytes([0x19; 32]);
@@ -88,7 +88,8 @@ mod tests {
 
     #[test]
     fn builder_installs_the_exact_apex_cfg_and_block_environment() {
-        let mut evm = build_revm_evm(&empty_snapshot(), environment());
+        let snapshot = empty_snapshot();
+        let evm = build_revm_evm(&snapshot, environment());
 
         assert_eq!(evm.ctx.cfg.chain_id, 77);
         assert_eq!(evm.ctx.cfg.spec(), SpecId::SHANGHAI);
