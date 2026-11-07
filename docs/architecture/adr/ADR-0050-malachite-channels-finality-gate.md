@@ -10,3 +10,9 @@
 - **Isolation:** The new direct engine dependency remains inside `experiments/malachite-spike`; the production Cargo workspace is unchanged.
 - **Non-decisions:** No production consensus selection, validator governance, key custody, cross-system atomic commit protocol, restart recovery, network security or BFT safety/liveness claim is approved.
 - **Consequence:** The next subphase must supply deterministic channel-level tests and a concrete APEX value/validator mapping implementation before a live multi-validator integration is attempted.
+
+
+
+## Phase 20G2C4 follow-up
+
+ADR-0051 records deterministic tests added for callback ordering, the actual consensus receiver, acknowledgement failure paths, finalized commit/restart behavior, overflow and closure. These are control-flow tests with test-only context and verified-token fixtures; they do not constitute a production implementation or independent BFT assurance.

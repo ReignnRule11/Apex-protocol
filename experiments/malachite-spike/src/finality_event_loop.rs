@@ -8,6 +8,8 @@
 use core::future::Future;
 use core::pin::Pin;
 
+use tokio::sync::mpsc;
+
 use malachitebft_app_channel::{
     AppMsg, Channels,
     app::types::core::{CommitCertificate, Context, Height, HeightParams},
@@ -151,7 +153,24 @@ where
     Other: FnMut(AppMsg<Ctx>) -> OtherFuture,
     OtherFuture: Future<Output = Result<(), ()>> + Send,
 {
-    while let Some(message) = channels.consensus.recv().await {
+    run_finality_receiver(&mut channels.consensus, app, handle_other).await
+}
+
+/// Drive the same receiver type exposed by Malachite's Channels. Extracted so
+/// deterministic tests can exercise queued messages and closure without
+/// constructing unrelated network, event and request actors.
+async fn run_finality_receiver<Ctx, App, Other, OtherFuture>(
+    receiver: &mut mpsc::Receiver<AppMsg<Ctx>>,
+    app: &mut App,
+    mut handle_other: Other,
+) -> Result<(), ChannelsClosed>
+where
+    Ctx: Context,
+    App: FinalityApplication<Ctx>,
+    Other: FnMut(AppMsg<Ctx>) -> OtherFuture,
+    OtherFuture: Future<Output = Result<(), ()>> + Send,
+{
+    while let Some(message) = receiver.recv().await {
         if let GateDispatch::Unhandled(other) =
             handle_finality_message(message, app).await
         {
@@ -168,10 +187,156 @@ pub struct ChannelsClosed;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use malachitebft_app_channel::app::types::{
+        MisbehaviorEvidence,
+        core::{CommitCertificate, Height, HeightParams, LinearTimeouts, Round, ValueId, VoteExtensions},
+    };
+    use malachitebft_engine::host::Next;
+    use malachitebft_test::{Height as TestHeight, PrivateKey, TestContext, Validator, ValidatorSet};
+    use rand::{SeedableRng, rngs::StdRng};
+    use tokio::sync::oneshot;
 
-    #[test]
-    fn height_overflow_is_detected_before_finalized_commit() {
-        assert_eq!(7_u64.checked_add(1), Some(8));
-        assert_eq!(u64::MAX.checked_add(1), None);
+    fn identity(height: u64) -> ApexBlockIdentity {
+        ApexBlockIdentity { chain_id: [1; 32], protocol_version: 1, height, parent_hash: [2; 32], block_hash: [3; 32] }
+    }
+    fn certificate(height: u64) -> CommitCertificate<TestContext> {
+        CommitCertificate::new(TestHeight::new(height), Round::new(0), ValueId::new(9), Vec::new())
+    }
+    fn extensions() -> VoteExtensions<TestContext> { VoteExtensions::new(Default::default()) }
+    fn evidence() -> MisbehaviorEvidence<TestContext> {
+        MisbehaviorEvidence { proposals: Default::default(), votes: Default::default() }
+    }
+    fn params() -> HeightParams<TestContext> {
+        let mut rng = StdRng::seed_from_u64(0xA0E_204);
+        let key = PrivateKey::generate(&mut rng);
+        let validator_set = ValidatorSet::new([Validator::new(key.public_key(), 1)]);
+        HeightParams::new(validator_set, LinearTimeouts::default(), None)
+    }
+
+    #[derive(Debug)]
+    struct TestApplication {
+        events: Vec<&'static str>,
+        verify_ok: bool,
+        stage_ok: bool,
+        commit_ok: bool,
+        restart_ok: bool,
+        verified_height: u64,
+    }
+    impl Default for TestApplication {
+        fn default() -> Self {
+            Self { events: Vec::new(), verify_ok: true, stage_ok: true, commit_ok: true, restart_ok: true, verified_height: 7 }
+        }
+    }
+    impl FinalityApplication<TestContext> for TestApplication {
+        fn verify_certificate<'a>(&'a mut self, _certificate: &'a CommitCertificate<TestContext>) -> GateFuture<'a, VerifiedNativeFinality> {
+            self.events.push("verify");
+            let ok = self.verify_ok;
+            let token = VerifiedNativeFinality::test_only(identity(self.verified_height));
+            Box::pin(async move { if ok { Ok(token) } else { Err(()) } })
+        }
+        fn stage_decided<'a>(&'a mut self, _verified: &'a VerifiedNativeFinality) -> GateFuture<'a, ()> {
+            self.events.push("stage");
+            let ok = self.stage_ok;
+            Box::pin(async move { if ok { Ok(()) } else { Err(()) } })
+        }
+        fn commit_finalized<'a>(&'a mut self, _verified: &'a VerifiedNativeFinality) -> GateFuture<'a, HeightParams<TestContext>> {
+            self.events.push("commit");
+            let ok = self.commit_ok;
+            Box::pin(async move { if ok { Ok(params()) } else { Err(()) } })
+        }
+        fn restart_params<'a>(&'a mut self, _height: Height) -> GateFuture<'a, HeightParams<TestContext>> {
+            self.events.push("restart");
+            let ok = self.restart_ok;
+            Box::pin(async move { if ok { Ok(params()) } else { Err(()) } })
+        }
+    }
+
+    #[tokio::test]
+    async fn decided_is_staged_before_ack_and_never_commits_or_advances() {
+        let mut app = TestApplication::default();
+        let (reply, acknowledged) = oneshot::channel();
+        let msg = AppMsg::Decided { certificate: certificate(7), extensions: extensions(), reply };
+        assert!(matches!(handle_finality_message(msg, &mut app).await, GateDispatch::Handled));
+        acknowledged.await.expect("Decided acknowledgement");
+        assert_eq!(app.events, ["verify", "stage"]);
+    }
+
+    #[tokio::test]
+    async fn decided_verification_and_staging_failures_drop_acknowledgement() {
+        for mut app in [
+            TestApplication { verify_ok: false, ..Default::default() },
+            TestApplication { stage_ok: false, ..Default::default() },
+        ] {
+            let (reply, acknowledged) = oneshot::channel();
+            let msg = AppMsg::Decided { certificate: certificate(7), extensions: extensions(), reply };
+            handle_finality_message(msg, &mut app).await;
+            assert!(acknowledged.await.is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn finalized_commits_before_next_height_start() {
+        let mut app = TestApplication::default();
+        let (reply, response) = oneshot::channel();
+        let msg = AppMsg::Finalized { certificate: certificate(7), extensions: extensions(), evidence: evidence(), reply };
+        handle_finality_message(msg, &mut app).await;
+        assert!(matches!(response.await.expect("Finalized response"), Next::Start(h, _) if h.as_u64() == 8));
+        assert_eq!(app.events, ["verify", "commit"]);
+    }
+
+    #[tokio::test]
+    async fn finalized_commit_failure_restarts_current_height() {
+        let mut app = TestApplication { commit_ok: false, ..Default::default() };
+        let (reply, response) = oneshot::channel();
+        let msg = AppMsg::Finalized { certificate: certificate(7), extensions: extensions(), evidence: evidence(), reply };
+        handle_finality_message(msg, &mut app).await;
+        assert!(matches!(response.await.expect("restart response"), Next::Restart(h, _) if h.as_u64() == 7));
+        assert_eq!(app.events, ["verify", "commit", "restart"]);
+    }
+
+    #[tokio::test]
+    async fn finalized_verification_and_identity_height_failures_never_commit() {
+        for mut app in [
+            TestApplication { verify_ok: false, ..Default::default() },
+            TestApplication { verified_height: 8, ..Default::default() },
+        ] {
+            let (reply, response) = oneshot::channel();
+            let msg = AppMsg::Finalized { certificate: certificate(7), extensions: extensions(), evidence: evidence(), reply };
+            handle_finality_message(msg, &mut app).await;
+            assert!(matches!(response.await.expect("restart response"), Next::Restart(h, _) if h.as_u64() == 7));
+            assert!(!app.events.contains(&"commit"));
+        }
+    }
+
+    #[tokio::test]
+    async fn restart_parameter_failure_drops_finalized_reply() {
+        let mut app = TestApplication { commit_ok: false, restart_ok: false, ..Default::default() };
+        let (reply, response) = oneshot::channel();
+        let msg = AppMsg::Finalized { certificate: certificate(7), extensions: extensions(), evidence: evidence(), reply };
+        handle_finality_message(msg, &mut app).await;
+        assert!(response.await.is_err());
+    }
+
+    #[tokio::test]
+    async fn height_overflow_cannot_start_next_height() {
+        let mut app = TestApplication::default();
+        let (reply, response) = oneshot::channel();
+        let msg = AppMsg::Finalized { certificate: certificate(u64::MAX), extensions: extensions(), evidence: evidence(), reply };
+        handle_finality_message(msg, &mut app).await;
+        assert!(matches!(response.await.expect("restart response"), Next::Restart(h, _) if h.as_u64() == u64::MAX));
+        assert_eq!(app.events, ["restart"]);
+    }
+
+    #[tokio::test]
+    async fn actual_consensus_receiver_processes_decided_before_closure() {
+        let mut app = TestApplication::default();
+        let (sender, mut receiver) = mpsc::channel(1);
+        let (reply, acknowledged) = oneshot::channel();
+        sender.send(AppMsg::Decided { certificate: certificate(7), extensions: extensions(), reply }).await.expect("enqueue");
+        drop(sender);
+        let result = run_finality_receiver(&mut receiver, &mut app, |_other| async { Ok(()) }).await;
+        assert_eq!(result, Err(ChannelsClosed));
+        acknowledged.await.expect("channel acknowledgement");
+        assert_eq!(app.events, ["verify", "stage"]);
     }
 }

@@ -54,6 +54,12 @@ pub struct VerifiedNativeFinality {
 }
 
 impl VerifiedNativeFinality {
+    /// Construct a verified token only inside deterministic gate tests.
+    #[cfg(test)]
+    pub(crate) fn test_only(identity: ApexBlockIdentity) -> Self {
+        Self { identity, native_height: identity.height, native_round: Round::new(0) }
+    }
+
     pub const fn identity(&self) -> ApexBlockIdentity {
         self.identity
     }

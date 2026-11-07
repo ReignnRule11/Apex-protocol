@@ -97,10 +97,10 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
     ├── experiments/
-    │   ├── malachite-spike/          # Pinned Malachite API, EngineBuilder and finality event-loop gate
+    │   ├── malachite-spike/          # Pinned Malachite API, EngineBuilder and tested finality event-loop gate
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0050
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0051
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -125,3 +125,10 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
 No token is being offered. No investment or return is promised. No production network is available. Do not use this software to custody funds or secure production assets.
 
 No license has been selected. All rights are reserved unless and until a license is added.
+
+
+## Phase 20G2C4 — deterministic Malachite channel finality tests (submitted)
+
+Adds deterministic tests against the pinned upstream `AppMsg`, `CommitCertificate`, `Next`, and consensus receiver types. Coverage verifies that `Decided` is acknowledged only after successful staging and never commits or advances; verification/staging failures drop the acknowledgement; `Finalized` sends the next-height start only after verification and commit; commit or identity/verification failures request restart; restart-parameter failure drops the reply; height overflow cannot start the next height; and the actual consensus receiver processes a queued decision before reporting channel closure. Test-only context and verified-token construction remain isolated to the spike. No live engine, cryptographic certificate, canonical APEX decoder, durable database or production application is exercised. G2 remains BLOCKED.
+
+See `docs/protocol/phase-20g2c4-channel-finality-tests.md` and ADR-0051.
