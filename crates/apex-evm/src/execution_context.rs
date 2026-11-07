@@ -44,11 +44,7 @@ pub struct ForkActivation {
 }
 
 impl ForkActivation {
-    pub const fn new(
-        activation_height: u64,
-        fork_id: ForkId,
-        requires_prevrandao: bool,
-    ) -> Self {
+    pub const fn new(activation_height: u64, fork_id: ForkId, requires_prevrandao: bool) -> Self {
         Self {
             activation_height,
             fork_id,
