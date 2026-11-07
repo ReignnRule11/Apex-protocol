@@ -661,7 +661,9 @@ mod tests {
 
         assert_eq!(
             RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
-            Some(PersistentEvmStateError::UnsupportedSchema(SCHEMA_VERSION + 1))
+            Some(PersistentEvmStateError::UnsupportedSchema(
+                SCHEMA_VERSION + 1
+            ))
         );
     }
 
