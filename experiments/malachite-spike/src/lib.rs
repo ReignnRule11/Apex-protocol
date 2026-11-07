@@ -14,7 +14,6 @@ pub const MALACHITE_RELEASE: &str = "0.8.2";
 /// Immutable upstream commit corresponding to the signed v0.8.2 tag.
 pub const MALACHITE_REVISION: &str = "a453b32155f4ba9f959724279b52f601bae92e09";
 
-
 /// Build a real Malachite v0.8.2 engine using the upstream channel-based
 /// application API. This is an isolated integration adapter: callers still
 /// own configuration, key custody, network identity, codecs, application
@@ -48,4 +47,5 @@ where
         .await
 }
 
+pub mod finality_event_loop;
 pub mod native_finality_bridge;
