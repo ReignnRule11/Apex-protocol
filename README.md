@@ -45,7 +45,7 @@
 
 **Phase 20G1 — pinned Malachite EngineBuilder adapter (implementation submitted for exact-head CI).** Extends the isolated Malachite v0.8.2 research workspace with a typed adapter that calls the real upstream `EngineBuilder` and requires the upstream WAL, network, consensus, sync and request actors/codecs. It is compiled against the exact pinned commit and remains outside the production Cargo workspace. This phase does not instantiate an engine, start validators, open sockets, create signing keys, run the APEX application loop, validate APEX certificates, or commit finalized application state. Those are subsequent integration gates. See `docs/protocol/phase-20g1-malachite-engine-builder-adapter.md` and ADR-0045.
 
-**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 20G2A — canonical consensus signing preimage (implementation submitted).** Adds a fixed-width, big-endian, domain-separated signing preimage binding chain ID, protocol version, height, round, step, signer identity, validator-set hash and block hash. Nil votes are permitted for prevote/precommit; nil proposals are rejected. This constructs bytes only: no signature algorithm, public-key binding, signature verification, certificate validation or ratified wire profile is provided. See docs/protocol/phase-20g2a-canonical-consensus-message.md and ADR-0046.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -69,7 +69,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
-    │   │   ├── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
+    │   │   ├── src/consensus_message.rs     # Experimental domain-separated signing preimage\n    │   │   ├── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
     │   │   └── src/validator_set.rs        # Deterministic validator-set/lifecycle primitives
     │   ├── apex-evm/
     │   │   ├── execution_context.rs

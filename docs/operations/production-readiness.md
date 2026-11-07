@@ -63,7 +63,7 @@ In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressi
 
 **20G1 — pinned Malachite EngineBuilder adapter (implementation submitted for exact-head CI).** The isolated `experiments/malachite-spike` workspace now contains a generic, typed adapter that invokes the real v0.8.2 `EngineBuilder::build` API with upstream WAL, network, consensus, sync and request contexts. The adapter is compile-checked against the exact upstream commit and does not add Malachite to the APEX production workspace. It is not an engine runtime test: no engine is started, no socket or validator key is created, no APEX application event loop is attached, and no finality certificate is authenticated or committed. G2 remains BLOCKED. The next subphase must supply an APEX-specific application and signer/network boundary, then run actual multi-validator integration tests before any production adoption. See the Phase 20G1 record and ADR-0045.
 
-Production adoption remains blocked until the complete suite, recovery/signing safety and independent review pass.
+**20G2A — canonical consensus signing preimage (implementation submitted).** Adds an experimental fixed-width preimage codec binding chain ID, protocol version, height, round, step, signer identity, validator-set hash and block hash. It does not implement signing or verification, bind signer identity to a public key, verify certificates, or ratify the profile. G2 remains BLOCKED.\n\nProduction adoption remains blocked until the complete suite, recovery/signing safety and independent review pass.
 
 ### Phase 21 — P2P networking and node services
 Implement versioned libp2p, peer identity, discovery, gossip/sync, quotas, DoS controls, mempool and block pipeline.
