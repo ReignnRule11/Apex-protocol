@@ -171,10 +171,25 @@ mod tests {
             BTreeMap::from([
                 (
                     AccountId(1),
-                    AccountState { nonce: 0, balance: 1_000_000 },
+                    AccountState {
+                        nonce: 0,
+                        balance: 1_000_000,
+                    },
                 ),
-                (AccountId(2), AccountState { nonce: 0, balance: 500 }),
-                (AccountId(3), AccountState { nonce: 0, balance: 700 }),
+                (
+                    AccountId(2),
+                    AccountState {
+                        nonce: 0,
+                        balance: 500,
+                    },
+                ),
+                (
+                    AccountId(3),
+                    AccountState {
+                        nonce: 0,
+                        balance: 700,
+                    },
+                ),
             ]),
         )
     }
@@ -226,7 +241,10 @@ mod tests {
         let after = s.snapshot().unwrap();
         assert_eq!(
             after.account(AccountId(1)).unwrap(),
-            AccountState { nonce: 2, balance: 957_700 }
+            AccountState {
+                nonce: 2,
+                balance: 957_700
+            }
         );
         assert_eq!(after.account(AccountId(2)).unwrap().balance, 600);
         assert_eq!(after.account(AccountId(3)).unwrap().balance, 900);

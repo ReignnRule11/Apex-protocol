@@ -132,13 +132,18 @@ impl StateStore for RedbStateStore {
         let write = self.db.begin_write().map_err(backend)?;
         let current_version = {
             let meta = write.open_table(META).map_err(backend)?;
-            let schema = meta.get(META_SCHEMA_KEY).map_err(backend)?
-                .ok_or(StateStoreError::Uninitialized)?.value();
+            let schema = meta
+                .get(META_SCHEMA_KEY)
+                .map_err(backend)?
+                .ok_or(StateStoreError::Uninitialized)?
+                .value();
             if schema != SCHEMA_VERSION {
                 return Err(StateStoreError::UnsupportedSchema(schema));
             }
-            meta.get(META_STATE_VERSION_KEY).map_err(backend)?
-                .ok_or(StateStoreError::CorruptMetadata)?.value()
+            meta.get(META_STATE_VERSION_KEY)
+                .map_err(backend)?
+                .ok_or(StateStoreError::CorruptMetadata)?
+                .value()
         };
 
         if plan.parent_version != StateVersion(current_version) {
@@ -336,7 +341,8 @@ mod tests {
     fn late_before_state_mismatch_aborts_without_partial_writes() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("state.redb");
-        let mut store = RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
+        let mut store =
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
         let mut invalid = plan(&store);
         invalid.transition.account_updates[1].before.balance += 1;
         let before = store.snapshot().unwrap();
@@ -351,8 +357,7 @@ mod tests {
     fn existing_database_is_never_reinitialized_from_new_genesis_input() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("state.redb");
-        let first =
-            RedbStateStore::open_or_initialize(&path, StateVersion(8), &genesis()).unwrap();
+        let first = RedbStateStore::open_or_initialize(&path, StateVersion(8), &genesis()).unwrap();
         drop(first);
         let second =
             RedbStateStore::open_or_initialize(&path, StateVersion(99), &BTreeMap::new()).unwrap();
