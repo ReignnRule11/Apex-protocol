@@ -13,24 +13,40 @@ pub const REVM_CANDIDATE_VERSION: &str = "43.0.3";
 #[cfg(test)]
 mod tests {
     use revm::{
+        ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
         bytecode::opcode,
         context::{Context, TxEnv},
         context_interface::result::{ExecutionResult, Output},
         database::CacheDB,
         database_interface::EmptyDB,
         primitives::{Bytes, StorageValue, TxKind, U256},
-        ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
     };
 
     // Minimal init code: copy the final byte into memory and store it in slot 0.
     const INIT_CODE: &[u8] = &[
-        opcode::PUSH1, 0x01, opcode::PUSH1, 0x17, opcode::PUSH1, 0x1f,
-        opcode::CODECOPY, opcode::PUSH0, opcode::MLOAD, opcode::PUSH0,
+        opcode::PUSH1,
+        0x01,
+        opcode::PUSH1,
+        0x17,
+        opcode::PUSH1,
+        0x1f,
+        opcode::CODECOPY,
+        opcode::PUSH0,
+        opcode::MLOAD,
+        opcode::PUSH0,
         opcode::SSTORE,
     ];
     const RETURN_RUNTIME: &[u8] = &[
-        opcode::PUSH1, 0x02, opcode::PUSH1, 0x15, opcode::PUSH0,
-        opcode::CODECOPY, opcode::PUSH1, 0x02, opcode::PUSH0, opcode::RETURN,
+        opcode::PUSH1,
+        0x02,
+        opcode::PUSH1,
+        0x15,
+        opcode::PUSH0,
+        opcode::CODECOPY,
+        opcode::PUSH1,
+        0x02,
+        opcode::PUSH0,
+        opcode::RETURN,
     ];
     const RUNTIME_BYTECODE: &[u8] = &[opcode::PUSH0, opcode::SLOAD];
 
