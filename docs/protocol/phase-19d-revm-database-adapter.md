@@ -1,11 +1,11 @@
 # Phase 19D — revm database trait adapter
 
-**Status:** Implementation submitted for CI validation.
+**Status:** Merged; PR #24 and post-merge CI passed.
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
 
-Connect the immutable Phase 19C EVM state view to the exact pinned revm 43.0.3 Database trait. The adapter must preserve full-width values, keep reads bound to one parent snapshot, and fail closed when code is absent or malformed.
+Connect the immutable Phase 19C EVM state view to the exact pinned revm 43.0.3 Database trait. The adapter preserves full-width values, keeps reads bound to one parent snapshot, and fails closed when code is absent or malformed.
 
 ## Implementation
 
@@ -16,7 +16,14 @@ Connect the immutable Phase 19C EVM state view to the exact pinned revm 43.0.3 D
 - Returns a fatal typed error for missing code hashes and malformed bytecode; it never substitutes empty code.
 - Reads block hashes from the same snapshot and returns zero for unavailable entries.
 - Keeps the adapter read-only; revm state changes are not committed to APEX state by this phase.
-- Tests the trait-facing conversion, missing account behavior, storage, block hashes and malformed/missing code.
+
+## Validation
+
+PR #24: https://github.com/ReignnRule11/Apex-protocol/pull/24
+PR CI: https://github.com/ReignnRule11/Apex-protocol/actions/runs/42386866316
+Post-merge CI: https://github.com/ReignnRule11/Apex-protocol/actions/runs/42386927064
+
+Both checks completed successfully.
 
 ## Trust and correctness boundaries
 
@@ -24,17 +31,8 @@ The adapter trusts the snapshot's code-hash-to-bytecode association. It does not
 
 The adapter uses the immutable Phase 19C snapshot; it does not touch the legacy AccountId(u64)/u128 redb store.
 
-## Deliberate non-goals
+## Next phase
 
-- Mutable revm database commit or atomic state-diff persistence.
-- Full-width persistent database schema or migration.
-- Canonical account/storage serialization or complete state commitment.
-- Transaction authentication, nonce admission, EIP-1559 fees, receipts or logs.
-- Ratified EVM fork, execution context, official fixture suite or differential client tests.
-- Production readiness or security audit.
-
-## Validation and next work
-
-CI must pass Format, Clippy and workspace tests. The next phase should define a full-width state-diff representation and atomic application boundary, then add explicit execution context and fork-specific conformance tests.
+Phase 19E defines ordered before/after account, code and storage updates and an all-or-nothing in-memory application boundary. See phase-19e-atomic-evm-state-delta.md and ADR-0029.
 
 **G1 remains BLOCKED. Release decision: NO-GO.**

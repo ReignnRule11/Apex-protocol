@@ -1,6 +1,6 @@
 # Phase 19 — Deterministic EVM Execution and Fee Accounting
 
-**Status:** revm 43.0.3 candidate pinned; execution harness, full-width state model and revm read adapter implemented in staged phases.
+**Status:** revm 43.0.3 candidate pinned; execution harness, full-width state model, revm read adapter and atomic in-memory delta application staged.
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
@@ -19,25 +19,24 @@ Implement a deterministic EVM execution subsystem for the proposed initial EIP-1
 ## Progress
 
 ### 19A — dependency and toolchain compatibility
-
-The initial Rust 1.90.0 CI attempt failed because the revm 43.0.3 dependency graph declares a Rust 1.91.0 minimum. The workspace metadata, rust-toolchain.toml and CI were aligned to Rust 1.91.0. PR #21 and post-merge CI passed.
+PR #21 and post-merge CI passed for the exact revm 43.0.3 candidate under Rust 1.91.0.
 
 ### 19B — minimal execution API harness
-
-A test-only fixture deploys a small contract into a fresh revm in-memory database, commits its creation, calls it, and checks a known storage value. A second fresh run checks repeatability of the observed output. PR #22 and post-merge CI passed.
+PR #22 and post-merge CI passed. A test-only fixture deploys a contract, commits creation, calls it and checks a known storage value.
 
 ### 19C — full-width state model and immutable read boundary
-
-Introduces 20-byte addresses, 256-bit balances/storage words, bytecode references, caller-bounded snapshots and a version-bound immutable database view. PR #23 and post-merge CI passed. The model remains independent of persistent storage and does not itself define a complete state root.
+PR #23 and post-merge CI passed. Adds 20-byte addresses, 256-bit balances/storage words, bytecode references and caller-bounded immutable snapshots.
 
 ### 19D — revm Database trait adapter
+PR #24 and post-merge CI passed. Implements revm Database over the immutable snapshot, with lossless full-width conversions and typed fail-closed errors for missing/malformed code. It is read-only.
 
-Implements revm 43.0.3 Database over the immutable snapshot. It converts full-width account and storage values, loads bytecode by hash using revm's checked constructor, returns typed errors for missing/malformed code, and resolves block hashes from the same snapshot. The adapter is read-only; no DatabaseCommit or persistent state-diff application is implemented. See phase-19d-revm-database-adapter.md and ADR-0028.
+### 19E — atomic full-width EVM state deltas
+Introduces ordered before/after account, code and storage updates bound to a parent version. A process-local in-memory store validates all preconditions and the complete resulting snapshot before publishing a replacement. It is not persistent, concurrent or crash-safe. See phase-19e-atomic-evm-state-delta.md and ADR-0029.
 
 ## Required next work
 
-1. Define a full-width EVM state-diff representation for account, code and storage updates.
-2. Design an atomic state-application boundary over a persistent full-width state backend, without coupling it to the legacy AccountId(u64)/u128 store.
+1. Design a persistent full-width state schema and atomic commit/recovery semantics.
+2. Connect actual revm execution state changes to the APEX EvmStateDelta representation.
 3. Define a typed explicit execution context supplied by validated block data: fork ID, block number, timestamp, gas limit, base fee, coinbase/fee recipient, chain ID and randomness/prevrandao fields where required. No host-derived values.
 4. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review.
 5. Implement canonical type-2 transaction decoding and signature recovery before treating sender identity as trusted.
