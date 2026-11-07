@@ -102,3 +102,19 @@ Require all previous gates, legal/license clearance, economic disclosures, gover
 
 
 **20G2B — authenticated consensus signatures and commit certificates (implementation submitted for exact-head CI).** Adds pinned ed25519-dalek 3.0.0 strict Ed25519 verification, public-key-derived validator IDs, canonical authenticated validator-set hashing, exact-height authenticated validator-set schedules, and precommit certificate verification against the scheduled set and caller-expected chain/protocol/height/round/block context. The verifier rejects malformed/weak keys, unknown/duplicate signers, mismatched context/set hashes, invalid signatures and insufficient quorum. It does not authenticate validator-set governance updates, define a canonical certificate wire decoder, connect to Malachite or gate application commits. G2 remains BLOCKED pending runtime integration, signer-key custody/recovery, fault testing and independent review. See the Phase 20G2B record and ADR-0047.
+
+
+### Phase 20G2C1 — Malachite-native finality bridge contract (submitted)
+
+The pinned v0.8.2 source audit establishes that Malachite emits its own `CommitCertificate<Ctx>` (height, round, value ID and native signatures), and exposes `VerifierExt::verify_commit_certificate` for native precommit signature and voting-power verification. The channel API separates early `Decided` from `Finalized`; the latter requires the application to respond with a next-height or restart decision.
+
+This is not cryptographically interchangeable with the APEX Phase 20G2A/20G2B profile. APEX's verifier checks signatures over `APEX-CONSENSUS-MSG-V1`; Malachite uses the context's native signing scheme. The integration must verify the native certificate natively, then independently bind its value to canonical APEX block bytes, recomputed block identity, chain ID, protocol version, parent and APEX validator-set context. The application must not advance on `Decided`, and must acknowledge `Finalized` only after successful durable commit.
+
+20G2C1 adds the reviewed contract and ADR only. No runtime bridge, canonical block codec, commit atomicity, signer rollback protection or BFT safety/liveness evidence is implemented. G2 remains BLOCKED. The next implementation subphase is 20G2C2, a compile-checked adapter against the exact pinned native APIs.
+
+
+## Current verified Phase 20 status (supersedes earlier submitted/pending labels)
+
+- **20G2B is merged and post-merge main CI passed** on merge commit `6b4abb3c08279ca91a554ee716dd0980a1b57dcd` (workflow #42413539395). It provides an experimental APEX-native Ed25519 certificate verifier, not Malachite-native finality.
+- **20G2C1 is the current submitted subphase.** It records the pinned Malachite native certificate/verifier API and the required APEX identity and commit ordering. It does not implement code or change release-gate status.
+- **G2 remains BLOCKED.** The actual runtime event loop, native certificate adapter, application commit gate, durable cross-system recovery, signer anti-rollback, multi-process adversarial testing and independent review remain outstanding.

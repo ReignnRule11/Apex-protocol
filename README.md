@@ -55,6 +55,10 @@
 
 The workspace also contains transaction admission/planning and a separate redb persistence prototype for the historical narrow state model. Neither database adapter is a production selection. There is no integrated BFT engine, validator networking, application-gated finality, block production or production finality. Certificate verification exists only as an isolated experimental primitive.
 
+## Phase 20G2C1 — Malachite-native finality bridge contract
+
+The pinned Malachite v0.8.2 API audit is recorded in `docs/protocol/phase-20g2c1-malachite-native-finality-bridge.md` and ADR-0048. Malachite's native commit certificate and APEX's Phase 20G2B certificate use different signing domains: the runtime must use Malachite's native `VerifierExt::verify_commit_certificate`, then separately bind the verified value to canonical APEX block identity, chain/version/parent and validator-set context. The application must not advance on `Decided`; it may acknowledge `Finalized` only after successful durable commit. This subphase is a documentation/API contract only; no runtime integration is claimed.
+
 ## Production release status
 
 **NO-GO — not production-ready.**
@@ -92,7 +96,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── malachite-spike/          # Pinned Malachite API + typed EngineBuilder adapter
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0047
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0048
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
