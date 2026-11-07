@@ -1,4 +1,4 @@
-# Transaction Admission — Phase 5
+# Transaction Admission and Transition Planning — Phase 6
 
 **Status:** static preflight and a minimal state-aware admission prototype are implemented. This is not full transaction validity.
 
@@ -20,7 +20,13 @@ The state provider must supply a stable view of the exact candidate parent state
 
 `AccountId(u64)` is an internal placeholder, not a canonical address. The sender field is untrusted until a selected signature algorithm and chain/version-bound signing domain authenticate it. The state lookup must not be treated as proof of sender ownership.
 
-Not implemented: signature verification, sender derivation, canonical transaction decoding, replay protection beyond the unauthenticated nonce comparison, intrinsic gas, recipient/code validation, access-list validation, transaction ordering, cumulative block gas accounting, state mutation, fee debit/refund, receipts, EVM execution, or consensus finality. The state trait does not provide persistence, snapshot isolation, or a state root.
+## Phase 6: pure transition planning
+
+`plan_transaction_transition` builds a deterministic, pure plan from the same caller-supplied parent-state view. It advances the sender nonce by one, debits the sender by value plus the maximum-fee upper bound, and credits an existing recipient by value. For a self-transfer, value nets to zero and only the maximum-fee upper bound is deducted. Recipient balance addition and nonce advancement are checked for overflow. A missing recipient is rejected; account creation semantics are not defined.
+
+The result contains before/after account values and the maximum-fee escrow amount. It does not mutate or persist state. The storage/application layer must atomically write every planned account update or write none. The plan's fee amount is a conservative escrow ceiling, not actual fee settlement; refunds and proposer/burn allocation remain undefined. This is not a complete block transition and does not establish transaction ordering or cumulative block gas accounting.
+
+Not implemented: signature verification, sender derivation, canonical transaction decoding, replay protection beyond the unauthenticated nonce comparison, intrinsic gas, contract creation, access-list validation, block-level transaction ordering, cumulative block gas accounting, durable atomic commit, state roots, receipts, fee settlement/refunds, EVM execution, or consensus finality. The state trait does not provide persistence, snapshot isolation, or a state root.
 
 Zero fee remains permitted until the monetary/fee policy is ratified. The block gas limit remains caller-supplied rather than a protocol constant.
 
@@ -35,4 +41,5 @@ Tests cover static checks and state-aware success, unknown sender, nonce mismatc
 3. Replace the placeholder account identifier with the approved address type.
 4. Bind state reads to an immutable, versioned parent-state snapshot.
 5. Specify nonce advancement, transaction ordering, intrinsic gas, cumulative block gas and fee settlement.
-6. Add replay, property, fuzz, persistence and cross-implementation tests before execution integration.
+6. Add block-level ordering and cumulative gas accounting, then define an atomic durable state-commit contract.
+7. Add replay, property, fuzz, persistence and cross-implementation tests before execution integration.
