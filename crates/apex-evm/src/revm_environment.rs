@@ -291,7 +291,8 @@ mod tests {
     fn rejects_post_merge_mapping_without_prevrandao() {
         let context = context(ChainId256::from_u64(1), U256Word::ZERO, None);
         assert_eq!(
-            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE)).unwrap_err(),
+            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE))
+                .unwrap_err(),
             RevmEnvironmentError::MissingPrevrandaoForPostMergeSpec(SpecId::MERGE)
         );
     }
