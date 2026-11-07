@@ -641,17 +641,12 @@ mod tests {
     fn reopen_rejects_incomplete_metadata_without_reinitializing() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("evm.redb");
-        drop(RedbEvmStateStore::open_or_initialize(
-            &path,
-            initial_snapshot(),
-            LIMITS,
-        ).unwrap());
+        drop(RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap());
 
         rewrite_metadata(&path, META_CURRENT_VERSION_KEY, None);
 
         assert_eq!(
-            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS)
-                .err(),
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
             Some(PersistentEvmStateError::CorruptMetadata)
         );
     }
@@ -660,17 +655,12 @@ mod tests {
     fn reopen_rejects_unsupported_schema_without_reinitializing() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("evm.redb");
-        drop(RedbEvmStateStore::open_or_initialize(
-            &path,
-            initial_snapshot(),
-            LIMITS,
-        ).unwrap());
+        drop(RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap());
 
         rewrite_metadata(&path, META_SCHEMA_KEY, Some(SCHEMA_VERSION + 1));
 
         assert_eq!(
-            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS)
-                .err(),
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
             Some(PersistentEvmStateError::UnsupportedSchema(SCHEMA_VERSION + 1))
         );
     }
@@ -679,11 +669,7 @@ mod tests {
     fn reopen_rejects_malformed_current_account_record() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("evm.redb");
-        drop(RedbEvmStateStore::open_or_initialize(
-            &path,
-            initial_snapshot(),
-            LIMITS,
-        ).unwrap());
+        drop(RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap());
 
         let db = Database::create(&path).unwrap();
         let write = db.begin_write().unwrap();
@@ -698,8 +684,7 @@ mod tests {
         drop(db);
 
         assert_eq!(
-            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS)
-                .err(),
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
             Some(PersistentEvmStateError::CorruptRecord("account"))
         );
     }
