@@ -1,6 +1,6 @@
 # ADR-0037: Build revm from Explicit APEX Inputs
 
-**Status:** Proposed pending PR validation and review
+**Status:** Implemented and merged; no production transaction pipeline claim
 **Date:** 2026-11-07
 
 ## Context
