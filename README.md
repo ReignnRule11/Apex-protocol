@@ -15,15 +15,17 @@
 
 ## Current engineering status
 
+**Phase 14 — canonical account encoding and state commitment prototype (implementation submitted for review; CI pending).** The new 38-byte account codec and SHA-256 Merkle commitment are limited to the current AccountId/nonce/balance model; this is not the complete protocol state root. See docs/protocol/phase-14-canonical-encoding-and-state-commitments.md.
+
 **Phase 13 — storage lifecycle and schema migration (merged; post-merge CI green).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors. See `docs/protocol/phase-13-storage-lifecycle-and-migration.md`.
 
 **Phase 12 — storage concurrency and failure-boundary engineering (merged; CI green).** The redb adapter now has concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation that verifies reopen/reconciliation prevents duplicate application. The injected faults are adapter-boundary simulations, not real disk-full or device-I/O fault injection. See docs/protocol/phase-12-concurrency-failure-engineering.md.
 
 The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. The Phase 10 PR's format, Clippy and workspace tests passed on the pinned toolchain. This is a contained evaluation, not production approval; multi-process modes are not enabled.
 
-The account record is a private 24-byte little-endian storage schema (u64 nonce + u128 balance). It is not protocol encoding or a consensus commitment. Canonical encoding remains undecided and the codec continues to fail closed. No state root or Merkle proof is implemented.
+The redb account record is a private 32-byte little-endian storage schema (u64 nonce + u128 balance + zero-reserved u64). It is not protocol encoding. Phase 14 adds a separate 38-byte canonical account-record v1 and an account-only SHA-256 Merkle root prototype. Neither is yet a complete APEX protocol state commitment; no membership/non-membership proof or consensus root activation is implemented.
 
-These remain research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, state roots, production consensus engine, validator networking, commit-certificate verification, block production or consensus finality.
+These remain research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, complete protocol state roots, production consensus engine, validator networking, commit-certificate verification, block production or consensus finality.
 
 Malachite remains a consensus research candidate, not an integrated or production-approved dependency. Consensus adoption requires separate dependency, fault-injection, adversarial testing and security review.
 
@@ -37,7 +39,10 @@ Apex-protocol/
 ├── crates/
 │   ├── apex-codec/
 │   │   ├── Cargo.toml
-│   │   └── src/lib.rs
+│   │   └── src/lib.rs                 # Canonical account-record v1 codec
+│   ├── apex-commitments/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs                 # Account-only SHA-256 Merkle root prototype
 │   ├── apex-consensus/
 │   │   ├── Cargo.toml
 │   │   └── src/lib.rs
@@ -70,7 +75,8 @@ Apex-protocol/
 │   │   ├── ADR-0013-redb-state-adapter.md
 │   │   ├── ADR-0014-storage-reliability-validation.md
 │   │   ├── ADR-0015-concurrency-and-ambiguous-commit.md
-│   │   └── ADR-0016-storage-lifecycle-and-schema-migration.md
+│   │   ├── ADR-0016-storage-lifecycle-and-schema-migration.md
+│   │   └── ADR-0017-canonical-account-commitments.md
 │   ├── protocol/
 │   │   ├── bitcoin-anchoring.md
 │   │   ├── consensus-adapter-contract.md
@@ -84,7 +90,8 @@ Apex-protocol/
 │   │   ├── phase-10-redb-storage-spike.md
 │   │   ├── phase-11-storage-reliability.md
 │   │   ├── phase-12-concurrency-failure-engineering.md
-│   │   └── phase-13-storage-lifecycle-and-migration.md
+│   │   ├── phase-13-storage-lifecycle-and-migration.md
+│   │   ├── phase-14-canonical-encoding-and-state-commitments.md
 │   │   ├── protocol-spec-v0.1.md
 │   │   ├── state-commitments.md
 │   │   ├── storage-architecture.md
