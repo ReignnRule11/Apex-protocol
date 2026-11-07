@@ -41,10 +41,16 @@ impl fmt::Display for RevmStateDiffError {
                 write!(f, "different bytecode supplied for existing code hash {hash:?}")
             }
             Self::StorageParentMismatch(address, key) => {
-                write!(f, "revm original storage disagrees with parent at {address:?} slot {key:?}")
+                write!(
+                    f,
+                    "revm original storage disagrees with parent at {address:?} slot {key:?}"
+                )
             }
             Self::ForkSensitiveAccountDeletion(address) => {
-                write!(f, "account deletion for {address:?} requires a ratified fork context")
+                write!(
+                    f,
+                    "account deletion for {address:?} requires a ratified fork context"
+                )
             }
         }
     }
@@ -107,7 +113,9 @@ pub fn extract_revm_state_delta(
                     }
                 }
             } else if before.as_ref().map(|value| value.code_hash) != Some(code_hash) {
-                return Err(RevmStateDiffError::ChangedCodeUnavailable(address, code_hash));
+                return Err(RevmStateDiffError::ChangedCodeUnavailable(
+                    address, code_hash,
+                ));
             }
 
             let after = EvmAccount {
@@ -204,20 +212,11 @@ mod tests {
         )
         .unwrap();
 
-        let info = AccountInfo::new(
-            U256::from(100_u64),
-            1,
-            bytecode.hash_slow(),
-            bytecode,
-        );
+        let info = AccountInfo::new(U256::from(100_u64), 1, bytecode.hash_slow(), bytecode);
         let mut account = Account::default().with_info(info).with_touched_mark();
         account.storage.insert(
             U256::ZERO,
-            EvmStorageSlot::new_changed(
-                U256::ZERO,
-                U256::from(0x42_u8),
-                TransactionId::ZERO,
-            ),
+            EvmStorageSlot::new_changed(U256::ZERO, U256::from(0x42_u8), TransactionId::ZERO),
         );
         let mut state = EvmState::default();
         state.insert(revm_address, account);
