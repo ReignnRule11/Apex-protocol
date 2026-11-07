@@ -1,0 +1,12 @@
+[package]
+name = "apex-commitments"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+apex-codec = { path = "../apex-codec" }
+apex-consensus = { path = "../apex-consensus" }
+apex-types.workspace = true
+sha2.workspace = true
