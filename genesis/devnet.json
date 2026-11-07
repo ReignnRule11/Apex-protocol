@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "network_name": "apex-devnet",
+  "chain_id": null,
+  "status": "template_only",
+  "consensus": { "engine": "UNSELECTED", "genesis_time": null, "initial_validators": [] },
+  "economics": { "max_supply": null, "initial_supply": null, "issuance_schedule": null },
+  "notes": "No launch parameters are approved. Do not use this template to launch a network."
+}
