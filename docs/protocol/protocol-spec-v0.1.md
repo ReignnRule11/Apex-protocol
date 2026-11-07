@@ -23,7 +23,13 @@ The Rust prototype checks chain/version identity, nonzero gas limits, caller-sup
 
 ## Phase 8: versioned state application
 
-The `apex-state` crate defines versioned immutable-by-interface snapshots, plans bound to a parent StateVersion, and a StateStore compare-and-swap contract. The in-memory reference adapter verifies version equality, unique ordered account updates and every before-state before writing any account. It applies all updates and increments the version once, or rejects without mutation. Replayed/stale plans fail. This is not durable or multi-process storage; StateVersion is not a state root or block height. Production persistence and crash recovery remain unimplemented.
+The `apex-state` crate defines versioned immutable-by-interface snapshots, plans bound to a parent StateVersion, and a StateStore compare-and-swap contract. The in-memory reference adapter verifies version equality, unique ordered account updates and every before-state before writing any account. It applies all updates and increments the version once, or rejects without mutation. Replayed/stale plans fail. This is not durable or multi-process storage; StateVersion is not a state root or block height.
+
+## Phase 9: persistent storage and state commitments
+
+The storage architecture now specifies logical records, atomic account-plus-version application, consistent snapshots, concurrent-writer behavior, crash recovery, corruption handling, and a backend conformance suite. No database dependency or durable adapter is implemented. redb is the leading candidate for a dedicated spike; SQLite WAL is the mature alternative; neither is adopted.
+
+State commitment requirements are specified separately. No authenticated tree, hash suite, canonical state serialization, Merkle proof or state root is implemented. Database page checksums and storage-engine roots must never be treated as APEX consensus commitments. ADR-0005 remains open, and the codec continues to fail closed.
 
 ## Validity and current implementation boundary
 
@@ -39,4 +45,4 @@ Malachite is a Rust-native Tendermint-style BFT research candidate; CometBFT rem
 2–5 second blocks and 2–10 second finality are exploratory targets only, not measured results. EVM support requires a pinned fork and conformance tests for opcodes, precompiles, gas and edge cases.
 
 ## Open decisions
-Consensus dependency and version, chain ID, codec, crypto suite, EVM revision, storage engine, validator economics, supply ceiling, issuance, fee parameters, governance thresholds and Bitcoin anchor policy remain undecided. No example value is an approved parameter.
+Consensus dependency and version, chain ID, codec, crypto suite, EVM revision, storage engine, state commitment structure/hash suite, validator economics, supply ceiling, issuance, fee parameters, governance thresholds and Bitcoin anchor policy remain undecided. No example value is an approved parameter.
