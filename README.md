@@ -13,11 +13,11 @@
 
 ## Current engineering status
 
-**Phase 2 — consensus integration spike (interface and compatibility evaluation).** Phase 1 established the protocol drafts, threat model, architecture decisions and Rust workspace primitives. The Phase 1 CI run for commit `aacba430cd66e2b003896b1c0826b299978ad26a` passed.
+**Phase 3 — engine-neutral consensus boundary.** The Rust `apex-consensus` crate now contains a tested preflight validator for proposal chain ID, protocol version, sequential height and parent-hash linkage. This is deliberately narrower than proposal validation: it does not authenticate proposers, validate transactions, verify BFT certificates, execute blocks or establish finality.
 
-Malachite remains the preferred Rust-native candidate for a contained integration prototype, but it is not integrated or approved as a production dependency. Upstream currently identifies release 0.8.2 and Rust 1.88 as its workspace minimum, while APEX currently declares Rust 1.85. The upstream README also labels the software alpha and not externally audited. This compatibility and assurance gap must be resolved before adding it to the dependency graph. See the consensus evaluation, ADR-0004 and the integration-spike plan.
+Phase 2's consensus integration documentation and compatibility updates are committed. Malachite remains the preferred research candidate, but it is not integrated or approved as a production dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open. See the consensus evaluation, ADR-0004 and integration-spike plan.
 
-The `apex-consensus` crate currently contains only a tested voting-power supermajority arithmetic helper. It is not a BFT engine. The `apex-codec` crate deliberately fails closed because a canonical wire encoding has not been selected. No validator networking, consensus state machine, commit-certificate verification or block production is implemented.
+The `apex-consensus` crate's voting-power helper and proposal-header preflight checks are primitives only, not a BFT engine. The `apex-codec` crate deliberately fails closed because a canonical wire encoding has not been selected. No validator networking, consensus state machine, commit-certificate verification, block production or transaction execution is implemented.
 
 ## Repository map
 
