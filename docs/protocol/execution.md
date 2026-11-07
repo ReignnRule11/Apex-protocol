@@ -8,9 +8,9 @@ The `apex-consensus` crate provides static envelope checks, state-aware nonce an
 
 ## Phase 8: versioned state application
 
-The separate `apex-state` crate defines versioned snapshots and a compare-and-swap `StateStore` contract. A block plan is bound to the snapshot version from which it was derived. The in-memory reference adapter checks version equality, unique sorted account updates and every before-state value before applying any after-state; it increments the version exactly once. Stale/replayed plans and failed preconditions are rejected without mutation.
+The `apex-state` crate defines versioned snapshots, version-bound plans and a backend-neutral fallible `StateStore` contract. Its in-memory adapter remains a process-local reference implementation. The separate `apex-state-redb` crate adds a persistent prototype using one immediate-durability transaction for all account writes and the next StateVersion. Snapshot materialization uses one read transaction; stale plans and mismatched before-state values are rejected before mutation. The adapter is currently single-process/single-handle.
 
-This is a process-local reference implementation, not durable storage. StateVersion is not a block height or state root. No EVM execution or authenticated transaction validation is implied.
+Its 24-byte little-endian account representation is a private, versioned storage schema, not canonical protocol encoding. StateVersion is not a block height or state root. No EVM execution or authenticated transaction validation is implied.
 
 ## Phase 9: storage and commitment architecture
 

@@ -1,18 +1,16 @@
 # ADR-0002: Rust Implementation
 
-- **Status:** Accepted as design direction; MSRV increase remains an open decision.
+- **Status:** Accepted
 - **Decision:** Use Rust for protocol and node implementation.
 - **Rationale:** Strong type system, memory-safety properties and mature async ecosystem.
 - **Consequences:** Dependency auditing, reproducible builds, unsafe-code policy and toolchain management are required. Rust alone does not guarantee protocol security.
 
 ## Minimum supported Rust version
 
-The workspace currently declares Rust 1.85 in the root `Cargo.toml`. This is the project's declared MSRV, not an assurance that every future dependency supports it. The Malachite upstream workspace currently declares Rust 1.88, so it cannot be added without a deliberate MSRV decision.
+The workspace MSRV is raised from Rust 1.85 to Rust 1.90 in Phase 10 to use the exact redb 4.5.0 release. The upstream redb 4.5.0 manifest explicitly declares Rust 1.90. This is an explicit compatibility decision, not an incidental transitive dependency change.
 
-Any MSRV change must:
-1. Be reflected in `Cargo.toml`, `rust-toolchain.toml`, CI and contributor documentation.
-2. Be tested against the complete workspace and locked dependency graph.
-3. Be recorded as a reviewed compatibility decision rather than changed only to satisfy one dependency.
-4. Consider contributor and deployment environments.
+The toolchain is pinned to 1.90.0 in `rust-toolchain.toml`, and CI installs the same version. Revisit this floor only through a reviewed ADR and a complete dependency/workspace test. Malachite remains unintegrated: its upstream workspace currently declares Rust 1.88, which is no longer the blocking MSRV constraint, but consensus adoption still requires its independent security, compatibility and operational gates.
 
-Until that decision is made, keep Malachite out of the dependency graph and retain the engine-neutral integration boundary.
+## Dependency policy
+
+Pin consensus-critical and state-persistence dependencies deliberately. Audit exact release source, license, MSRV, changelog, dependency tree and recovery semantics. A passing build does not establish the correctness or security of a storage engine.

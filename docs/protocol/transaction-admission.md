@@ -1,29 +1,23 @@
-# Transaction Admission and Transition Planning — Phase 8
+# Transaction Admission and Transition Planning — Phase 10
 
-**Status:** static preflight, state-aware admission, pure transaction/block planning, and a versioned state-application reference boundary are implemented as Rust prototypes. This is not full execution or durable storage.
+**Status:** static preflight, state-aware admission, pure transaction/block planning, versioned application, and a durable redb reference adapter are implemented as Rust prototypes. This is not full execution or production storage.
 
 ## Existing planning boundary
 
 The `apex-consensus` crate performs chain/version/gas/fee-envelope checks, state-aware nonce and affordability checks, and pure transaction/block transition planning. Block order is preserved; sequential nonce/balance effects are applied through an overlay; recipient writes are merged; declared gas limits are accumulated; duplicate temporary IDs are rejected. Sender and transaction IDs are not cryptographically authenticated. Maximum fee is an escrow upper bound, not settled gas cost.
 
-## Phase 8: versioned snapshots and atomic application
+## Versioned state and persistent adapter
 
-The `apex-state` crate adds:
+The `apex-state` crate defines versioned snapshots, plans bound to the exact parent StateVersion, and a backend-neutral fallible `StateStore` contract. Snapshot acquisition is fallible so backend failures are surfaced rather than converted to empty state or panics. The in-memory adapter remains a process-local reference implementation.
 
-- `StateVersion(u64)`: a monotonic internal concurrency token, not block height or state root.
-- `VersionedStateSnapshot`: an immutable-by-interface account snapshot implementing `AdmissionState`.
-- `VersionedBlockTransitionPlan`: a block plan bound to the exact parent snapshot version.
-- `StateStore`: a contract requiring consistent snapshots and linearizable compare-and-swap application.
-- `InMemoryStateStore`: a process-local reference adapter for tests.
+The separate `apex-state-redb` crate provides a contained redb 4.5.0 adapter prototype. It stores account records and the state version in one database and applies all account updates plus the next version in one immediate-durability write transaction. Snapshots are materialized inside one read transaction. Stale plans and before-state mismatches are rejected before writes. Close/reopen persistence, bootstrap non-overwrite, and integrity-check tests are included.
 
-The adapter checks the plan's parent version, strictly increasing unique account-update keys, and every before-state value before the first write. It then publishes every after-state and increments the version once. Stale/replayed plans, mismatched before-state, malformed update order, and version overflow fail without mutation.
-
-This is not durable, crash-safe or multi-process storage. A production adapter must atomically commit the version and all account writes in one serializable transaction or equivalent, with consistent snapshot reads, concurrent-writer handling and crash recovery.
+The adapter uses an internal 24-byte little-endian account record (u64 nonce + u128 balance), explicitly versioned as private storage schema. This is not protocol encoding. redb default exclusive-file locking is used; multi-process access is not enabled.
 
 ## Non-goals
 
-No canonical transaction encoding/identity, signature verification, EVM execution, actual gas measurement, receipts, fee settlement/refunds, state root, block height binding, durable transaction index, production database schema, recovery/journaling, consensus certificate verification or finality is implemented. The state adapter checks preconditions; it does not prove that a plan came from trusted execution.
+No canonical transaction encoding/identity, signature verification, EVM execution, actual gas measurement, receipts, fee settlement/refunds, state root, Merkle proof, block-height binding, durable transaction index, consensus certificate verification or finality is implemented. The redb adapter has no process-kill/power-loss harness, disk-full injection, migration interruption test, backup/restore workflow, or production approval. A commit I/O error may be indeterminate; the caller must close/reopen and reconcile the persisted version before retrying.
 
 ## Validation gates
 
-Add property-based and fuzz testing, concurrency and crash-injection tests, durable database adapter tests, state-root specification and independent review before production use.
+Add process interruption and fault-injection tests, cross-process concurrency tests, backup/restore and schema-migration tests, dependency audit, soak tests and independent storage review before production use. State-root specification remains a separate protocol decision.

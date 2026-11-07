@@ -25,11 +25,11 @@ The Rust prototype checks chain/version identity, nonzero gas limits, caller-sup
 
 The `apex-state` crate defines versioned immutable-by-interface snapshots, plans bound to a parent StateVersion, and a StateStore compare-and-swap contract. The in-memory reference adapter verifies version equality, unique ordered account updates and every before-state before writing any account. It applies all updates and increments the version once, or rejects without mutation. Replayed/stale plans fail. This is not durable or multi-process storage; StateVersion is not a state root or block height.
 
-## Phase 9: persistent storage and state commitments
+## Phase 9–10: persistent storage and state commitments
 
-The storage architecture now specifies logical records, atomic account-plus-version application, consistent snapshots, concurrent-writer behavior, crash recovery, corruption handling, and a backend conformance suite. No database dependency or durable adapter is implemented. redb is the leading candidate for a dedicated spike; SQLite WAL is the mature alternative; neither is adopted.
+Phase 9 defined backend-independent storage and commitment requirements. Phase 10 adds a contained redb 4.5.0 adapter in `apex-state-redb`, pinned to the release's declared Rust 1.90 MSRV. The workspace and CI are pinned to Rust 1.90.0. The adapter stores account state and StateVersion in one immediate-durability transaction, materializes consistent snapshots, and fails closed on unsupported schema or malformed account data. It is a single-process/single-handle prototype, not production-approved storage.
 
-State commitment requirements are specified separately. No authenticated tree, hash suite, canonical state serialization, Merkle proof or state root is implemented. Database page checksums and storage-engine roots must never be treated as APEX consensus commitments. ADR-0005 remains open, and the codec continues to fail closed.
+The 24-byte little-endian account record is a private storage format, not canonical protocol serialization. State commitment requirements remain separate. No authenticated tree, hash suite, canonical state serialization, Merkle proof or state root is implemented. Database page checksums and storage-engine roots must never be treated as APEX consensus commitments. ADR-0005 remains open, and the codec continues to fail closed.
 
 ## Validity and current implementation boundary
 

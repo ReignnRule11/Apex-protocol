@@ -2,7 +2,7 @@
 
 [![Rust CI](https://github.com/ReignnRule11/Apex-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/ReignnRule11/Apex-protocol/actions/workflows/ci.yml)
 
-**APEX** is a research-stage Layer-1 blockchain infrastructure project. This repository contains protocol drafts and a small Rust foundation; it is not a functioning blockchain, public testnet, or mainnet.
+**APEX** is a research-stage Layer-1 blockchain infrastructure project. This repository contains protocol drafts and Rust infrastructure prototypes; it is not a functioning blockchain, public testnet, or mainnet.
 
 ## Design direction
 
@@ -15,15 +15,15 @@
 
 ## Current engineering status
 
-**Phase 9 — storage and state commitment architecture (design gate completed).** The repository now specifies the production storage contract, logical record model, atomic state-version/account update semantics, snapshot isolation, recovery requirements, and a backend conformance suite. It separately defines the requirements for deterministic state commitments and compares candidate authenticated structures. No database dependency, durable adapter, state-root algorithm, or Merkle proof implementation has been adopted.
+**Phase 10 — durable state storage spike.** A separate `apex-state-redb` crate now implements a prototype persistent StateStore adapter using redb 4.5.0. Account updates and the next state version are committed in one immediate-durability database transaction. Snapshots are read consistently, stale plans are rejected, and existing initialized data is not overwritten by later bootstrap input. The adapter has close/reopen, atomicity and integrity-check tests.
 
-The leading embedded storage candidate for a dedicated spike is redb; SQLite WAL is the mature alternative. No backend is approved. The current Rust wrapper for RocksDB declares a higher MSRV than this workspace. The canonical codec remains intentionally fail-closed pending a separate decision.
+The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. This is a contained evaluation, not production approval; multi-process modes are not enabled.
 
-The existing `apex-consensus` crate plans ordered transactions against an in-memory overlay. The `apex-state` crate binds plans to a parent `StateVersion` and provides a process-local in-memory reference adapter. It is not durable, crash-safe or multi-process.
+The account record is a private 24-byte little-endian storage schema (u64 nonce + u128 balance). It is not protocol encoding or a consensus commitment. Canonical encoding remains undecided and the codec continues to fail closed. No state root or Merkle proof is implemented.
 
-These are research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, state roots, production database adapter, consensus engine, validator networking, commit-certificate verification, block production or consensus finality.
+These remain research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, state roots, production consensus engine, validator networking, commit-certificate verification, block production or consensus finality.
 
-Malachite remains a preferred research candidate, not an integrated or production-approved dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open.
+Malachite remains a consensus research candidate, not an integrated or production-approved dependency. Consensus adoption requires separate dependency, fault-injection, adversarial testing and security review.
 
 ## Repository structure
 
@@ -41,7 +41,10 @@ Apex-protocol/
 │   │   └── src/lib.rs
 │   ├── apex-state/
 │   │   ├── Cargo.toml
-│   │   └── src/lib.rs                 # Versioned snapshots + in-memory reference adapter
+│   │   └── src/lib.rs                 # Backend-neutral StateStore contract + memory adapter
+│   ├── apex-state-redb/
+│   │   ├── Cargo.toml
+│   │   └── src/lib.rs                 # redb persistent adapter prototype
 │   ├── apex-node/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs                # Placeholder CLI; not a running node
@@ -61,7 +64,8 @@ Apex-protocol/
 │   │   ├── ADR-0009-transition-planning.md
 │   │   ├── ADR-0010-block-transition-planning.md
 │   │   ├── ADR-0011-versioned-state-application.md
-│   │   └── ADR-0012-storage-and-commitment-boundaries.md
+│   │   ├── ADR-0012-storage-and-commitment-boundaries.md
+│   │   └── ADR-0013-redb-state-adapter.md
 │   ├── protocol/
 │   │   ├── bitcoin-anchoring.md
 │   │   ├── consensus-adapter-contract.md
@@ -72,6 +76,7 @@ Apex-protocol/
 │   │   ├── governance.md
 │   │   ├── monetary-policy.md
 │   │   ├── phase-9-storage-and-commitments.md
+│   │   ├── phase-10-redb-storage-spike.md
 │   │   ├── protocol-spec-v0.1.md
 │   │   ├── state-commitments.md
 │   │   ├── storage-architecture.md
@@ -100,7 +105,7 @@ The tree lists committed paths; comments identify placeholders and do not imply 
 
 ## CI
 
-GitHub Actions runs formatting, Clippy and workspace tests. A green CI run validates only the code included in that run; it is not a protocol security audit.
+GitHub Actions runs formatting, Clippy and workspace tests on Rust 1.90.0. A green CI run validates only the code included in that run; it is not a protocol security audit.
 
 ## Risk and token status
 
