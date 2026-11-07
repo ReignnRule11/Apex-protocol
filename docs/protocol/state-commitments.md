@@ -1,54 +1,43 @@
-# Deterministic State Commitments — Design Gate
+# Deterministic State Commitments — Phase 14 Prototype
 
-**Status:** requirements and candidate structures only; no state root is implemented.
+**Status:** account-only SHA-256 Merkle prototype implemented on a review branch; not a complete protocol state root.
 
-## Why a separate commitment layer is required
+## Logical-state boundary
 
-A storage engine protects and retrieves local data. A protocol state commitment allows independent validators to derive and compare a cryptographic commitment to the same logical state. Database page hashes, checksums, transaction IDs, file roots, and physical key ordering are not consensus commitments.
+The current state model is limited to AccountId(u64), nonce(u64) and balance(u128). Contract storage, code, system accounts, validator state, receipts, and execution metadata are not included. The prototype must not be represented as the complete APEX Layer-1 state root.
 
-The current codec intentionally fails closed, canonical encoding is unresolved in ADR-0005, and `AccountId(u64)` is a prototype-only key. Therefore APEX cannot yet define reproducible state-root bytes.
+## Canonical account record v1
 
-## Required specification decisions
+The 38-byte record is:
+- bytes 0–3: ASCII APEX
+- bytes 4–5: schema version 1, u16 big-endian
+- bytes 6–13: AccountId, u64 big-endian
+- bytes 14–21: nonce, u64 big-endian
+- bytes 22–37: balance, u128 big-endian
 
-Before implementation, a dedicated ADR must specify:
+The decoder requires exactly 38 bytes and rejects wrong magic and unknown versions. The redb account record is a separate private storage schema and is not reused as protocol bytes.
 
-1. **Logical state:** exact account fields, contract storage model, code representation, system accounts, and inclusion/exclusion rules.
-2. **Canonical keys and values:** byte-level account/storage key formats, integer widths, endianness, optional-field semantics, and canonical encoding version.
-3. **Ordering:** total byte ordering of all keys and deterministic duplicate handling.
-4. **Hash suite:** exact collision-resistant hash algorithm and version, output size, test vectors, and migration/activation rules.
-5. **Domain separation:** distinct prefixes for account leaves, storage leaves, internal nodes, empty values, and top-level state commitment.
-6. **Authenticated structure:** evaluate sparse Merkle tree, Merkle Patricia structure, and other authenticated key-value structures against proof size, update complexity, state growth, implementation complexity, and cross-language support.
-7. **Empty and absent semantics:** distinguish absent account, zero-valued account, empty contract storage, and empty global state.
-8. **Proof format:** membership and non-membership proof structure, verification rules, bounded decoding, and version binding.
-9. **Upgrade semantics:** activation height/version, old/new root coexistence if required, and explicit rejection of unknown versions.
+## Hash and tree
 
-## Candidate structure comparison
+SHA-256 is pinned through sha2 0.10.9. SHA-256 is part of NIST's Secure Hash Standard (FIPS 180-4). The tree shape follows the recursive construction in RFC 6962 Section 2.1, while all APEX hashing inputs use APEX-specific domain strings.
 
-| Structure | Potential strengths | Costs and risks |
-|---|---|---|
-| Sparse Merkle tree | Fixed-depth key path; natural membership/non-membership proofs; update paths are explicit | Potentially large proofs; hashing/update cost; key hashing and empty-node rules must be exact |
-| Merkle Patricia tree | Authenticated key-value map; compact paths for sparse key spaces; familiar in EVM ecosystems | Complex canonical node encoding and proof rules; careful normalization required |
-| Sorted-leaf Merkle tree | Conceptually simple deterministic construction | Updating can be expensive; insertions can shift leaf positions; proof and index semantics need definition |
+- Leaf: SHA-256(APEX/STATE/ACCOUNT/LEAF/V1 || canonical account bytes)
+- Internal node: SHA-256(APEX/STATE/MERKLE/NODE/V1 || left || right)
+- Empty tree: SHA-256(APEX/STATE/MERKLE/EMPTY/V1)
+- Root: SHA-256(APEX/STATE/ROOT/V1 || u16_be(1) || u64_be(account_count) || tree_root)
 
-No structure is selected. An implementation benchmark alone cannot settle protocol correctness.
+Leaves are ordered by numeric AccountId. The root depends only on the logical account map and schema; it does not include StateVersion, block height, insertion order or database metadata.
 
-## Determinism invariants
+## Fixed vector
 
-For a fixed commitment version and identical logical state, every conforming implementation must produce exactly the same root bytes. Insertion order, database engine, host architecture, map implementation, thread schedule, and physical storage layout must not affect the root.
+For accounts (1,0,100), (5,7,500), (9,2,900), where each tuple is (AccountId, nonce, balance), the root is:
 
-A canonical test-vector suite must include empty state, one account, multiple accounts in non-sorted insertion order, zero values, maximum integer values, absent-key proofs, storage slots, and malformed/non-canonical inputs.
+fa4b00c9b8ee50bdb2b17109e699df69b29e23cf78737e53674797910f3192d5
 
-## Required separation of concerns
+## Determinism requirements
 
-- Canonical codec defines protocol bytes.
-- State model defines logical records.
-- Commitment implementation maps logical state to authenticated root/proofs.
-- Storage adapter persists logical state and snapshots.
-- Execution computes logical changes.
-- Consensus accepts only a root calculated under the activated commitment version.
+Independent implementations must reproduce exact encoded account bytes and roots. The fixed vector is a minimum compatibility gate. Further vectors must cover empty state, one leaf, two leaves, powers of two, non-powers of two, maximum integers, and malformed encodings.
 
-A backend migration must preserve roots for the same logical state. A commitment algorithm migration is a protocol upgrade, not a database migration.
+## Open work
 
-## Explicit non-claims
-
-No APEX state root, Merkle proof, state sync, authenticated storage, or cross-validator commitment is implemented by this document.
+No membership/non-membership proof API, proof verifier, incremental tree, persisted commitment index, state sync, EVM storage/code, cross-language implementation, fuzzing campaign or consensus root activation is implemented. RFC 6962 is used as a tree-shape reference, not as a claim of Certificate Transparency compatibility.
