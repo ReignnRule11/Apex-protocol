@@ -15,7 +15,7 @@ Critical systems not implemented or production-selected:
 - Production chain identity/allocation and canonical transaction/block/receipt codecs.
 - Authenticated transaction envelopes, chain-bound signatures, canonical transaction IDs and replay protection.
 - Deterministic EVM execution, gas, receipts, fee settlement and full state commitment.
-- Actual revm state-diff extraction and execution-to-application integration.
+- Success-gated execution-result handling and full transaction-to-application integration. A first revm `EvmState`-to-delta adapter is proposed in Phase 19I but does not establish end-to-end execution correctness.
 - Production BFT consensus, authenticated certificates, validator transitions and finality.
 - Authenticated P2P networking, transaction pool, block production and sync.
 - Atomic coordination of consensus, signer anti-double-sign state, block metadata and application state.
@@ -43,7 +43,7 @@ Merged draft specification v0.2, state-domain model and unresolved decision regi
 In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Review the secp256k1/EVM transaction-authentication proposal; settle chain-ID representation and canonical envelope before implementing verification. Consensus signature selection remains dependent on the selected BFT engine. No production signature code is claimed.
 
 ### Phase 19 — Deterministic execution and fee accounting
-In progress. revm 43.0.3 is pinned under Rust 1.91.0. The execution harness, full-width state model, revm Database adapter, atomic in-memory state-delta prototype and versioned full-width redb persistence prototype are merged in staged phases. Phases 19G–19H add selected corruption, commit-ambiguity and orphaned-version recovery tests; they do not prove real power-loss durability. Remaining work includes actual revm state-diff extraction, explicit execution context, fork ratification, canonical type-2 authentication, exact fee settlement, receipts, full commitments, official fixtures and differential tests. See Phase 19A–19H and ADR-0024–0032.
+In progress. revm 43.0.3 is pinned under Rust 1.91.0. The execution harness, full-width state model, revm Database adapter, atomic in-memory state-delta prototype and versioned full-width redb persistence prototype are merged in staged phases. Phases 19G–19H add selected corruption, commit-ambiguity and orphaned-version recovery tests; they do not prove real power-loss durability. Remaining work includes actual revm state-diff extraction, explicit execution context, fork ratification, canonical type-2 authentication, exact fee settlement, receipts, full commitments, official fixtures and differential tests. See Phase 19A–19I and ADR-0024–0033.
 
 ### Phase 20 — Consensus engine integration
 Select pinned BFT revision; implement authenticated proposals/votes/certificates, validator changes, evidence, durable anti-double-sign and multi-node Byzantine/recovery tests.
