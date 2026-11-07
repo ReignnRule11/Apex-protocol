@@ -146,3 +146,10 @@ The application must not advance on `Decided`. It must send `Next::Start` after 
 ## Current verified Phase 20 status
 
 Phase 20G2B is merged and its post-merge main workflow #42413539395 passed on `6b4abb3c08279ca91a554ee716dd0980a1b57dcd`. Its Ed25519 certificate verifier is APEX-native and is not a substitute for Malachite's native verifier. Phase 20G2C1 records the required native verification and APEX identity-binding contract only; no runtime adapter is implemented. G2 remains blocked.
+
+
+## Phase 20G2C2 — native certificate adapter (submitted)
+
+The isolated spike now contains a generic adapter over Malachite's native `CommitCertificate<Ctx>`. It checks the expected native height, round and value ID, requires an explicit `ApexValueIdBinding` from the native value identifier to an independently recomputed APEX block identity, and delegates native signature/quorum verification to `malachitebft_signing::VerifierExt::verify_commit_certificate` using the supplied native validator set and threshold parameters. A private verified token is emitted only after these checks succeed. The direct signing crate dependency is pinned to the same exact upstream revision and remains outside the production workspace.
+
+The adapter does not decode canonical APEX values, prove the supplied binding implementation, establish native-to-APEX validator key/power correspondence, consume `AppMsg::Finalized`, process `Decided`, gate an actual application commit, acknowledge `Next::Start`, or provide durable atomic recovery. It is an isolated API integration primitive; G2 remains BLOCKED. See the Phase 20G2C2 record and ADR-0049.
