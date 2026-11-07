@@ -29,11 +29,11 @@ Reject malformed/non-canonical encoding, wrong chain ID, invalid signature, nonc
 ## Validators
 Lifecycle: bond, activation, participation, delayed exit and withdrawal. Separate consensus, staking and node-identity keys. Slashing only for objectively provable offences such as equivocation, with evidence and appeal rules specified before activation.
 
-## Consensus assumptions
-Select a mature BFT proof-of-stake protocol with documented assumptions; a common target is tolerance of less than one-third Byzantine voting power. This is not an APEX guarantee until a specific engine is selected and tested.
+## Consensus assumptions and candidate status
+The current research candidate is Malachite, a Rust-native Tendermint-style BFT engine; CometBFT remains a reference/fallback comparator. No engine is integrated, and production adoption is not approved. The upstream Malachite workspace currently declares Rust 1.88, while this APEX workspace declares Rust 1.85. This incompatibility must be resolved before dependency adoption. Upstream also describes Malachite as alpha and not externally audited. The common less-than-one-third Byzantine voting-power threshold remains protocol-dependent and is not an APEX security guarantee.
 
 ## Performance and compatibility
 2–5 second blocks and 2–10 second finality are exploratory targets only, not measured results. EVM support requires a pinned fork and conformance tests for opcodes, precompiles, gas and edge cases.
 
 ## Open decisions
-Consensus engine, chain ID, codec, crypto suite, EVM revision, storage engine, validator economics, supply ceiling, issuance, fee parameters, governance thresholds and Bitcoin anchor policy remain undecided. No example value is an approved parameter.
+Consensus dependency and version, chain ID, codec, crypto suite, EVM revision, storage engine, validator economics, supply ceiling, issuance, fee parameters, governance thresholds and Bitcoin anchor policy remain undecided. No example value is an approved parameter.
