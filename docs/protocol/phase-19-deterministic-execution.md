@@ -56,10 +56,22 @@ Adds `extract_successful_revm_result_delta`, which accepts revm's paired `ExecRe
 
 Tests cover successful extraction, reverted-result rejection and halted-result rejection. This is a stronger API boundary than the Phase 19I caller convention, but it still trusts the supplied revm result/state pair; public types can be constructed by callers. It does not authenticate the transaction, select a fork, supply validated block context, settle fees or produce receipts. EVM-level success alone is not proof that a transaction is authorized for APEX consensus inclusion.
 
+## Phase 19K — explicit block execution context (PR #33; validation pending)
+
+Adds the APEX-owned `execution_context` module and a direct dependency on the shared `apex-types::ChainId256` primitive.
+
+- `ForkId` is an opaque 32-byte identifier. It does not imply any specific Ethereum fork or select revm behavior.
+- `ForkActivationSchedule::try_new` rejects an empty schedule, a first activation other than height zero, zero fork identifiers and duplicate/non-increasing activation heights.
+- `active_at` selects the latest configured activation at or before a block height, including exact activation boundaries.
+- `BlockExecutionContext::try_from_validated_block` captures nonzero chain ID, active fork ID, block number, timestamp, nonzero gas limit, 256-bit base fee, beneficiary and optional prevrandao. It rejects a zero chain ID, zero gas limit and missing prevrandao when the selected profile requires it.
+- Context fields are private and read-only through accessors. No host clock, host randomness or implicit mainnet context is consulted.
+- Tests cover schedule validation, activation boundaries, explicit field retention, zero chain/gas rejection and fork-required randomness.
+
+This is a validated data model only. It does not authenticate the block that supplies these values, ratify a fork schedule, validate timestamp/fee rules, map the context to revm `CfgEnv`/`BlockEnv`, or execute a transaction. Fork IDs and activation heights remain genesis/protocol configuration, not hardcoded defaults. The `requires_prevrandao` flag is a narrow context-presence requirement, not a complete fork-semantics declaration.
+
 ## Required next work
 
-1. Define a typed explicit execution context supplied by validated block data: fork ID, block number, timestamp, gas limit, base fee, coinbase/fee recipient, chain ID and randomness/prevrandao fields where required. No host-derived values.
-3. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review.
+1. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review; specify every fork-dependent opcode, precompile and environment field.
 4. Implement canonical type-2 transaction decoding and signature recovery before treating sender identity as trusted.
 5. Implement EIP-1559 fee settlement: affordability, escrow, actual gas, base-fee burn, priority-fee credit and unused-gas refund with exact overflow/rounding rules.
 6. Add canonical receipts/logs and complete state commitments.

@@ -3,6 +3,7 @@
 //! The full-width state model is an immutable, version-bound read view. It is
 //! not yet wired to revm's Database trait or a persistent protocol state backend.
 
+pub mod execution_context;
 pub mod state_diff;
 
 use std::collections::BTreeMap;

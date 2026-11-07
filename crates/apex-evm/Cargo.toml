@@ -7,6 +7,7 @@ rust-version.workspace = true
 description = "APEX-owned EVM integration boundary; engine compatibility spike only"
 
 [dependencies]
+apex-types.workspace = true
 # Exact candidate pin for a reproducible toolchain-compatibility spike.
 # Default features are disabled; std is enabled explicitly. This is not yet
 # an approved production feature set or fork configuration.
