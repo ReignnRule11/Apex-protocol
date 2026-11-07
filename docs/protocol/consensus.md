@@ -2,7 +2,17 @@
 
 **Status:** engine candidate selected for research evaluation; no consensus engine is integrated or production-selected.
 
-APEX intends to integrate a mature BFT proof-of-stake protocol rather than invent one. Malachite is the preferred Rust-native candidate for an integration spike; CometBFT remains the reference/fallback comparator. See [the engine evaluation](consensus-engine-evaluation.md), [ADR-0004](../architecture/adr/ADR-0004-consensus-engine.md) and [the integration spike](consensus-integration-spike.md).
+APEX intends to integrate a mature BFT proof-of-stake protocol rather than invent one. Malachite is the preferred Rust-native candidate for an integration spike; CometBFT remains the reference/fallback comparator. See [the engine evaluation](consensus-engine-evaluation.md), [ADR-0004](../architecture/adr/ADR-0004-consensus-engine.md), [the integration spike](consensus-integration-spike.md) and [the adapter contract](consensus-adapter-contract.md).
+
+## Implemented preflight boundary
+
+The `apex-consensus` crate currently checks a proposed header against an expected parent:
+- chain ID must match;
+- protocol version must match;
+- height must equal parent height plus one, with overflow rejected;
+- parent hash must match the expected parent block hash.
+
+These checks are deterministic and fail closed. They are not canonical block decoding, cryptographic authentication, transaction validation, validator-set verification, commit-certificate verification or finality. The header types are internal Rust data structures, not a ratified wire format. See `validate_proposal_header` in `crates/apex-consensus`.
 
 ## Candidate constraints
 
@@ -14,7 +24,7 @@ Specify proposer selection, vote phases, commit certificates, timeouts, validato
 
 ## Integration boundary
 
-The engine must not execute transactions or decide application validity on behalf of APEX. APEX's application adapter must validate proposals deterministically against the correct parent state, enforce chain and protocol versions, and commit only engine-finalized blocks whose application transition succeeds. Engine callbacks, persistence, signing, validator-set updates and shutdown/recovery semantics must be explicitly mapped before integration.
+The engine must not execute transactions or decide application validity on behalf of APEX. APEX's application adapter must validate proposals deterministically against the correct parent state, enforce chain and protocol versions, and commit only engine-finalized blocks whose application transition succeeds. Proposal-header preflight is only one early guard and cannot substitute for full application validation or engine certificate verification.
 
 ## Required adversarial tests
 
