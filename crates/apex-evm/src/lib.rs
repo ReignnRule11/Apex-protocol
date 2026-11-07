@@ -312,10 +312,7 @@ mod tests {
             BTreeMap::new(),
             LIMITS,
         );
-        assert_eq!(
-            result,
-            Err(EvmStateError::StorageOwnerMissing(address(1)))
-        );
+        assert_eq!(result, Err(EvmStateError::StorageOwnerMissing(address(1))));
     }
 
     #[test]
@@ -337,10 +334,7 @@ mod tests {
             BTreeMap::new(),
             limits,
         );
-        assert_eq!(
-            result,
-            Err(EvmStateError::ResourceLimitExceeded("account"))
-        );
+        assert_eq!(result, Err(EvmStateError::ResourceLimitExceeded("account")));
     }
 
     #[test]
