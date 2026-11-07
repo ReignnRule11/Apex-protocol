@@ -1,0 +1,14 @@
+[package]
+name = "apex-signer-redb"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+apex-signer-safety = { path = "../apex-signer-safety" }
+apex-types.workspace = true
+redb.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
