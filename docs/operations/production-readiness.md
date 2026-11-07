@@ -6,7 +6,7 @@ This document is the authoritative engineering release register. A green CI run 
 
 ## 1. Current baseline
 
-APEX remains a research-stage Layer-1. Phases 0–17 provide Rust infrastructure and bounded account/storage prototypes plus a protocol v0.2 completeness draft; they do not constitute a functioning blockchain. Phase 18 has begun with a cryptographic identity-boundary proposal, not a ratified signature suite or authenticated transaction implementation.
+APEX remains a research-stage Layer-1. Phases 0–17 provide Rust infrastructure and bounded account/storage prototypes plus a protocol v0.2 completeness draft; they do not constitute a functioning blockchain. Phase 18 adds a 256-bit chain-ID value type and proposes a type-2 EIP-1559 transaction profile; no numeric chain ID, canonical transaction decoder or signature verification is implemented.
 
 Critical systems not implemented or production-selected:
 - Ratified full protocol specification and complete state model.
@@ -22,7 +22,7 @@ Critical systems not implemented or production-selected:
 
 | Gate | Required evidence | Current status |
 |---|---|---|
-| G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 crypto proposal under review |
+| G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 chain-ID/envelope proposals pending ratification |
 | G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED |
 | G2 — Consensus correctness | Pinned engine, authenticated votes/certificates, validator transitions, anti-double-sign, restart recovery and safety/liveness evidence | BLOCKED |
 | G3 — Network correctness | Versioned P2P, bounded parsing, DoS controls, partitions/recovery and multi-node integration | BLOCKED |
@@ -75,4 +75,4 @@ Require all previous gates, legal/license clearance, economic disclosures, gover
 
 ## 5. Current decision
 
-**NO-GO.** Protocol v0.2 is a review draft and Phase 18 is a proposal. G0 remains BLOCKED. No cryptographic algorithm, chain ID or production key lifecycle is ratified by this work.
+**NO-GO.** Protocol v0.2 is a review draft and Phase 18 contains proposals. G0 remains BLOCKED. No numeric chain ID, transaction codec, BFT signature algorithm or production key lifecycle is ratified by this work.
