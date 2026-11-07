@@ -17,7 +17,7 @@
 
 ## Current engineering status
 
-**Phase 6 — deterministic single-transaction transition planning.** In addition to proposal-header preflight and static/state-aware admission, `apex-consensus` now computes a pure before/after plan for sender nonce advancement, sender debit (value plus maximum-fee escrow), and recipient value credit. Self-transfers net value to zero and deduct only the fee escrow. Arithmetic overflow and missing recipients are rejected. The planner does not mutate or persist state; a future state adapter must commit every update atomically or none. Sender identity remains unauthenticated, and parent-state version binding is not enforced. No signature verification, canonical address/encoding, intrinsic gas, block-level ordering, cumulative gas accounting, fee settlement, state root, or EVM execution is implemented.
+**Phase 7 — ordered block transition planning (prototype).** `apex-consensus` now plans caller-ordered transactions against an in-memory account overlay. Later transactions observe earlier nonce and balance changes; repeated recipient credits are merged; duplicate temporary opaque transaction IDs and cumulative declared gas above the caller-supplied block limit are rejected. Any invalid transaction returns no plan and leaves parent state unchanged. The final account-update list is sorted by internal account ID, without reordering transactions. Phase 6 single-transaction planning remains available. These are pure arithmetic plans only: no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, state roots, durable atomic commit, or consensus finality is implemented.
 
 Phase 2's consensus integration documentation and compatibility updates are committed. Malachite remains the preferred research candidate, but it is not integrated or approved as a production dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open. See the consensus evaluation, ADR-0004 and integration-spike plan.
 
@@ -36,7 +36,7 @@ Apex-protocol/
 │   │   └── src/lib.rs                     # Fail-closed codec boundary
 │   ├── apex-consensus/
 │   │   ├── Cargo.toml
-│   │   └── src/lib.rs                     # Quorum + proposal/transaction admission + pure transition planner
+│   │   └── src/lib.rs                     # Quorum + admission + single-tx and block planners
 │   ├── apex-node/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs                    # Placeholder CLI; not a running node
