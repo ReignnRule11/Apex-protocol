@@ -15,18 +15,23 @@
 
 ## Current engineering status
 
-**Phase 8 — versioned snapshots and atomic application boundary (prototype).** The `apex-consensus` crate plans ordered transactions against an in-memory overlay. The new `apex-state` crate binds those plans to a parent `StateVersion` and defines a compare-and-swap application contract. Its reference in-memory adapter validates the version, ordered unique account keys and all before-state values before any write, then applies all account updates and advances the version once. Stale/replayed plans and failed preconditions leave state unchanged. The adapter is process-local and non-durable.
+**Phase 9 — storage and state commitment architecture (design gate completed).** The repository now specifies the production storage contract, logical record model, atomic state-version/account update semantics, snapshot isolation, recovery requirements, and a backend conformance suite. It separately defines the requirements for deterministic state commitments and compares candidate authenticated structures. No database dependency, durable adapter, state-root algorithm, or Merkle proof implementation has been adopted.
+
+The leading embedded storage candidate for a dedicated spike is redb; SQLite WAL is the mature alternative. No backend is approved. The current Rust wrapper for RocksDB declares a higher MSRV than this workspace. The canonical codec remains intentionally fail-closed pending a separate decision.
+
+The existing `apex-consensus` crate plans ordered transactions against an in-memory overlay. The `apex-state` crate binds plans to a parent `StateVersion` and provides a process-local in-memory reference adapter. It is not durable, crash-safe or multi-process.
 
 These are research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, state roots, production database adapter, consensus engine, validator networking, commit-certificate verification, block production or consensus finality.
 
-Malachite remains a preferred research candidate, not an integrated or production-approved dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open. The `apex-codec` crate deliberately fails closed because canonical wire encoding has not been selected.
+Malachite remains a preferred research candidate, not an integrated or production-approved dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open.
 
 ## Repository structure
 
 ```text
 Apex-protocol/
 ├── .github/
-│   └── workflows/ci.yml
+│   └── workflows/
+│       └── ci.yml
 ├── crates/
 │   ├── apex-codec/
 │   │   ├── Cargo.toml
@@ -55,7 +60,8 @@ Apex-protocol/
 │   │   ├── ADR-0008-state-aware-admission.md
 │   │   ├── ADR-0009-transition-planning.md
 │   │   ├── ADR-0010-block-transition-planning.md
-│   │   └── ADR-0011-versioned-state-application.md
+│   │   ├── ADR-0011-versioned-state-application.md
+│   │   └── ADR-0012-storage-and-commitment-boundaries.md
 │   ├── protocol/
 │   │   ├── bitcoin-anchoring.md
 │   │   ├── consensus-adapter-contract.md
@@ -65,9 +71,13 @@ Apex-protocol/
 │   │   ├── execution.md
 │   │   ├── governance.md
 │   │   ├── monetary-policy.md
+│   │   ├── phase-9-storage-and-commitments.md
 │   │   ├── protocol-spec-v0.1.md
+│   │   ├── state-commitments.md
+│   │   ├── storage-architecture.md
 │   │   └── transaction-admission.md
-│   └── threat-model/overview.md
+│   └── threat-model/
+│       └── overview.md
 ├── genesis/devnet.json
 ├── .gitignore
 ├── Cargo.toml
@@ -77,15 +87,16 @@ Apex-protocol/
 └── rust-toolchain.toml
 ```
 
-This tree describes committed paths and explicitly labels placeholders; it does not imply every subsystem is operational.
+The tree lists committed paths; comments identify placeholders and do not imply operational subsystems.
 
 ## Engineering principles
 
 1. Safety before throughput claims.
 2. Deterministic execution and canonical encoding.
-3. Explicit trust assumptions and adversarial testing.
-4. No custom consensus algorithm without formal review and compelling evidence.
-5. No mainnet, decentralization or security claims without independent validators, audits and operational evidence.
+3. Separate local storage integrity from protocol state commitments.
+4. Explicit trust assumptions and adversarial testing.
+5. No custom consensus algorithm without formal review and compelling evidence.
+6. No mainnet, decentralization or security claims without independent validators, audits and operational evidence.
 
 ## CI
 

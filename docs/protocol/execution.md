@@ -10,6 +10,12 @@ The `apex-consensus` crate provides static envelope checks, state-aware nonce an
 
 The separate `apex-state` crate defines versioned snapshots and a compare-and-swap `StateStore` contract. A block plan is bound to the snapshot version from which it was derived. The in-memory reference adapter checks version equality, unique sorted account updates and every before-state value before applying any after-state; it increments the version exactly once. Stale/replayed plans and failed preconditions are rejected without mutation.
 
-This is a process-local reference implementation, not durable storage. Production storage must provide consistent snapshots and atomically commit the state-version update plus every account write, with crash recovery and concurrency control. StateVersion is not a block height or state root. No EVM execution or authenticated transaction validation is implied.
+This is a process-local reference implementation, not durable storage. StateVersion is not a block height or state root. No EVM execution or authenticated transaction validation is implied.
+
+## Phase 9: storage and commitment architecture
+
+The storage design is specified in `storage-architecture.md`. A future durable adapter must atomically commit every account update and the state version, expose consistent snapshots, reject stale plans, and recover to a complete old or new committed state after interruption. Database integrity metadata is not a consensus commitment. No storage backend has been adopted.
+
+The separate `state-commitments.md` document defines requirements for a deterministic authenticated state root. No root is implemented because canonical account encoding, key ordering, hash domains, and authenticated tree semantics remain open. A database migration must not change a root for identical logical state.
 
 Before execution implementation define account/storage model, signing domain, nonce rules, intrinsic gas, gas schedule, actual fee settlement, contract creation, precompiles, fork activation, receipt encoding, state-root algorithm and error semantics. Demonstrate compatibility through upstream vectors, APEX-specific vectors, differential testing and fuzzing. Host time, randomness, network access and nondeterministic iteration must not affect execution.
