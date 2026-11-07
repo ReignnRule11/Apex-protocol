@@ -1,6 +1,6 @@
 # Phase 14 — Canonical Account Encoding and State Commitment Prototype
 
-**Status:** implementation submitted for review; CI pending. Research prototype only.
+**Status:** merged into main; format, Clippy and workspace tests passed. Research prototype only.
 
 ## Scope
 
