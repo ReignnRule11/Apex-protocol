@@ -1,6 +1,6 @@
 # ADR-0030: Versioned redb persistence for full-width EVM state
 
-- **Status:** Proposed pending CI validation
+- **Status:** Accepted after PR #26 and post-merge CI passed
 - **Date:** 2026-11-07
 - **Related:** ADR-0027 through ADR-0029, Phase 19F
 

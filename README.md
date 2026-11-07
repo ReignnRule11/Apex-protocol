@@ -25,7 +25,7 @@
 
 **Phase 19E — atomic full-width EVM state deltas (merged).** Adds parent-version-bound before/after account, code and storage updates with strict ordering checks and all-or-nothing in-memory snapshot replacement. PR #25 and post-merge CI passed.
 
-**Phase 19F — persistent full-width EVM state prototype (submitted).** Adds a separate `apex-evm-redb` crate. It stores full-width account, code, storage and block-hash records under versioned keys; one redb transaction writes the new snapshot and advances the current-version pointer. Historical versions are retained. This is single-process and single-writer, with no garbage collection, canonical state encoding, state root or cross-subsystem consensus commit. CI and review are pending.
+**Phase 19F — persistent full-width EVM state prototype (merged).** PR #26 adds a separate `apex-evm-redb` crate. It stores full-width account, code, storage and block-hash records under versioned keys; one redb transaction writes the new snapshot and advances the current-version pointer. Historical versions are retained. PR CI #42388264492 and post-merge CI #42388315877 passed. This remains a single-process/single-writer prototype, with no garbage collection, canonical state encoding, state root or cross-subsystem consensus commit.
 
 **Phase 19 — deterministic EVM execution (in progress).** Actual revm state-diff extraction, explicit fork/block context, canonical transaction authentication, fee settlement, receipts and complete state commitments remain unimplemented.
 

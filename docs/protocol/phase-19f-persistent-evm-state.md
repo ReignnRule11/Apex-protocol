@@ -1,6 +1,6 @@
 # Phase 19F — Persistent full-width EVM state prototype
 
-**Status:** Submitted for CI validation.
+**Status:** Merged — PR #26; PR CI and post-merge CI passed.
 **Release impact:** G1 and G4 remain BLOCKED.
 
 ## Objective
@@ -29,10 +29,13 @@ The in-memory candidate is published only after redb acknowledges commit. If com
 ## Tests
 
 - Initialize and reopen all four state domains with full-width values.
-- Apply and persist a new version; reject replay both before and after reopen.
+- Apply and persist a successful non-empty account/code/storage delta; verify all changed domains after reopen.
+- Apply an empty new version; reject replay both before and after reopen.
 - Reject a failed before-state check without advancing durable version.
 - Prove an existing database is not overwritten by a new initial snapshot.
 - Run redb integrity verification after a committed snapshot.
+
+Validation links: [PR #26](https://github.com/ReignnRule11/Apex-protocol/pull/26), [PR CI #42388264492](https://github.com/ReignnRule11/Apex-protocol/actions/runs/42388264492), [post-merge CI #42388315877](https://github.com/ReignnRule11/Apex-protocol/actions/runs/42388315877).
 
 ## Explicit limitations
 
