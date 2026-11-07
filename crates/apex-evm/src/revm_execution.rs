@@ -26,7 +26,10 @@ pub fn build_revm_evm<'a>(
     let (cfg, block) = environment.into_parts();
     let spec = *cfg.spec();
 
-    Context::new(snapshot.database_view(), spec)
+    Context::<BlockEnv, TxEnv, CfgEnv, EvmDatabaseView<'a>>::new(
+        snapshot.database_view(),
+        spec,
+    )
         .with_cfg(cfg)
         .with_block(block)
         .build_mainnet()
@@ -93,7 +96,7 @@ mod tests {
         let evm = build_revm_evm(&snapshot, environment());
 
         assert_eq!(evm.ctx.cfg.chain_id, 77);
-        assert_eq!(evm.ctx.cfg.spec(), SpecId::SHANGHAI);
+        assert_eq!(*evm.ctx.cfg.spec(), SpecId::SHANGHAI);
         assert_eq!(evm.ctx.block.number(), 123_u64.into());
         assert_eq!(evm.ctx.block.timestamp(), 1_800_000_123);
         assert_eq!(evm.ctx.block.gas_limit(), 30_000_000);
