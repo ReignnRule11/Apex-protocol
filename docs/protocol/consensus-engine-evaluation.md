@@ -47,7 +47,13 @@ Repository: https://github.com/cometbft/cometbft
 - Credible reference/fallback if Malachite API stability, assurance or operational fit fails.
 - Costs include a Go runtime/process boundary or interoperability layer in a Rust-first node.
 
-## Phase 20B isolated API spike\n\nThe isolated experiment is located at `experiments/malachite-spike`. It depends only on the public channel-based application crate `arc-malachitebft-app-channel`, pinned by Git revision to the v0.8.2 tag commit. The crate transitively brings in Malachite's application, engine, network, sync, signing and WAL crates. The experiment re-exports selected public builder/context types and smoke-tests the request-context API. This is a compile/API compatibility probe, not a running consensus node. The experiment has its own Cargo workspace and does not modify the APEX root workspace dependency graph. CI generates a lockfile and publishes the lockfile, dependency tree and license metadata as an artifact for inspection.\n\nThe isolated dependency is deliberately limited to the channel application facade: this tests the public integration entry point and makes its transitive scope visible. No default validator signer is instantiated; no network identity, listening socket, WAL path, peer, consensus actor or block is created. The upstream test suite has not yet been reproduced in full.\n\n## Ordered Phase 20 gates
+## Phase 20B isolated API spike
+
+The isolated experiment is located at `experiments/malachite-spike`. It depends only on the public channel-based application crate `arc-malachitebft-app-channel`, pinned by Git revision to the v0.8.2 tag commit. The crate transitively brings in Malachite's application, engine, network, sync, signing and WAL crates. The experiment re-exports selected public builder/context types and smoke-tests the request-context API. This is a compile/API compatibility probe, not a running consensus node. The experiment has its own Cargo workspace and does not modify the APEX root workspace dependency graph. CI generates a lockfile and publishes the lockfile, dependency tree and license metadata as an artifact for inspection.
+
+The isolated dependency is deliberately limited to the channel application facade: this tests the public integration entry point and makes its transitive scope visible. No default validator signer is instantiated; no network identity, listening socket, WAL path, peer, consensus actor or block is created. The upstream test suite has not yet been reproduced in full.
+
+## Ordered Phase 20 gates
 
 1. **20A — candidate revalidation:** exact upstream version/commit, license, MSRV and maturity recorded. Complete.
 2. **20B — isolated dependency/API spike:** exact crate selection, Cargo.lock resolution, full dependency/license/advisory review, reproducible upstream tests, and a minimal isolated engine build.
