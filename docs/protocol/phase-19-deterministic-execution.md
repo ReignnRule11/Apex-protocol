@@ -1,102 +1,52 @@
 # Phase 19 — Deterministic EVM Execution and Fee Accounting
 
-**Status:** Engine evaluation baseline; no EVM engine is pinned or integrated.
+**Status:** Candidate engine pinned for isolated integration; minimal test execution harness submitted.
 **Release impact:** G1 remains BLOCKED.
 
-## 1. Objective
+## Objective
 
-Implement a deterministic EVM execution subsystem that can validate and execute the proposed initial EIP-1559 type-2 transaction profile against a complete versioned parent-state view. Execution must produce canonical receipts, gas accounting, fee settlement and a complete post-state commitment. A library call that executes bytecode is not, by itself, a blockchain execution layer.
+Implement a deterministic EVM execution subsystem for the proposed initial EIP-1559 type-2 transaction profile against a complete versioned parent-state view. Execution must produce canonical receipts, gas accounting, fee settlement and a complete post-state commitment. A library call that executes bytecode is not, by itself, a blockchain execution layer.
 
-## 2. Engine evaluation
+## Engine candidate
 
-### Preferred candidate: revm
+- Engine: revm 43.0.3, exact version pin in `crates/apex-evm/Cargo.toml`.
+- Toolchain: Rust 1.91.0, exact workspace and CI pin.
+- Features: default features disabled; `std` enabled explicitly.
+- Upstream license: MIT; APEX still requires a complete dependency/license inventory and security review.
+- Fork: not ratified. Osaka/Fusaka-era behavior remains a candidate baseline; Glamsterdam remains excluded until finalized and explicitly selected.
+- Adapter: APEX-owned boundary; engine types are not canonical wire/storage formats.
 
-The Rust EVM implementation revm is the preferred candidate for a focused integration spike because:
-- it is a Rust-native EVM implementation with executor and framework APIs;
-- it is used by established Ethereum tooling and clients including Reth and Foundry;
-- it exposes Alloy primitives used across the Rust Ethereum ecosystem;
-- the upstream project is MIT-licensed;
-- its documentation describes execution against explicit block context and transactions.
+## Progress
 
-The latest release surfaced during this evaluation is revm 43.0.3 (2026-09-24). This is a candidate version only, not a dependency selection or production approval.
+### 19A — dependency and toolchain compatibility
 
-### Blocking compatibility questions
+The initial Rust 1.90.0 CI attempt failed because the revm 43.0.3 dependency graph declares a Rust 1.91.0 minimum. The workspace metadata, `rust-toolchain.toml` and CI were aligned to Rust 1.91.0. The updated compatibility CI passed and PR #21 was merged.
 
-The upstream project states that it tracks the latest stable Rust and may update its MSRV at any time. APEX currently pins Rust 1.90.0. The exact MSRV and feature graph of the candidate release have not yet been proven against this workspace. A dedicated CI compile spike must establish compatibility before pinning.
+### 19B — minimal execution API harness
 
-The current revm release line includes work targeting Glamsterdam development networks. Ethereum's published roadmap identifies Fusaka/Osaka as deployed and Glamsterdam as in development; the Foundation postponed the Hoodi Glamsterdam activation on 2026-10-22 and had not published a replacement activation date at the time of this evaluation. APEX must not accidentally enable devnet-only or not-yet-finalized fork behavior by selecting a library version.
+A test-only fixture now deploys a small contract into a fresh revm in-memory database, commits its creation, calls it, and checks a known storage value. A second fresh run checks repeatability of the observed result. This proves that the pinned candidate can be invoked through its execution API for this narrow fixture.
 
-### Alternatives and decision
+It does not prove APEX block execution, production context, fork correctness, state adapter correctness, fee settlement or cross-client determinism. See `phase-19b-evm-execution-harness.md` and ADR-0026.
 
-Do not select an older EVM implementation solely to preserve the current Rust toolchain. Do not fork revm or implement an EVM from scratch without compelling, independently reviewed evidence. Keep the engine behind an APEX-owned adapter so that upstream types do not become APEX wire formats.
+## Required next work
 
-**Decision:** revm is the preferred candidate for a compile/conformance spike. The engine, exact crate version, feature set and EVM fork remain unselected until the gates below pass.
+1. Design the full-width EVM state model: 20-byte addresses, U256 balances/nonces as required by the selected fork, code hashes/code storage, 256-bit storage keys/values, account existence semantics and bounded reads/writes.
+2. Implement an APEX-owned revm database adapter over an immutable versioned state snapshot. Keep all reads anchored to one parent state version; return explicit errors for missing/corrupt state.
+3. Define a typed explicit execution context supplied by validated block data: fork ID, block number, timestamp, gas limit, base fee, coinbase/fee recipient, chain ID and randomness/prevrandao fields where required. No host-derived values.
+4. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review.
+5. Implement canonical type-2 transaction decoding and signature recovery before treating sender identity as trusted.
+6. Implement EIP-1559 fee settlement: affordability, escrow, actual gas, base-fee burn, priority-fee credit and unused-gas refund with exact overflow/rounding rules.
+7. Convert revm state diffs into atomic APEX state updates; add canonical receipts/logs and complete state commitments.
+8. Run official Ethereum execution-spec fixtures and differential tests against an independent client; fuzz codecs and database conversion.
 
-## 3. Fork policy candidate
+## Exit evidence
 
-Use a named, frozen execution ruleset, not a floating "latest Ethereum" mode. The initial candidate baseline is Osaka/Fusaka-era EVM behavior. Glamsterdam and later upgrades are excluded until the upstream specifications are finalized, the chosen revm release supports the final rules, and APEX ratifies explicit activation semantics.
+- Official fork-specific execution fixtures and Ethereum test suites.
+- Differential outputs against an independent client.
+- Reproducible replay with fixed parent state, block context and transactions.
+- Full state-root agreement and fee/supply conservation vectors.
+- Fuzz/property tests and independent security review.
 
-This fork candidate is separate from transaction-type support: the initial APEX transaction profile remains type 0x02 only unless a later ADR expands it.
+## Production decision
 
-## 4. Required adapter boundary
-
-The future apex-evm crate must own:
-- conversion between APEX versioned state and engine database interfaces;
-- chain ID and block execution context;
-- transaction decoding/authentication handoff;
-- fork selection by deterministic protocol parameters;
-- transaction execution and revert semantics;
-- gas and fee settlement inputs/outputs;
-- canonical receipt and log conversion;
-- state-diff extraction and atomic application handoff.
-
-The adapter must not allow engine-specific serialized structs to become canonical APEX protocol formats. It must not read host time, random values, local files or network state during deterministic execution.
-
-## 5. Execution invariants
-
-For identical parent state, block context, transaction bytes and fork parameters, all conforming nodes must produce identical:
-- transaction acceptance/rejection;
-- sender and destination semantics;
-- execution status and return/revert data;
-- gas used and cumulative block gas;
-- ordered logs and receipts;
-- effective gas price and fee allocations;
-- state changes and complete post-state root.
-
-A failed transaction must follow the selected EVM fork's exact rollback semantics. Transaction-level reverts do not imply block invalidity; invalid block structure or an invalid transaction envelope rejects the block. Fee debits, nonce consumption and refunds must follow the pinned execution rules, not APEX-specific approximations.
-
-## 6. Fee-accounting boundary
-
-The type-2 transaction has max fee and priority fee caps. Actual charged fee must be derived from the active base fee and effective priority fee under the selected EIP-1559 rules. The protocol must account exactly for:
-- sender upfront affordability and escrow;
-- actual gas used;
-- base-fee burn;
-- proposer priority-fee allocation;
-- refund of unused gas escrow;
-- overflow and integer-rounding behavior.
-
-The current transfer planner's maximum-fee escrow is only an admission prototype. It is not production fee settlement and must not be reused as if it were.
-
-## 7. Required conformance evidence
-
-- Run the official Ethereum execution-spec state, blockchain and transaction fixtures relevant to the pinned fork.
-- Run the upstream Ethereum tests repository's applicable GeneralStateTests, BlockchainTests, TransactionTests, EIPTests and RLP tests.
-- Differentially compare results against at least one independent execution client for the selected fork.
-- Include EVM state tests for storage, creation, calls, reverts, logs, gas boundaries, precompiles, warm/cold access, self-destruct semantics and fork transitions.
-- Verify EIP-1559 fee calculations and supply accounting with independent vectors.
-- Replay identical block fixtures on different supported architectures and compare receipts and complete state roots.
-- Fuzz transaction decoding, engine database adapters and state-diff conversion.
-
-Passing revm's own tests is necessary but not sufficient; APEX integration and cross-client differential evidence are required.
-
-## 8. Phase 19 exit gates
-
-1. Prove the exact candidate revm release builds on the pinned APEX toolchain or explicitly approve a toolchain update.
-2. Complete dependency, license, feature and security review.
-3. Ratify a named EVM fork and activation model.
-4. Implement a minimal apex-evm adapter without exposing engine-specific wire types.
-5. Pass official execution fixtures and differential tests.
-6. Implement deterministic fee settlement and complete-state transition integration.
-7. Demonstrate deterministic replay and bounded resource use.
-
-Until these gates pass, no EVM execution, Ethereum equivalence or fee-market correctness is claimed. G1 remains BLOCKED.
+**NO-GO.** G1 remains blocked. No production chain execution, validator operation or real-funds use is authorized.
