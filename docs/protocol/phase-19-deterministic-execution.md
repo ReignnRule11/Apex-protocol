@@ -1,81 +1,43 @@
 # Phase 19 — Deterministic EVM Execution and Fee Accounting
 
-**Status:** revm 43.0.3 candidate pinned; execution harness, full-width state model, read adapter, atomic in-memory deltas and a durable redb prototype are merged.
+**Status:** revm 43.0.3 pinned; staged state, storage, execution-result and environment adapters merged/in progress.
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
 
-Implement a deterministic EVM execution subsystem for the proposed initial EIP-1559 type-2 transaction profile against a complete versioned parent-state view. Execution must produce canonical receipts, gas accounting, fee settlement and a complete post-state commitment. A library call that executes bytecode is not, by itself, a blockchain execution layer.
+Implement deterministic EVM execution against a complete versioned parent-state view. Execution must eventually produce canonical receipts, gas accounting, fee settlement and a complete post-state commitment. A library call that executes bytecode is not, by itself, a blockchain execution layer.
 
 ## Engine candidate
 
-- Engine: revm 43.0.3, exact version pin in crates/apex-evm/Cargo.toml.
-- Toolchain: Rust 1.91.0, exact workspace and CI pin.
+- Engine: revm 43.0.3, exact version pin in `crates/apex-evm/Cargo.toml`.
+- Toolchain: Rust 1.91.0.
 - Features: default features disabled; std enabled explicitly.
-- Upstream license: MIT; APEX still requires a complete dependency/license inventory and security review.
-- Fork: not ratified. Osaka/Fusaka-era behavior remains a candidate baseline; Glamsterdam remains excluded until finalized and explicitly selected.
-- Adapter: APEX-owned boundary; engine types are not canonical wire/storage formats.
+- Fork: no APEX fork is ratified.
+- Adapter: APEX-owned; revm types are not canonical wire or storage formats.
 
 ## Progress
 
-### 19A — dependency and toolchain compatibility
-PR #21 and post-merge CI passed for the exact revm 43.0.3 candidate under Rust 1.91.0.
+- **19A–19B:** revm compatibility spike and minimal test-only execution harness.
+- **19C–19E:** full-width state model, read-only revm Database adapter and atomic in-memory state-delta application.
+- **19F–19H:** versioned redb persistence prototype and selected corruption/commit-ambiguity recovery tests. These do not prove real power-loss durability or production storage suitability.
+- **19I:** revm state-diff extraction into deterministic parent-version-bound APEX deltas.
+- **19J:** success-gated extraction; revert and halt outcomes are rejected.
+- **19K:** immutable APEX block execution context and validated fork activation schedule.
+- **19L:** explicit context-to-revm environment mapping. Requires a matching APEX ForkId/revm SpecId binding; rejects lossy 256-bit-to-u64 conversions; supports only post-Merge/pre-Cancun profiles; rejects missing prevrandao and unsupported fork profiles. Uses revm's mainnet gas table as a provisional compatibility mapping, not approved APEX gas policy.
 
-### 19B — minimal execution API harness
-PR #22 and post-merge CI passed. A test-only fixture deploys a contract, commits creation, calls it and checks a known storage value.
+## Phase 19L limitations
 
-### 19C — full-width state model and immutable read boundary
-PR #23 and post-merge CI passed. Adds 20-byte addresses, 256-bit balances/storage words, bytecode references and caller-bounded immutable snapshots.
-
-### 19D — revm Database trait adapter
-PR #24 and post-merge CI passed. Implements revm Database over the immutable snapshot, with lossless full-width conversions and typed fail-closed errors for missing/malformed code. It is read-only.
-
-### 19E — atomic full-width EVM state deltas
-PR #25 and post-merge CI passed. Ordered before/after account, code and storage updates are bound to a parent version. A process-local in-memory store validates every precondition and the complete resulting snapshot before publishing a replacement.
-
-### 19F — persistent full-width EVM state prototype (merged)
-PR #26 and post-merge CI passed. Adds `apex-evm-redb`, separate from the legacy `apex-state-redb` adapter. Account, code, storage and block-hash records use fixed-width big-endian keys/fields and a private storage schema. Each state version is written under version-prefixed keys. A single redb write transaction inserts the complete next snapshot and updates the metadata current-version pointer. Historical versions are retained, making publication atomic without mutating old records.
-
-The adapter uses redb's default exclusive file lock and Immediate durability. It is single-process/single-writer. Resource limits are caller supplied and not protocol parameters. It has no garbage collection, online backup, multi-process coordination, canonical wire encoding, state root or atomic consensus/signer commit. Commit errors latch the instance as requiring reopen/reconciliation.
-
-## Phase 19G — persistent-state corruption and recovery validation (merged)
-PR #28 merged at `c653b073e446620b5f6ede38c7d41c7bde2c72dd`. PR CI #42389694673 and post-merge main CI #42389851008 passed Format, Clippy and the full workspace tests. It adds controlled reopen-corruption tests for incomplete metadata, unsupported schema versions and malformed current-version account records. These are not actual crash/power-loss or I/O fault simulations. See `phase-19g-storage-corruption-recovery.md` and ADR-0031.
-
-## Phase 19H — commit ambiguity and orphaned-version recovery tests (merged)
-PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`. PR CI #42390234287 and post-merge main CI #42390288716 passed Format, Clippy and the full workspace tests. It adds test-only fault injection at the durable commit boundary: a pre-commit failure (transaction dropped, old version retained), a committed transaction whose acknowledgement is simulated as lost (store latches; reopen discovers the advanced version; replay is rejected), and orphaned future-version records (not selected without the metadata pointer). These tests validate the adapter's reconciliation contract; they do not simulate OS/device faults or prove redb's power-loss behavior. See `phase-19h-commit-recovery.md` and ADR-0032.
-
-## Phase 19I — revm state-diff extraction (merged; PR #31 and post-merge CI #42391594192 passed)
-
-Adds `apex-evm::state_diff::extract_revm_state_delta`, converting revm's `EvmState` into deterministic APEX-owned account, code and storage updates. The delta is bound to the immutable parent snapshot version and still must pass the existing atomic state-application checks. Code bytes are checked against revm's declared hash; conflicting bytes under an existing code hash are rejected. Each changed storage slot's revm original value must match the parent snapshot. Zero-valued resulting slots are represented as absent entries.
-
-Fork-sensitive account deletion/selfdestruct is rejected rather than guessed because the EVM fork and activation schedule are not ratified. The adapter does not itself distinguish successful, reverted and halted transaction outcomes; the caller must only supply committed successful state. Tests use constructed revm state fixtures and do not yet prove a complete transaction-to-persistent-state path or official execution-spec conformance.
-
-## Phase 19J — success-gated revm execution results (PR #32; CI #42391906701 passed; review pending)
-
-Adds `extract_successful_revm_result_delta`, which accepts revm's paired `ExecResultAndState<ExecutionResult, EvmState>`. The adapter checks the execution outcome before inspecting the state map: `Success` delegates to the Phase 19I extractor, while `Revert` and `Halt` return explicit errors and cannot produce an APEX delta through this API.
-
-Tests cover successful extraction, reverted-result rejection and halted-result rejection. This is a stronger API boundary than the Phase 19I caller convention, but it still trusts the supplied revm result/state pair; public types can be constructed by callers. It does not authenticate the transaction, select a fork, supply validated block context, settle fees or produce receipts. EVM-level success alone is not proof that a transaction is authorized for APEX consensus inclusion.
-
-## Phase 19K — explicit block execution context (PR #33; validation pending)
-
-Adds the APEX-owned `execution_context` module and a direct dependency on the shared `apex-types::ChainId256` primitive.
-
-- `ForkId` is an opaque 32-byte identifier. It does not imply any specific Ethereum fork or select revm behavior.
-- `ForkActivationSchedule::try_new` rejects an empty schedule, a first activation other than height zero, zero fork identifiers and duplicate/non-increasing activation heights.
-- `active_at` selects the latest configured activation at or before a block height, including exact activation boundaries.
-- `BlockExecutionContext::try_from_validated_block` captures nonzero chain ID, active fork ID, block number, timestamp, nonzero gas limit, 256-bit base fee, beneficiary and optional prevrandao. It rejects a zero chain ID, zero gas limit and missing prevrandao when the selected profile requires it.
-- Context fields are private and read-only through accessors. No host clock, host randomness or implicit mainnet context is consulted.
-- Tests cover schedule validation, activation boundaries, explicit field retention, zero chain/gas rejection and fork-required randomness.
-
-This is a validated data model only. It does not authenticate the block that supplies these values, ratify a fork schedule, validate timestamp/fee rules, map the context to revm `CfgEnv`/`BlockEnv`, or execute a transaction. Fork IDs and activation heights remain genesis/protocol configuration, not hardcoded defaults. The `requires_prevrandao` flag is a narrow context-presence requirement, not a complete fork-semantics declaration.
+The environment adapter does not authenticate the source block/configuration or execute a transaction. revm 43.0.3 uses u64 chain ID and base fee fields; values outside that range fail closed. Blob-gas inputs, pre-Merge difficulty, Amsterdam slot semantics, fork-specific APEX gas rules, transaction authentication, fee settlement, receipts and full-state commitments remain outstanding.
 
 ## Required next work
 
-1. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review; specify every fork-dependent opcode, precompile and environment field.
-4. Implement canonical type-2 transaction decoding and signature recovery before treating sender identity as trusted.
-5. Implement EIP-1559 fee settlement: affordability, escrow, actual gas, base-fee burn, priority-fee credit and unused-gas refund with exact overflow/rounding rules.
-6. Add canonical receipts/logs and complete state commitments.
-7. Run official Ethereum execution-spec fixtures and differential tests against an independent client; fuzz codecs and database conversion.
+1. Ratify APEX fork semantics, activation rules and the explicit mapping to revm SpecIds.
+2. Resolve 256-bit APEX chain-ID/base-fee versus revm u64 limits.
+3. Extend context and mapping for blob gas and future fork-specific environment fields before enabling those forks.
+4. Connect the explicit environment to the EVM builder and authenticated transaction pipeline without mainnet defaults.
+5. Implement canonical type-2 transaction decoding and signature recovery.
+6. Implement exact fee settlement, canonical receipts/logs and complete state commitments.
+7. Run official execution-spec fixtures, differential tests, fuzzing and independent review.
 
 ## Exit evidence
 
@@ -87,4 +49,4 @@ This is a validated data model only. It does not authenticate the block that sup
 
 ## Production decision
 
-**NO-GO.** G1 remains blocked. No production chain execution, validator operation or real-funds use is authorized.
+**NO-GO.** G0 and G1 remain blocked. No production chain execution, validator operation or real-funds use is authorized.
