@@ -1,6 +1,6 @@
 # Phase 13 — Storage Lifecycle and Schema Migration
 
-**Status:** implementation submitted for review; CI pending. Not production-approved.
+**Status:** merged into `main`; post-merge format, Clippy and workspace tests passed. Not production-approved.
 
 ## Implementation
 
