@@ -1,8 +1,8 @@
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::{self, ExitCode};
+use std::process::ExitCode;
 
 const MAX_COMMAND_BYTES: usize = 2_048;
 const MAX_PAYLOAD_HEX_BYTES: usize = 1_024;
@@ -15,7 +15,7 @@ struct Record {
 }
 
 fn valid_hex(value: &str) -> bool {
-    !value.is_empty() && value.len() % 2 == 0 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    !value.is_empty() && value.len().is_multiple_of(2) && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn load_journal(path: &Path) -> io::Result<Vec<Record>> {
