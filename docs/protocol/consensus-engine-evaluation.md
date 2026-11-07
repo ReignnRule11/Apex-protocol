@@ -99,3 +99,12 @@ No consensus signature suite, numeric chain ID, canonical consensus message code
 - Upstream license: https://github.com/circlefin/malachite/blob/v0.8.2/LICENSE
 - Upstream release notes: https://github.com/circlefin/malachite/blob/v0.8.2/RELEASE_NOTES.md
 - CometBFT repository: https://github.com/cometbft/cometbft
+
+
+## Phase 20G1 — pinned EngineBuilder adapter (implementation submitted)
+
+The isolated Malachite spike now exposes a typed `build_engine` function that calls the real v0.8.2 `EngineBuilder` and supplies the upstream default WAL, network, consensus, sync and request actor configuration. Its generic bounds compile-check APEX's ability to pass upstream context, config and codec types through the public application-channel API. The adapter lives only in the isolated research workspace; it does not add Malachite to the production workspace.
+
+This is an API integration boundary, not a running engine. No engine actors are started by the adapter's smoke tests; no validator key or network identity is created; no sockets, peer discovery, application event loop, APEX proposal codec, APEX finality verifier or durable application commit are integrated. The upstream test application uses its own test context, codec, signing and application semantics and must not be mistaken for APEX conformance.
+
+The next step is a real, isolated multi-validator runtime using APEX-owned application validation and signer reservations, with independently provisioned test identities, process-level network fault injection, restart/recovery tests and certificate-to-application commit assertions. Only after that evidence should dependency promotion or production workspace integration be considered.

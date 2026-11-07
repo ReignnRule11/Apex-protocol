@@ -26,7 +26,7 @@ jobs:
         run: cargo test --workspace
 
   malachite-spike:
-    name: Isolated Malachite v0.8.2 API spike
+    name: Isolated Malachite v0.8.2 API and EngineBuilder adapter
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -39,9 +39,9 @@ jobs:
           workspaces: experiments/malachite-spike -> target
       - name: Generate isolated lockfile
         run: cargo generate-lockfile
-      - name: Compile pinned Malachite application API
+      - name: Compile pinned Malachite API and typed EngineBuilder adapter
         run: cargo check --locked --all-targets
-      - name: Run isolated API smoke tests
+      - name: Run isolated API and adapter smoke tests
         run: cargo test --locked
       - name: Capture resolved dependency tree
         run: cargo tree --locked -e normal > dependency-tree.txt
