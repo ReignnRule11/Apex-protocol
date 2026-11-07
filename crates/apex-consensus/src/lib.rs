@@ -217,8 +217,7 @@ pub fn plan_transaction_transition<S: AdmissionState>(
     transaction: TransactionAdmission,
     state: &S,
 ) -> Result<StateTransitionPlan, TransactionAdmissionError> {
-    let maximum_fee =
-        validate_transaction_against_state(context, transaction, state)?;
+    let maximum_fee = validate_transaction_against_state(context, transaction, state)?;
     let sender_before = state
         .account(transaction.sender)
         .ok_or(TransactionAdmissionError::UnknownSender)?;
@@ -549,7 +548,10 @@ mod tests {
 
     #[test]
     fn stateful_admission_rejects_unknown_sender() {
-        let state = TestState { sender: None, recipient: None };
+        let state = TestState {
+            sender: None,
+            recipient: None,
+        };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
             Err(TransactionAdmissionError::UnknownSender)
@@ -563,7 +565,10 @@ mod tests {
                 nonce: 5,
                 balance: u128::MAX,
             }),
-            recipient: Some(AccountState { nonce: 0, balance: 1_000 }),
+            recipient: Some(AccountState {
+                nonce: 0,
+                balance: 1_000,
+            }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
@@ -606,8 +611,8 @@ mod tests {
     #[test]
     fn transition_plan_debits_sender_advances_nonce_and_credits_recipient() {
         let state = funded_state();
-        let plan = plan_transaction_transition(admission_context(), admission_tx(), &state)
-            .unwrap();
+        let plan =
+            plan_transaction_transition(admission_context(), admission_tx(), &state).unwrap();
         assert_eq!(plan.maximum_fee_escrow, 2_100_000);
         assert_eq!(plan.sender.before.nonce, 4);
         assert_eq!(plan.sender.after.nonce, 5);
@@ -646,7 +651,10 @@ mod tests {
     #[test]
     fn transition_plan_rejects_recipient_balance_overflow() {
         let mut state = funded_state();
-        state.recipient = Some(AccountState { nonce: 0, balance: u128::MAX });
+        state.recipient = Some(AccountState {
+            nonce: 0,
+            balance: u128::MAX,
+        });
         assert_eq!(
             plan_transaction_transition(admission_context(), admission_tx(), &state),
             Err(TransactionAdmissionError::RecipientBalanceOverflow)
