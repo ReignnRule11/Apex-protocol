@@ -57,8 +57,9 @@ fn merkle_root(leaves: &[Hash32]) -> Hash32 {
 
 /// Computes the prototype root for a fixed logical account map.
 /// Accounts are ordered by numeric AccountId (BTreeMap order). The commitment
-/// binds schema version, account count and tree root. The root is independent of block height, StateVersion, database layout and insertion order.
-/pub fn account_state_root_v1(accounts: &BTreeMap<AccountId, AccountState>) -> Hash32 {
+/// binds schema version, account count and tree root. The root is independent
+/// of block height, StateVersion, database layout and insertion order.
+pub fn account_state_root_v1(accounts: &BTreeMap<AccountId, AccountState>) -> Hash32 {
     let leaves: Vec<Hash32> = accounts
         .iter()
         .map(|(id, state)| account_leaf_hash(*id, *state))
@@ -143,7 +144,7 @@ mod tests {
     #[test]
     fn tree_shape_handles_non_power_of_two_leaf_counts() {
         let leaves: Vec<Hash32> = (0..7_u8).map(|n| sha256(&[b"leaf", &[n]])).collect();
-        assert_eq!(merkle_root(&leaves), merkle_root(&leaves));
+        assert_ne!(merkle_root(&leaves), Hash32([0; 32]));
         assert_ne!(merkle_root(&leaves[..6]), merkle_root(&leaves));
     }
 }
