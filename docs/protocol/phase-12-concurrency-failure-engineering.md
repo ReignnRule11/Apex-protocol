@@ -1,6 +1,6 @@
 # Phase 12 — Storage Concurrency and Failure-Boundary Engineering
 
-**Status:** implementation and tests added; CI/review pending. Production approval withheld.
+**Status:** merged into `main`; format, Clippy and workspace tests passed. Production approval withheld.
 
 ## Objectives
 
