@@ -149,8 +149,8 @@ impl StateStore for InMemoryStateStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apex_types::ChainId;
     use apex_consensus::{TransactionAdmission, TransactionId};
+    use apex_types::ChainId;
 
     fn store() -> InMemoryStateStore {
         InMemoryStateStore::new(
@@ -244,13 +244,21 @@ mod tests {
         let current = planned(&s);
         assert_eq!(s.apply(&current), Ok(StateVersion(13)));
         let before = s.snapshot();
-        assert_eq!(s.apply(&old), Err(StateStoreError::StaleVersion {
-            expected: StateVersion(12), actual: StateVersion(13),
-        }));
+        assert_eq!(
+            s.apply(&old),
+            Err(StateStoreError::StaleVersion {
+                expected: StateVersion(12),
+                actual: StateVersion(13),
+            })
+        );
         assert_eq!(s.snapshot(), before);
-        assert_eq!(s.apply(&current), Err(StateStoreError::StaleVersion {
-            expected: StateVersion(12), actual: StateVersion(13),
-        }));
+        assert_eq!(
+            s.apply(&current),
+            Err(StateStoreError::StaleVersion {
+                expected: StateVersion(12),
+                actual: StateVersion(13),
+            })
+        );
     }
 
     #[test]
