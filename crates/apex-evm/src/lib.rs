@@ -6,7 +6,11 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use revm as _;
+use revm::{
+    database_interface::{DBErrorMarker, Database},
+    primitives::{Address, B256, Bytes, StorageKey, StorageValue, U256},
+    state::{AccountInfo, Bytecode},
+};
 
 pub const REVM_CANDIDATE_VERSION: &str = "43.0.3";
 
@@ -195,6 +199,76 @@ impl<'a> EvmDatabaseView<'a> {
     }
 }
 
+/// Error surfaced by the revm database adapter. Missing or malformed code is
+/// fatal to execution; it is never silently replaced with empty bytecode.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RevmDatabaseError {
+    CodeMissing(EvmCodeHash),
+    InvalidBytecode(String),
+}
+
+impl fmt::Display for RevmDatabaseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CodeMissing(hash) => write!(f, "database code hash not found: {hash:?}"),
+            Self::InvalidBytecode(message) => write!(f, "database bytecode is invalid: {message}"),
+        }
+    }
+}
+
+impl std::error::Error for RevmDatabaseError {}
+impl DBErrorMarker for RevmDatabaseError {}
+
+impl Database for EvmDatabaseView<'_> {
+    type Error = RevmDatabaseError;
+
+    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+        let mut address_bytes = [0_u8; 20];
+        address_bytes.copy_from_slice(address.as_slice());
+        Ok(
+            EvmDatabaseView::basic(self, EvmAddress(address_bytes)).map(|account| AccountInfo {
+                balance: U256::from_be_bytes(account.balance.0),
+                nonce: account.nonce,
+                code_hash: B256::from(account.code_hash.0),
+                account_id: None,
+                code: None,
+            }),
+        )
+    }
+
+    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        let mut hash_bytes = [0_u8; 32];
+        hash_bytes.copy_from_slice(code_hash.as_slice());
+        let hash = EvmCodeHash(hash_bytes);
+        let code = EvmDatabaseView::code_by_hash(self, hash)
+            .ok_or(RevmDatabaseError::CodeMissing(hash))?;
+        Bytecode::new_raw_checked(Bytes::copy_from_slice(code))
+            .map_err(|error| RevmDatabaseError::InvalidBytecode(error.to_string()))
+    }
+
+    fn storage(
+        &mut self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<StorageValue, Self::Error> {
+        let mut address_bytes = [0_u8; 20];
+        address_bytes.copy_from_slice(address.as_slice());
+        let key = U256Word(index.to_be_bytes::<32>());
+        let value = EvmDatabaseView::storage(self, EvmAddress(address_bytes), key);
+        Ok(U256::from_be_bytes(value.0))
+    }
+
+    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
+        Ok(self
+            .snapshot
+            .block_hashes
+            .get(&number)
+            .copied()
+            .map(B256::from)
+            .unwrap_or(B256::ZERO))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,6 +304,61 @@ mod tests {
             LIMITS,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn revm_database_trait_reads_full_width_snapshot_values() {
+        let snapshot = snapshot();
+        let mut database = snapshot.database_view();
+        let evm_address = Address::from_slice(&address(1).0);
+
+        let account = Database::basic(&mut database, evm_address)
+            .unwrap()
+            .expect("present account");
+        assert_eq!(account.nonce, 9);
+        assert_eq!(account.balance, U256::from_be_bytes([0x80; 32]));
+        assert_eq!(account.code_hash, B256::from([7; 32]));
+        assert!(Database::code_by_hash(&mut database, account.code_hash).is_ok());
+        assert_eq!(
+            Database::storage(&mut database, evm_address, U256::from(3_u8)).unwrap(),
+            U256::from_be_bytes([0x55; 32])
+        );
+        assert_eq!(
+            Database::block_hash(&mut database, 41).unwrap(),
+            B256::from([0x41; 32])
+        );
+        assert_eq!(
+            Database::block_hash(&mut database, 999).unwrap(),
+            B256::ZERO
+        );
+        assert!(
+            Database::basic(&mut database, Address::from_slice(&address(2).0))
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn revm_database_rejects_missing_and_malformed_code() {
+        let hash = EvmCodeHash([8; 32]);
+        let snapshot = EvmStateSnapshot::try_new(
+            3,
+            BTreeMap::new(),
+            BTreeMap::from([(hash, vec![0xef, 0x01])]),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            LIMITS,
+        )
+        .unwrap();
+        let mut database = snapshot.database_view();
+        assert!(matches!(
+            Database::code_by_hash(&mut database, B256::from(hash.0)),
+            Err(RevmDatabaseError::InvalidBytecode(_))
+        ));
+        assert!(matches!(
+            Database::code_by_hash(&mut database, B256::from([9; 32])),
+            Err(RevmDatabaseError::CodeMissing(EvmCodeHash(bytes))) if bytes == [9; 32]
+        ));
     }
 
     #[test]

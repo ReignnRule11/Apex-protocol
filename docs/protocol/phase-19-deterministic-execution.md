@@ -1,6 +1,6 @@
 # Phase 19 — Deterministic EVM Execution and Fee Accounting
 
-**Status:** revm 43.0.3 candidate pinned; minimal execution harness merged; full-width immutable state model submitted.
+**Status:** revm 43.0.3 candidate pinned; execution harness, full-width state model and revm read adapter implemented in staged phases.
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
@@ -20,27 +20,29 @@ Implement a deterministic EVM execution subsystem for the proposed initial EIP-1
 
 ### 19A — dependency and toolchain compatibility
 
-The initial Rust 1.90.0 CI attempt failed because the revm 43.0.3 dependency graph declares a Rust 1.91.0 minimum. The workspace metadata, rust-toolchain.toml and CI were aligned to Rust 1.91.0. The updated compatibility CI passed and PR #21 was merged; post-merge CI also passed.
+The initial Rust 1.90.0 CI attempt failed because the revm 43.0.3 dependency graph declares a Rust 1.91.0 minimum. The workspace metadata, rust-toolchain.toml and CI were aligned to Rust 1.91.0. PR #21 and post-merge CI passed.
 
 ### 19B — minimal execution API harness
 
-A test-only fixture deploys a small contract into a fresh revm in-memory database, commits its creation, calls it, and checks a known storage value. A second fresh run checks repeatability of the observed result. PR #22 and post-merge CI passed.
-
-This does not prove APEX block execution, production context, fork correctness, state adapter correctness, fee settlement or cross-client determinism. See phase-19b-evm-execution-harness.md and ADR-0026.
+A test-only fixture deploys a small contract into a fresh revm in-memory database, commits its creation, calls it, and checks a known storage value. A second fresh run checks repeatability of the observed output. PR #22 and post-merge CI passed.
 
 ### 19C — full-width state model and immutable read boundary
 
-Introduces 20-byte addresses, 256-bit balances/storage words, bytecode references, caller-bounded snapshots and a version-bound immutable database view. The read model remains independent of revm types; no persistent backend or revm Database trait implementation is claimed. See phase-19c-full-width-evm-state.md and ADR-0027.
+Introduces 20-byte addresses, 256-bit balances/storage words, bytecode references, caller-bounded snapshots and a version-bound immutable database view. PR #23 and post-merge CI passed. The model remains independent of persistent storage and does not itself define a complete state root.
+
+### 19D — revm Database trait adapter
+
+Implements revm 43.0.3 Database over the immutable snapshot. It converts full-width account and storage values, loads bytecode by hash using revm's checked constructor, returns typed errors for missing/malformed code, and resolves block hashes from the same snapshot. The adapter is read-only; no DatabaseCommit or persistent state-diff application is implemented. See phase-19d-revm-database-adapter.md and ADR-0028.
 
 ## Required next work
 
-1. Implement and test the revm Database trait conversion over the immutable read view, including account info, code, storage and block-hash semantics.
-2. Design a persistent full-width state backend and atomic state-diff commit without coupling it to the legacy AccountId(u64) / u128 store.
+1. Define a full-width EVM state-diff representation for account, code and storage updates.
+2. Design an atomic state-application boundary over a persistent full-width state backend, without coupling it to the legacy AccountId(u64)/u128 store.
 3. Define a typed explicit execution context supplied by validated block data: fork ID, block number, timestamp, gas limit, base fee, coinbase/fee recipient, chain ID and randomness/prevrandao fields where required. No host-derived values.
 4. Ratify the EVM fork and activation schedule after dependency/API and execution-spec review.
 5. Implement canonical type-2 transaction decoding and signature recovery before treating sender identity as trusted.
 6. Implement EIP-1559 fee settlement: affordability, escrow, actual gas, base-fee burn, priority-fee credit and unused-gas refund with exact overflow/rounding rules.
-7. Convert revm state diffs into atomic APEX state updates; add canonical receipts/logs and complete state commitments.
+7. Add canonical receipts/logs and complete state commitments.
 8. Run official Ethereum execution-spec fixtures and differential tests against an independent client; fuzz codecs and database conversion.
 
 ## Exit evidence
