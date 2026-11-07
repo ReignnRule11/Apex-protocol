@@ -44,7 +44,7 @@ PR #28 merged at `c653b073e446620b5f6ede38c7d41c7bde2c72dd`. PR CI #42389694673 
 ## Phase 19H — commit ambiguity and orphaned-version recovery tests (merged)
 PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`. PR CI #42390234287 and post-merge main CI #42390288716 passed Format, Clippy and the full workspace tests. It adds test-only fault injection at the durable commit boundary: a pre-commit failure (transaction dropped, old version retained), a committed transaction whose acknowledgement is simulated as lost (store latches; reopen discovers the advanced version; replay is rejected), and orphaned future-version records (not selected without the metadata pointer). These tests validate the adapter's reconciliation contract; they do not simulate OS/device faults or prove redb's power-loss behavior. See `phase-19h-commit-recovery.md` and ADR-0032.
 
-## Phase 19I — revm state-diff extraction (implementation PR #31; CI/review pending)
+## Phase 19I — revm state-diff extraction (PR #31 and CI #42391470992 passed; review pending)
 
 Adds `apex-evm::state_diff::extract_revm_state_delta`, converting revm's `EvmState` into deterministic APEX-owned account, code and storage updates. The delta is bound to the immutable parent snapshot version and still must pass the existing atomic state-application checks. Code bytes are checked against revm's declared hash; conflicting bytes under an existing code hash are rejected. Each changed storage slot's revm original value must match the parent snapshot. Zero-valued resulting slots are represented as absent entries.
 

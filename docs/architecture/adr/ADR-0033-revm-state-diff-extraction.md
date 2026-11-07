@@ -1,6 +1,6 @@
 # ADR-0033: revm State-Diff Extraction Boundary
 
-**Status:** Proposed pending Phase 19I CI and review  
+**Status:** Proposed pending review; Phase 19I PR CI #42391470992 passed  
 **Date:** 2026-11-07
 
 ## Context

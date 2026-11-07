@@ -1,6 +1,6 @@
 # Phase 19I — revm State-Diff Extraction
 
-**Status:** implementation PR #31; CI and review pending.  
+**Status:** PR #31; CI #42391470992 passed; review pending.  
 **Release impact:** G1 remains BLOCKED.
 
 ## Objective
