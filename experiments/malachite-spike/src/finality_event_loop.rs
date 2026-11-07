@@ -101,23 +101,34 @@ where
                 None
             };
 
-            let mut started = false;
-            if let (Some(expected), Some(next_height)) = (expected_next, incremented) {
+            let next = if let (Some(expected), Some(next_height)) = (expected_next, incremented) {
                 if next_height.as_u64() == expected {
-                    if let Ok(verified) = app.verify_certificate(&certificate).await {
-                        if verified.identity().height == height.as_u64() {
-                            if let Ok(params) = app.commit_finalized(&verified).await {
-                                started = reply.send(Next::Start(next_height, params)).is_ok();
-                            }
+                    match app.verify_certificate(&certificate).await {
+                        Ok(verified) if verified.identity().height == height.as_u64() => {
+                            app.commit_finalized(&verified)
+                                .await
+                                .ok()
+                                .map(|params| Next::Start(next_height, params))
                         }
+                        _ => None,
                     }
+                } else {
+                    None
                 }
-            }
+            } else {
+                None
+            };
 
-            if !started {
-                if let Ok(params) = app.restart_params(height).await {
-                    let _ = reply.send(Next::Restart(height, params));
-                }
+            let instruction = match next {
+                Some(instruction) => Some(instruction),
+                None => app
+                    .restart_params(height)
+                    .await
+                    .ok()
+                    .map(|params| Next::Restart(height, params)),
+            };
+            if let Some(instruction) = instruction {
+                let _ = reply.send(instruction);
             }
             GateDispatch::Handled
         }
@@ -159,8 +170,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn height_increment_is_checked_before_commit_can_be_authorized() {
-        use malachitebft_app_channel::app::types::core::Height as _;
+    fn height_overflow_is_detected_before_finalized_commit() {
         assert_eq!(7_u64.checked_add(1), Some(8));
         assert_eq!(u64::MAX.checked_add(1), None);
     }
