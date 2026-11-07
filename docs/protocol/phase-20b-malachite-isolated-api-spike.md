@@ -34,7 +34,7 @@ This is an API compilation probe only. It does not instantiate EngineBuilder, cr
 
 The generated lockfile is a CI artifact, not yet a committed lockfile. Review the exact resolved dependency graph and then commit a reviewed lockfile before treating the dependency resolution as reproducible. Package license metadata is an inventory, not legal clearance or a complete license compatibility opinion. The workflow does not yet perform a RustSec advisory audit.
 
-The full upstream workspace test suite has not yet been reproduced. The two local smoke tests do not substitute for it.
+The first CI attempt caught invalid multiline TOML inline-table syntax in the isolated manifest; the manifest has been rewritten as a standard dependency table. The artifact paths were also corrected to be relative to the isolated working directory. The exact-head rerun must confirm both repairs.\n\nThe full upstream workspace test suite has not yet been reproduced. The two local smoke tests do not substitute for it.
 
 ## Exit criteria
 

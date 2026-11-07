@@ -9,10 +9,8 @@ license = "UNLICENSED"
 # Its lockfile is generated and retained as a CI artifact for dependency review.
 [workspace]
 
-[dependencies]
-malachitebft-app-channel = {
-    package = "arc-malachitebft-app-channel",
-    git = "https://github.com/circlefin/malachite",
-    rev = "a453b32155f4ba9f959724279b52f601bae92e09",
-    default-features = false,
-}
+[dependencies.malachitebft-app-channel]
+package = "arc-malachitebft-app-channel"
+git = "https://github.com/circlefin/malachite"
+rev = "a453b32155f4ba9f959724279b52f601bae92e09"
+default-features = false

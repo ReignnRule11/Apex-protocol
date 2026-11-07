@@ -70,9 +70,9 @@ jobs:
         with:
           name: malachite-v0.8.2-dependency-review
           path: |
-            experiments/malachite-spike/Cargo.lock
-            experiments/malachite-spike/dependency-tree.txt
-            experiments/malachite-spike/cargo-metadata.json
-            experiments/malachite-spike/dependency-licenses.txt
+            Cargo.lock
+            dependency-tree.txt
+            cargo-metadata.json
+            dependency-licenses.txt
           if-no-files-found: warn
           retention-days: 30
