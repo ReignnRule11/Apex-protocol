@@ -29,7 +29,9 @@
 
 **Phase 19M — explicit revm builder integration (merged).** Adds an APEX-owned builder that binds the immutable EVM snapshot and Phase 19L-mapped CfgEnv/BlockEnv into revm 43.0.3 without Context::mainnet() or SpecId::LATEST. This constructs an EVM instance; it does not yet authenticate or execute APEX transactions.
 
-**Phase 19N — validated type-2 transaction environment (in progress).** Adds a bounded adapter from caller-authenticated type-2 fields into revm TxEnv, with exact chain-ID binding and caller-supplied input/access-list bounds. It does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 19N — validated type-2 transaction environment (in progress).** Adds a bounded adapter from caller-authenticated type-2 fields into revm TxEnv, with exact chain-ID binding and caller-supplied input/access-list bounds. It does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees.
+
+**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
