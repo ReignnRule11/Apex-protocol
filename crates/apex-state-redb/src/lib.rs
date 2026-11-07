@@ -229,7 +229,9 @@ fn backend(error: impl std::fmt::Display) -> StateStoreError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apex_consensus::{AdmissionContext, AdmissionState, BlockTransaction, TransactionAdmission, TransactionId};
+    use apex_consensus::{
+        AdmissionContext, AdmissionState, BlockTransaction, TransactionAdmission, TransactionId,
+    };
     use apex_state::{StateStore, plan_versioned_block_transition};
     use apex_types::ChainId;
     use std::collections::BTreeMap;
