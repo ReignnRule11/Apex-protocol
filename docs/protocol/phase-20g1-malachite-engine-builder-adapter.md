@@ -1,6 +1,6 @@
 # Phase 20G1 — Pinned Malachite EngineBuilder Adapter
 
-**Status:** Implementation submitted for exact-head CI.
+**Status:** Merged; post-merge main CI passed (run #42410559233).
 **Base main:** `ab72067031e6c6a6cd4203d9f5acb7329b3183ad`
 **Upstream:** Malachite v0.8.2, `a453b32155f4ba9f959724279b52f601bae92e09`.
 **Release impact:** G2 and G3 remain BLOCKED. Production remains NO-GO.
