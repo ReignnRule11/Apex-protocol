@@ -466,24 +466,15 @@ mod tests {
         );
 
         let between = account_non_membership_proof_v1(&accounts, AccountId(15)).unwrap();
-        assert!(matches!(
-            between,
-            AccountNonMembershipProof::Between { .. }
-        ));
+        assert!(matches!(between, AccountNonMembershipProof::Between { .. }));
         assert_eq!(
             verify_account_non_membership_proof_v1(&between, root),
             Ok(())
         );
 
         let after = account_non_membership_proof_v1(&accounts, AccountId(40)).unwrap();
-        assert!(matches!(
-            after,
-            AccountNonMembershipProof::AfterLast { .. }
-        ));
-        assert_eq!(
-            verify_account_non_membership_proof_v1(&after, root),
-            Ok(())
-        );
+        assert!(matches!(after, AccountNonMembershipProof::AfterLast { .. }));
+        assert_eq!(verify_account_non_membership_proof_v1(&after, root), Ok(()));
     }
 
     #[test]
