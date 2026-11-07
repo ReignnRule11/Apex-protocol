@@ -1,7 +1,8 @@
 # Phase 20G2C4 — deterministic Malachite channel finality tests
 
-**Status:** Implementation submitted for exact-head CI; production adoption remains blocked.
+**Status:** Merged; post-merge main CI passed on workflow #42421014413. Production adoption remains blocked.
 **Base main:** `27c076082a7e6035f8ff8ddabb2fb12829087a4e`
+**Merge commit:** `7f2945c629f2eea41779f0f210038f7f8094a5c7`
 **Pinned Malachite:** v0.8.2, `a453b32155f4ba9f959724279b52f601bae92e09`.
 
 ## Objective

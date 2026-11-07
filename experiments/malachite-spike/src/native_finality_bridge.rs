@@ -45,6 +45,26 @@ pub trait ApexValueIdBinding<Ctx: Context> {
     ) -> Result<(), ValueBindingError>;
 }
 
+/// Stable application commit identity derived only from a verified APEX block.
+///
+/// Durable application storage must enforce uniqueness on this complete
+/// identity and treat retries using the same key as idempotent.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct FinalityCommitKey {
+    identity: ApexBlockIdentity,
+}
+
+impl FinalityCommitKey {
+    /// Stable key for idempotent application commits and crash recovery.
+    pub const fn commit_key(&self) -> FinalityCommitKey {
+        FinalityCommitKey { identity: self.identity }
+    }
+
+    pub const fn identity(&self) -> ApexBlockIdentity {
+        self.identity
+    }
+}
+
 /// An opaque proof token. Its fields cannot be constructed outside this crate.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VerifiedNativeFinality {
