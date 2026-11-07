@@ -1,6 +1,6 @@
 # ADR-0036: Explicit revm Environment Mapping
 
-**Status:** Proposed pending PR validation and review
+**Status:** Implemented (merged); APEX fork mapping remains unratified
 **Date:** 2026-11-07
 
 ## Context

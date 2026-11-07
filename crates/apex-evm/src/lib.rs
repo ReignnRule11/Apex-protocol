@@ -5,6 +5,7 @@
 
 pub mod execution_context;
 pub mod revm_environment;
+pub mod revm_execution;
 pub mod state_diff;
 
 use std::collections::BTreeMap;
