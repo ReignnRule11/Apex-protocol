@@ -497,6 +497,64 @@ mod tests {
     }
 
     #[test]
+    fn successful_full_width_delta_persists_all_changed_domains() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        let mut store =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+
+        let old_hash = EvmCodeHash([0x77; 32]);
+        let new_hash = EvmCodeHash([0x78; 32]);
+        let before_account = store.snapshot().unwrap().accounts().next().unwrap().1.clone();
+        let mut after_account = before_account.clone();
+        after_account.nonce = 8;
+        after_account.balance = U256Word([0x91; 32]);
+        after_account.code_hash = new_hash;
+
+        let delta = EvmStateDelta {
+            parent_state_version: 12,
+            account_updates: vec![apex_evm::EvmAccountUpdate {
+                address: address(1),
+                before: Some(before_account),
+                after: Some(after_account),
+            }],
+            code_updates: vec![apex_evm::EvmCodeUpdate {
+                code_hash: old_hash,
+                before: Some(vec![0x60, 0x00]),
+                after: None,
+            }, apex_evm::EvmCodeUpdate {
+                code_hash: new_hash,
+                before: None,
+                after: Some(vec![0x60, 0x01]),
+            }],
+            storage_updates: vec![apex_evm::EvmStorageUpdate {
+                address: address(1),
+                key: U256Word::from_u64(5),
+                before: Some(U256Word([0x55; 32])),
+                after: Some(U256Word([0x66; 32])),
+            }],
+        };
+
+        assert_eq!(store.apply(&delta), Ok(13));
+        drop(store);
+
+        let reopened =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        let snapshot = reopened.snapshot().unwrap();
+        let account = snapshot.accounts().next().unwrap().1;
+        assert_eq!(account.nonce, 8);
+        assert_eq!(account.balance, U256Word([0x91; 32]));
+        assert_eq!(account.code_hash, new_hash);
+        assert_eq!(snapshot.code_blobs().next().unwrap().1, &vec![0x60, 0x01]);
+        assert_eq!(
+            snapshot
+                .database_view()
+                .storage(address(1), U256Word::from_u64(5)),
+            U256Word([0x66; 32])
+        );
+    }
+
+    #[test]
     fn failed_delta_does_not_advance_persisted_version() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("evm.redb");
