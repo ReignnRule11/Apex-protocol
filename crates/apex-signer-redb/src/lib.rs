@@ -4,7 +4,7 @@
 use apex_signer_safety::{
     ReservationOutcome, SigningIntent, SigningSafetyError, SigningSafetyStore,
 };
-use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
+use redb::{Database, ReadableTable, TableDefinition};
 use std::path::Path;
 
 const SCHEMA_VERSION: u64 = 1;
@@ -74,11 +74,15 @@ impl SigningSafetyStore for RedbSigningSafetyStore {
             let mut table = write
                 .open_table(RESERVATIONS)
                 .map_err(|_| SigningSafetyError::StorageUnavailable)?;
-            match table
+
+            // Copy the existing value so redb's read guard is dropped before a possible insert.
+            let existing = table
                 .get(key.as_slice())
                 .map_err(|_| SigningSafetyError::StorageUnavailable)?
-            {
-                Some(existing) if existing.value() == intent.message() => {
+                .map(|value| value.value().to_vec());
+
+            match existing.as_deref() {
+                Some(existing) if existing == intent.message() => {
                     ReservationOutcome::ExistingIdentical
                 }
                 Some(_) => return Err(SigningSafetyError::DoubleSignPrevented),
