@@ -17,7 +17,7 @@
 
 ## Current engineering status
 
-**Phase 5 — state-aware transaction-admission prototype.** The Rust `apex-consensus` crate contains tested proposal-header preflight, static admission and a minimal read-only state-aware admission helper. The latter checks account existence, exact nonce equality and balance sufficiency for value plus the maximum-fee upper bound using checked arithmetic. It relies on the caller to supply a stable view of the exact candidate parent state; snapshot/version binding is not enforced. Sender identity remains unauthenticated. No signature verification, canonical address/encoding, intrinsic gas, state mutation, fee settlement or EVM execution is implemented.
+**Phase 6 — deterministic single-transaction transition planning.** In addition to proposal-header preflight and static/state-aware admission, `apex-consensus` now computes a pure before/after plan for sender nonce advancement, sender debit (value plus maximum-fee escrow), and recipient value credit. Self-transfers net value to zero and deduct only the fee escrow. Arithmetic overflow and missing recipients are rejected. The planner does not mutate or persist state; a future state adapter must commit every update atomically or none. Sender identity remains unauthenticated, and parent-state version binding is not enforced. No signature verification, canonical address/encoding, intrinsic gas, block-level ordering, cumulative gas accounting, fee settlement, state root, or EVM execution is implemented.
 
 Phase 2's consensus integration documentation and compatibility updates are committed. Malachite remains the preferred research candidate, but it is not integrated or approved as a production dependency. Its upstream workspace declares Rust 1.88, while APEX declares Rust 1.85; the MSRV decision remains open. See the consensus evaluation, ADR-0004 and integration-spike plan.
 
@@ -36,7 +36,7 @@ Apex-protocol/
 │   │   └── src/lib.rs                     # Fail-closed codec boundary
 │   ├── apex-consensus/
 │   │   ├── Cargo.toml
-│   │   └── src/lib.rs                     # Quorum + proposal/transaction admission
+│   │   └── src/lib.rs                     # Quorum + proposal/transaction admission + pure transition planner
 │   ├── apex-node/
 │   │   ├── Cargo.toml
 │   │   └── src/main.rs                    # Placeholder CLI; not a running node
