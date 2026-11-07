@@ -1,6 +1,6 @@
 # Deterministic State Commitments — Account-Only Prototype
 
-**Status:** Phase 14 root plus Phase 15 membership proof prototype; not a complete protocol state root.
+**Status:** Phase 14 root plus Phase 15 membership and Phase 16 non-membership proof prototypes; not a complete protocol state root.
 
 ## Logical-state boundary
 
@@ -37,6 +37,12 @@ Verification requires O(log n) hashes and proof size O(log n). Current proof gen
 
 The verifier proves inclusion only relative to a supplied root. It does not establish that the root is finalized or valid under consensus.
 
+## Non-membership proofs (Phase 16)
+
+`account_non_membership_proof_v1` proves absence in the numerically ordered AccountId set by composing authenticated neighbor membership proofs. Empty state uses the canonical empty root; boundary cases prove the first or last leaf; interior absence proves adjacent predecessor and successor indices. Both neighbors must verify against the same expected root, have matching leaf counts, and strictly bracket the queried AccountId. Generation refuses existing accounts.
+
+This proves absence only in the account-only set represented by a trusted root. It does not authenticate root finality or cover omitted protocol state. The implementation remains a reference prototype without an optimized index or independent audit.
+
 ## Fixed vector
 
 For accounts (1,0,100), (5,7,500), (9,2,900), where each tuple is (AccountId, nonce, balance), the Phase 14 root remains:
@@ -45,4 +51,4 @@ For accounts (1,0,100), (5,7,500), (9,2,900), where each tuple is (AccountId, no
 
 ## Deferred work
 
-No cryptographic non-membership proof, multiproof, sparse Merkle tree, incremental tree, persisted commitment index, state sync, complete protocol state root, EVM storage/code, cross-language verifier, fuzzing campaign or consensus root activation is implemented. An absent lookup returning no proof is not proof of absence.
+No multiproof, sparse Merkle tree, incremental tree, persisted commitment index, state sync, complete protocol state root, EVM storage/code, cross-language verifier, fuzzing campaign or consensus root activation is implemented. An absent lookup returning no proof is not proof of absence.

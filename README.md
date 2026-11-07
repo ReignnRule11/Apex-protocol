@@ -15,7 +15,9 @@
 
 ## Current engineering status
 
-**Phase 15 — Merkle account membership proofs (merged; CI green).** Adds generation and independent verification of account inclusion proofs while preserving the exact Phase 14 root. PR #14 merged as `b76913d4d8aed099e0e051af4e6d344c698a6820`; CI passed formatting, Clippy and workspace tests. Non-membership and consensus root activation remain deferred. See `docs/protocol/phase-15-merkle-membership-proofs.md`.
+**Phase 16 — cryptographic account non-membership proofs (implementation submitted for CI review).** Adds ordered-neighbor absence proofs for empty, before-first, between-neighbor and after-last cases without changing the Phase 14 root. Each neighbor is verified against the same expected root; production approval remains withheld. See `docs/protocol/phase-16-account-non-membership-proofs.md`.
+
+**Phase 15 — Merkle account membership proofs (merged; CI green).** Adds generation and independent verification of account inclusion proofs while preserving the exact Phase 14 root. PR #14 merged as `b76913d4d8aed099e0e051af4e6d344c698a6820`; CI passed formatting, Clippy and workspace tests. See `docs/protocol/phase-15-merkle-membership-proofs.md`.
 
 **Phase 14 — canonical account encoding and state commitment prototype (merged; implementation CI passed).** The 38-byte account codec and SHA-256 Merkle commitment are limited to the current AccountId/nonce/balance model; this is not the complete protocol state root.
 
@@ -45,7 +47,7 @@ Apex-protocol/
 │   ├── apex-node/                  # Placeholder CLI; not a running node
 │   └── apex-types/
 ├── docs/
-│   ├── architecture/adr/           # ADR-0001 through ADR-0018
+│   ├── architecture/adr/           # ADR-0001 through ADR-0019
 │   ├── protocol/                   # Specifications and phase records
 │   └── threat-model/
 ├── genesis/devnet.json
