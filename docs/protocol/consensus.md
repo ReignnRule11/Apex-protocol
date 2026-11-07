@@ -18,7 +18,7 @@ The separate `apex-state` crate binds candidate block plans to a versioned paren
 
 ## Candidate constraints
 
-The APEX workspace declares Rust 1.90.0. The exact redb 4.5.0 dependency requires Rust 1.90; see the workspace manifest and ADR-0013. The upstream Malachite workspace currently declares Rust 1.88 and version 0.8.2. Do not add the dependency until APEX's MSRV policy is deliberately updated and the exact crate set, license, dependency graph and API are reviewed. Upstream describes Malachite as alpha and not externally audited; neither active development nor another project's use is an APEX assurance case.
+The APEX workspace declares Rust 1.90.0. The exact redb 4.5.0 dependency requires Rust 1.90; see the workspace manifest and ADR-0013. The upstream Malachite workspace currently declares Rust 1.88 and version 0.8.2. Do not add the dependency until the exact crate set, license, dependency graph and API are reviewed against APEX's Rust 1.90.0 toolchain and security requirements. Upstream describes Malachite as alpha and not externally audited; neither active development nor another project's use is an APEX assurance case.
 
 ## Required protocol behavior
 
