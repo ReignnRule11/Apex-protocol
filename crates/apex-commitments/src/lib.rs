@@ -1,7 +1,7 @@
 //! Deterministic account-state commitments and membership proofs.
 //! This remains an account-only prototype, not the complete APEX state root.
 
-use apex_codec::{AccountRecordV1, encode_account_record_v1};
+use apex_codec::{encode_account_record_v1, AccountRecordV1};
 use apex_consensus::{AccountId, AccountState};
 use apex_types::Hash32;
 use sha2::{Digest, Sha256};
@@ -14,13 +14,17 @@ const ROOT_DOMAIN: &[u8] = b"APEX/STATE/ROOT/V1";
 
 fn sha256(parts: &[&[u8]]) -> Hash32 {
     let mut hasher = Sha256::new();
-    for part in parts { hasher.update(part); }
+    for part in parts {
+        hasher.update(part);
+    }
     Hash32(hasher.finalize().into())
 }
 
 fn account_leaf_hash(account_id: AccountId, state: AccountState) -> Hash32 {
     let encoded = encode_account_record_v1(AccountRecordV1 {
-        account_id: account_id.0, nonce: state.nonce, balance: state.balance,
+        account_id: account_id.0,
+        nonce: state.nonce,
+        balance: state.balance,
     });
     sha256(&[LEAF_DOMAIN, &encoded])
 }
@@ -32,7 +36,9 @@ fn node_hash(left: Hash32, right: Hash32) -> Hash32 {
 fn largest_power_of_two_less_than(n: usize) -> usize {
     debug_assert!(n > 1);
     let mut power = 1_usize;
-    while power < n { power <<= 1; }
+    while power < n {
+        power <<= 1;
+    }
     power >> 1
 }
 
@@ -43,27 +49,37 @@ fn merkle_root(leaves: &[Hash32]) -> Hash32 {
         1 => leaves[0],
         n => {
             let split = largest_power_of_two_less_than(n);
-            node_hash(merkle_root(&leaves[..split]), merkle_root(&leaves[split..]))
+            node_hash(
+                merkle_root(&leaves[..split]),
+                merkle_root(&leaves[split..]),
+            )
         }
     }
 }
 
 fn wrap_root(tree_root: Hash32, leaf_count: usize) -> Hash32 {
     sha256(&[
-        ROOT_DOMAIN, &1_u16.to_be_bytes(),
-        &(leaf_count as u64).to_be_bytes(), &tree_root.0,
+        ROOT_DOMAIN,
+        &1_u16.to_be_bytes(),
+        &(leaf_count as u64).to_be_bytes(),
+        &tree_root.0,
     ])
 }
 
 /// Computes the Phase 14 account-only root. Its byte-level construction is unchanged.
 pub fn account_state_root_v1(accounts: &BTreeMap<AccountId, AccountState>) -> Hash32 {
-    let leaves: Vec<Hash32> = accounts.iter()
-        .map(|(id, state)| account_leaf_hash(*id, *state)).collect();
+    let leaves: Vec<Hash32> = accounts
+        .iter()
+        .map(|(id, state)| account_leaf_hash(*id, *state))
+        .collect();
     wrap_root(merkle_root(&leaves), leaves.len())
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum SiblingSide { Left, Right }
+pub enum SiblingSide {
+    Left,
+    Right,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProofSibling {
@@ -73,8 +89,7 @@ pub struct ProofSibling {
 }
 
 /// Inclusion proof for one canonical account record in an account_state_root_v1 root.
-/// Index and count are authenticated indirectly by the exact RFC 6962-style proof shape
-/// and the top-level root wrapper.
+/// Index and count are authenticated indirectly by the exact proof shape and root wrapper.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountMembershipProof {
     pub account: AccountRecordV1,
@@ -94,19 +109,29 @@ pub enum ProofError {
 }
 
 fn collect_proof(leaves: &[Hash32], index: usize, out: &mut Vec<ProofSibling>) {
-    if leaves.len() <= 1 { return; }
+    if leaves.len() <= 1 {
+        return;
+    }
     let split = largest_power_of_two_less_than(leaves.len());
     if index < split {
         collect_proof(&leaves[..split], index, out);
-        out.push(ProofSibling { hash: merkle_root(&leaves[split..]), side: SiblingSide::Right });
+        out.push(ProofSibling {
+            hash: merkle_root(&leaves[split..]),
+            side: SiblingSide::Right,
+        });
     } else {
         collect_proof(&leaves[split..], index - split, out);
-        out.push(ProofSibling { hash: merkle_root(&leaves[..split]), side: SiblingSide::Left });
+        out.push(ProofSibling {
+            hash: merkle_root(&leaves[..split]),
+            side: SiblingSide::Left,
+        });
     }
 }
 
 fn expected_sides(index: usize, count: usize, out: &mut Vec<SiblingSide>) {
-    if count <= 1 { return; }
+    if count <= 1 {
+        return;
+    }
     let split = largest_power_of_two_less_than(count);
     if index < split {
         expected_sides(index, split, out);
@@ -124,12 +149,18 @@ pub fn account_membership_proof_v1(
 ) -> Option<AccountMembershipProof> {
     let index = accounts.keys().position(|id| *id == account_id)?;
     let (id, state) = accounts.get_key_value(&account_id)?;
-    let leaves: Vec<Hash32> = accounts.iter()
-        .map(|(id, state)| account_leaf_hash(*id, *state)).collect();
+    let leaves: Vec<Hash32> = accounts
+        .iter()
+        .map(|(id, state)| account_leaf_hash(*id, *state))
+        .collect();
     let mut siblings = Vec::new();
     collect_proof(&leaves, index, &mut siblings);
     Some(AccountMembershipProof {
-        account: AccountRecordV1 { account_id: id.0, nonce: state.nonce, balance: state.balance },
+        account: AccountRecordV1 {
+            account_id: id.0,
+            nonce: state.nonce,
+            balance: state.balance,
+        },
         leaf_index: index as u64,
         leaf_count: leaves.len() as u64,
         siblings,
@@ -144,19 +175,25 @@ pub fn verify_account_membership_proof_v1(
 ) -> Result<(), ProofError> {
     let count = usize::try_from(proof.leaf_count).map_err(|_| ProofError::CountOutOfRange)?;
     let index = usize::try_from(proof.leaf_index).map_err(|_| ProofError::IndexOutOfRange)?;
-    if count == 0 { return Err(ProofError::EmptyTree); }
-    if index >= count { return Err(ProofError::IndexOutOfRange); }
+    if count == 0 {
+        return Err(ProofError::EmptyTree);
+    }
+    if index >= count {
+        return Err(ProofError::IndexOutOfRange);
+    }
 
     let mut sides = Vec::new();
     expected_sides(index, count, &mut sides);
     if sides.len() != proof.siblings.len()
-        || sides.iter().zip(&proof.siblings).any(|(expected, actual)| *expected != actual.side)
-    { return Err(ProofError::InvalidShape); }
+        || sides
+            .iter()
+            .zip(&proof.siblings)
+            .any(|(expected, actual)| *expected != actual.side)
+    {
+        return Err(ProofError::InvalidShape);
+    }
 
-    let mut current = sha256(&[
-        LEAF_DOMAIN,
-        &encode_account_record_v1(proof.account),
-    ]);
+    let mut current = sha256(&[LEAF_DOMAIN, &encode_account_record_v1(proof.account)]);
     for sibling in &proof.siblings {
         current = match sibling.side {
             SiblingSide::Left => node_hash(sibling.hash, current),
@@ -164,7 +201,9 @@ pub fn verify_account_membership_proof_v1(
         };
     }
     let root = wrap_root(current, count);
-    if root != expected_root { return Err(ProofError::RootMismatch); }
+    if root != expected_root {
+        return Err(ProofError::RootMismatch);
+    }
     Ok(())
 }
 
@@ -172,7 +211,9 @@ pub fn verify_account_membership_proof_v1(
 mod tests {
     use super::*;
 
-    fn account(nonce: u64, balance: u128) -> AccountState { AccountState { nonce, balance } }
+    fn account(nonce: u64, balance: u128) -> AccountState {
+        AccountState { nonce, balance }
+    }
 
     #[test]
     fn phase_14_root_vector_is_unchanged() {
@@ -181,10 +222,14 @@ mod tests {
             (AccountId(1), account(0, 100)),
             (AccountId(5), account(7, 500)),
         ]);
-        assert_eq!(account_state_root_v1(&accounts).0, [
-            0xfa,0x4b,0x00,0xc9,0xb8,0xee,0x50,0xbd,0xb2,0xb1,0x71,0x09,0xe6,0x99,0xdf,0x69,
-            0xb2,0x9e,0x23,0xcf,0x78,0x73,0x7e,0x53,0x67,0x47,0x97,0x91,0x0f,0x31,0x92,0xd5,
-        ]);
+        assert_eq!(
+            account_state_root_v1(&accounts).0,
+            [
+                0xfa, 0x4b, 0x00, 0xc9, 0xb8, 0xee, 0x50, 0xbd, 0xb2, 0xb1, 0x71, 0x09, 0xe6, 0x99,
+                0xdf, 0x69, 0xb2, 0x9e, 0x23, 0xcf, 0x78, 0x73, 0x7e, 0x53, 0x67, 0x47, 0x97, 0x91,
+                0x0f, 0x31, 0x92, 0xd5,
+            ]
+        );
     }
 
     #[test]
@@ -218,17 +263,29 @@ mod tests {
 
         let mut changed_account = original.clone();
         changed_account.account.balance += 1;
-        assert_eq!(verify_account_membership_proof_v1(&changed_account, root), Err(ProofError::RootMismatch));
+        assert_eq!(
+            verify_account_membership_proof_v1(&changed_account, root),
+            Err(ProofError::RootMismatch)
+        );
 
         let mut changed_sibling = original.clone();
         changed_sibling.siblings[0].hash.0[0] ^= 1;
-        assert_eq!(verify_account_membership_proof_v1(&changed_sibling, root), Err(ProofError::RootMismatch));
+        assert_eq!(
+            verify_account_membership_proof_v1(&changed_sibling, root),
+            Err(ProofError::RootMismatch)
+        );
 
         let mut changed_index = original.clone();
         changed_index.leaf_index = 99;
-        assert_eq!(verify_account_membership_proof_v1(&changed_index, root), Err(ProofError::IndexOutOfRange));
+        assert_eq!(
+            verify_account_membership_proof_v1(&changed_index, root),
+            Err(ProofError::IndexOutOfRange)
+        );
 
-        assert_eq!(verify_account_membership_proof_v1(&original, Hash32([0; 32])), Err(ProofError::RootMismatch));
+        assert_eq!(
+            verify_account_membership_proof_v1(&original, Hash32([0; 32])),
+            Err(ProofError::RootMismatch)
+        );
     }
 
     #[test]
@@ -244,19 +301,37 @@ mod tests {
             SiblingSide::Left => SiblingSide::Right,
             SiblingSide::Right => SiblingSide::Left,
         };
-        assert_eq!(verify_account_membership_proof_v1(&wrong_side, root), Err(ProofError::InvalidShape));
+        assert_eq!(
+            verify_account_membership_proof_v1(&wrong_side, root),
+            Err(ProofError::InvalidShape)
+        );
 
         let mut short_path = original.clone();
         short_path.siblings.pop();
-        assert_eq!(verify_account_membership_proof_v1(&short_path, root), Err(ProofError::InvalidShape));
+        assert_eq!(
+            verify_account_membership_proof_v1(&short_path, root),
+            Err(ProofError::InvalidShape)
+        );
     }
 
     #[test]
     fn verifier_rejects_empty_tree_and_zero_count_proofs() {
         let proof = AccountMembershipProof {
-            account: AccountRecordV1 { account_id: 1, nonce: 0, balance: 0 },
-            leaf_index: 0, leaf_count: 0, siblings: vec![],
+            account: AccountRecordV1 {
+                account_id: 1,
+                nonce: 0,
+                balance: 0,
+            },
+            leaf_index: 0,
+            leaf_count: 0,
+            siblings: vec![],
         };
-        assert_eq!(verify_account_membership_proof_v1(&proof, account_state_root_v1(&BTreeMap::new())), Err(ProofError::EmptyTree));
+        assert_eq!(
+            verify_account_membership_proof_v1(
+                &proof,
+                account_state_root_v1(&BTreeMap::new())
+            ),
+            Err(ProofError::EmptyTree)
+        );
     }
 }
