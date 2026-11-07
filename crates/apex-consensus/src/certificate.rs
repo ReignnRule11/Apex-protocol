@@ -161,6 +161,8 @@ pub struct CommitContext {
     pub chain_id: [u8; 32],
     pub protocol_version: u32,
     pub height: u64,
+    pub round: u32,
+    pub block_hash: [u8; 32],
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
@@ -181,6 +183,10 @@ pub enum CertificateError {
     WrongChainContext,
     #[error("certificate height does not match the expected height")]
     WrongHeight,
+    #[error("certificate round does not match the expected round")]
+    WrongRound,
+    #[error("certificate block hash does not match the expected block")]
+    WrongBlock,
     #[error("certificate block hash must not be zero")]
     NilBlock,
     #[error("certificate validator-set hash does not match the scheduled set")]
@@ -214,8 +220,14 @@ pub fn verify_commit_certificate(
     if certificate.height != expected.height {
         return Err(CertificateError::WrongHeight);
     }
+    if certificate.round != expected.round {
+        return Err(CertificateError::WrongRound);
+    }
     if certificate.block_hash == [0; 32] {
         return Err(CertificateError::NilBlock);
+    }
+    if certificate.block_hash != expected.block_hash {
+        return Err(CertificateError::WrongBlock);
     }
     if certificate.signatures.is_empty() {
         return Err(CertificateError::EmptyCertificate);
@@ -308,7 +320,7 @@ mod tests {
         let set = authenticated(&keys);
         let schedule = AuthenticatedValidatorSetSchedule::new(set.clone(), vec![]).unwrap();
         let mut cert = certificate(&keys, &set, 3);
-        let context = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12 };
+        let context = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12, round: 3, block_hash: [8; 32] };
         assert_eq!(verify_commit_certificate(&cert, context, &schedule), Ok(()));
         cert.signatures.pop();
         assert_eq!(verify_commit_certificate(&cert, context, &schedule), Err(CertificateError::InsufficientQuorum));
@@ -320,10 +332,14 @@ mod tests {
         let set = authenticated(&keys);
         let schedule = AuthenticatedValidatorSetSchedule::new(set.clone(), vec![]).unwrap();
         let cert = certificate(&keys, &set, 3);
-        let expected = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12 };
+        let expected = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12, round: 3, block_hash: [8; 32] };
         assert_eq!(verify_commit_certificate(&cert, CommitContext { chain_id: [7; 32], ..expected }, &schedule), Err(CertificateError::WrongChainContext));
         let mut bad = cert.clone(); bad.height += 1;
         assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongHeight));
+        let mut bad = cert.clone(); bad.round += 1;
+        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongRound));
+        let mut bad = cert.clone(); bad.block_hash = [6; 32];
+        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongBlock));
         let mut bad = cert.clone(); bad.block_hash = [0; 32];
         assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::NilBlock));
         let mut bad = cert; bad.validator_set_hash = [4; 32];
@@ -335,7 +351,7 @@ mod tests {
         let keys = keys();
         let set = authenticated(&keys);
         let schedule = AuthenticatedValidatorSetSchedule::new(set.clone(), vec![]).unwrap();
-        let expected = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12 };
+        let expected = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12, round: 3, block_hash: [8; 32] };
         let mut bad = certificate(&keys, &set, 3);
         bad.signatures[0].signature[0] ^= 1;
         assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::InvalidSignature));
