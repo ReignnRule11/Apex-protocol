@@ -2,7 +2,7 @@
 //! This is not yet the complete APEX state root: AccountId is a u64 prototype
 //! identifier and contract storage, code, and system accounts are not modeled.
 
-use apex_codec::{encode_account_record_v1, AccountRecordV1};
+use apex_codec::{AccountRecordV1, encode_account_record_v1};
 use apex_consensus::{AccountId, AccountState};
 use apex_types::Hash32;
 use sha2::{Digest, Sha256};
@@ -109,17 +109,20 @@ mod tests {
     fn account_change_changes_root() {
         let base = BTreeMap::from([(AccountId(1), account(0, 100))]);
         let changed = BTreeMap::from([(AccountId(1), account(0, 101))]);
-        assert_ne!(account_state_root_v1(&base), account_state_root_v1(&changed));
+        assert_ne!(
+            account_state_root_v1(&base),
+            account_state_root_v1(&changed)
+        );
     }
 
     #[test]
     fn different_leaf_counts_and_empty_state_are_distinguished() {
         let one = BTreeMap::from([(AccountId(1), account(0, 0))]);
-        let two = BTreeMap::from([
-            (AccountId(1), account(0, 0)),
-            (AccountId(2), account(0, 0)),
-        ]);
-        assert_ne!(account_state_root_v1(&BTreeMap::new()), account_state_root_v1(&one));
+        let two = BTreeMap::from([(AccountId(1), account(0, 0)), (AccountId(2), account(0, 0))]);
+        assert_ne!(
+            account_state_root_v1(&BTreeMap::new()),
+            account_state_root_v1(&one)
+        );
         assert_ne!(account_state_root_v1(&one), account_state_root_v1(&two));
     }
 
@@ -133,10 +136,9 @@ mod tests {
         assert_eq!(
             account_state_root_v1(&accounts).0,
             [
-                0xfa, 0x4b, 0x00, 0xc9, 0xb8, 0xee, 0x50, 0xbd,
-                0xb2, 0xb1, 0x71, 0x09, 0xe6, 0x99, 0xdf, 0x69,
-                0xb2, 0x9e, 0x23, 0xcf, 0x78, 0x73, 0x7e, 0x53,
-                0x67, 0x47, 0x97, 0x91, 0x0f, 0x31, 0x92, 0xd5,
+                0xfa, 0x4b, 0x00, 0xc9, 0xb8, 0xee, 0x50, 0xbd, 0xb2, 0xb1, 0x71, 0x09, 0xe6, 0x99,
+                0xdf, 0x69, 0xb2, 0x9e, 0x23, 0xcf, 0x78, 0x73, 0x7e, 0x53, 0x67, 0x47, 0x97, 0x91,
+                0x0f, 0x31, 0x92, 0xd5,
             ]
         );
     }
