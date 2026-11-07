@@ -63,7 +63,10 @@ impl AuthenticatedValidatorSet {
             if !seen.insert(id) {
                 return Err(CertificateError::DuplicateValidatorKey);
             }
-            let validator = set.validators().iter().find(|v| v.id == id)
+            let validator = set
+                .validators()
+                .iter()
+                .find(|v| v.id == id)
                 .ok_or(CertificateError::ValidatorKeySetMismatch)?;
             let verifying_key = VerifyingKey::from_bytes(&public_key.0)
                 .map_err(|_| CertificateError::InvalidPublicKey)?;
@@ -78,8 +81,8 @@ impl AuthenticatedValidatorSet {
             });
         }
         authenticated.sort_by_key(|validator| validator.id);
-        let validator_count = u32::try_from(authenticated.len())
-            .map_err(|_| CertificateError::TooManyValidators)?;
+        let validator_count =
+            u32::try_from(authenticated.len()).map_err(|_| CertificateError::TooManyValidators)?;
         let mut hasher = Sha256::new();
         hasher.update(VALIDATOR_SET_DOMAIN);
         hasher.update([1_u8]);
@@ -99,9 +102,17 @@ impl AuthenticatedValidatorSet {
         })
     }
 
-    pub const fn hash(&self) -> [u8; 32] { self.hash }
-    pub const fn total_voting_power(&self) -> u64 { self.total_voting_power }
-    pub fn validator_count(&self) -> usize { self.validators.len() }
+    pub const fn hash(&self) -> [u8; 32] {
+        self.hash
+    }
+
+    pub const fn total_voting_power(&self) -> u64 {
+        self.total_voting_power
+    }
+
+    pub fn validator_count(&self) -> usize {
+        self.validators.len()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -132,7 +143,9 @@ impl AuthenticatedValidatorSetSchedule {
     }
 
     pub fn validator_set_at(&self, height: u64) -> &AuthenticatedValidatorSet {
-        self.updates.iter().rev()
+        self.updates
+            .iter()
+            .rev()
             .find(|update| update.activation_height <= height)
             .map(|update| &update.validator_set)
             .unwrap_or(&self.initial)
@@ -247,7 +260,9 @@ pub fn verify_commit_certificate(
         if !seen.insert(signer_id) {
             return Err(CertificateError::DuplicateSigner);
         }
-        let validator = validators.validators.iter()
+        let validator = validators
+            .validators
+            .iter()
             .find(|validator| validator.id == signer_id)
             .ok_or(CertificateError::UnknownSigner)?;
         if validator.public_key != entry.public_key {
@@ -262,12 +277,15 @@ pub fn verify_commit_certificate(
             signer_id.0,
             certificate.validator_set_hash,
             certificate.block_hash,
-        ).map_err(|_| CertificateError::WrongChainContext)?;
+        )
+        .map_err(|_| CertificateError::WrongChainContext)?;
         let signature = Signature::from_bytes(&entry.signature);
-        validator.verifying_key
+        validator
+            .verifying_key
             .verify_strict(&message.signing_bytes(), &signature)
             .map_err(|_| CertificateError::InvalidSignature)?;
-        signed_power = signed_power.checked_add(validator.voting_power)
+        signed_power = signed_power
+            .checked_add(validator.voting_power)
             .ok_or(CertificateError::VotingPowerOverflow)?;
     }
     if u128::from(signed_power) * 3 <= u128::from(validators.total_voting_power) * 2 {
@@ -282,35 +300,59 @@ mod tests {
     use ed25519_dalek::{Signer, SigningKey};
 
     fn keys() -> Vec<SigningKey> {
-        (1_u8..=3).map(|n| SigningKey::from_bytes(&[n; 32])).collect()
+        (1_u8..=3)
+            .map(|n| SigningKey::from_bytes(&[n; 32]))
+            .collect()
     }
 
     fn authenticated(keys: &[SigningKey]) -> AuthenticatedValidatorSet {
-        let entries = keys.iter().map(|key| ValidatorPublicKey(key.verifying_key().to_bytes())).collect::<Vec<_>>();
-        let validators = entries.iter().map(|key| Validator {
-            id: validator_id_from_public_key(*key).unwrap(),
-            voting_power: 1,
-        }).collect();
+        let entries = keys
+            .iter()
+            .map(|key| ValidatorPublicKey(key.verifying_key().to_bytes()))
+            .collect::<Vec<_>>();
+        let validators = entries
+            .iter()
+            .map(|key| Validator {
+                id: validator_id_from_public_key(*key).unwrap(),
+                voting_power: 1,
+            })
+            .collect();
         AuthenticatedValidatorSet::new(ValidatorSet::new(validators).unwrap(), entries).unwrap()
     }
 
-    fn certificate(keys: &[SigningKey], set: &AuthenticatedValidatorSet, count: usize) -> CommitCertificate {
+    fn certificate(
+        keys: &[SigningKey],
+        set: &AuthenticatedValidatorSet,
+        count: usize,
+    ) -> CommitCertificate {
         let mut signatures = Vec::new();
         for key in keys.iter().take(count) {
             let public_key = ValidatorPublicKey(key.verifying_key().to_bytes());
             let id = validator_id_from_public_key(public_key).unwrap();
             let message = ConsensusSigningMessage::new(
-                [9; 32], 1, 12, 3, ConsensusMessageStep::Precommit,
-                id.0, set.hash(), [8; 32],
-            ).unwrap();
+                [9; 32],
+                1,
+                12,
+                3,
+                ConsensusMessageStep::Precommit,
+                id.0,
+                set.hash(),
+                [8; 32],
+            )
+            .unwrap();
             signatures.push(CommitSignature {
                 public_key,
                 signature: key.sign(&message.signing_bytes()).to_bytes(),
             });
         }
         CommitCertificate {
-            chain_id: [9; 32], protocol_version: 1, height: 12, round: 3,
-            block_hash: [8; 32], validator_set_hash: set.hash(), signatures,
+            chain_id: [9; 32],
+            protocol_version: 1,
+            height: 12,
+            round: 3,
+            block_hash: [8; 32],
+            validator_set_hash: set.hash(),
+            signatures,
         }
     }
 
@@ -320,10 +362,19 @@ mod tests {
         let set = authenticated(&keys);
         let schedule = AuthenticatedValidatorSetSchedule::new(set.clone(), vec![]).unwrap();
         let mut cert = certificate(&keys, &set, 3);
-        let context = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12, round: 3, block_hash: [8; 32] };
+        let context = CommitContext {
+            chain_id: [9; 32],
+            protocol_version: 1,
+            height: 12,
+            round: 3,
+            block_hash: [8; 32],
+        };
         assert_eq!(verify_commit_certificate(&cert, context, &schedule), Ok(()));
         cert.signatures.pop();
-        assert_eq!(verify_commit_certificate(&cert, context, &schedule), Err(CertificateError::InsufficientQuorum));
+        assert_eq!(
+            verify_commit_certificate(&cert, context, &schedule),
+            Err(CertificateError::InsufficientQuorum)
+        );
     }
 
     #[test]
@@ -332,18 +383,54 @@ mod tests {
         let set = authenticated(&keys);
         let schedule = AuthenticatedValidatorSetSchedule::new(set.clone(), vec![]).unwrap();
         let cert = certificate(&keys, &set, 3);
-        let expected = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12, round: 3, block_hash: [8; 32] };
-        assert_eq!(verify_commit_certificate(&cert, CommitContext { chain_id: [7; 32], ..expected }, &schedule), Err(CertificateError::WrongChainContext));
-        let mut bad = cert.clone(); bad.height += 1;
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongHeight));
-        let mut bad = cert.clone(); bad.round += 1;
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongRound));
-        let mut bad = cert.clone(); bad.block_hash = [6; 32];
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongBlock));
-        let mut bad = cert.clone(); bad.block_hash = [0; 32];
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::NilBlock));
-        let mut bad = cert; bad.validator_set_hash = [4; 32];
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::WrongValidatorSet));
+        let expected = CommitContext {
+            chain_id: [9; 32],
+            protocol_version: 1,
+            height: 12,
+            round: 3,
+            block_hash: [8; 32],
+        };
+        assert_eq!(
+            verify_commit_certificate(
+                &cert,
+                CommitContext {
+                    chain_id: [7; 32],
+                    ..expected
+                },
+                &schedule
+            ),
+            Err(CertificateError::WrongChainContext)
+        );
+        let mut bad = cert.clone();
+        bad.height += 1;
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::WrongHeight)
+        );
+        let mut bad = cert.clone();
+        bad.round += 1;
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::WrongRound)
+        );
+        let mut bad = cert.clone();
+        bad.block_hash = [6; 32];
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::WrongBlock)
+        );
+        let mut bad = cert.clone();
+        bad.block_hash = [0; 32];
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::NilBlock)
+        );
+        let mut bad = cert;
+        bad.validator_set_hash = [4; 32];
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::WrongValidatorSet)
+        );
     }
 
     #[test]
@@ -351,17 +438,32 @@ mod tests {
         let keys = keys();
         let set = authenticated(&keys);
         let schedule = AuthenticatedValidatorSetSchedule::new(set.clone(), vec![]).unwrap();
-        let expected = CommitContext { chain_id: [9; 32], protocol_version: 1, height: 12, round: 3, block_hash: [8; 32] };
+        let expected = CommitContext {
+            chain_id: [9; 32],
+            protocol_version: 1,
+            height: 12,
+            round: 3,
+            block_hash: [8; 32],
+        };
         let mut bad = certificate(&keys, &set, 3);
         bad.signatures[0].signature[0] ^= 1;
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::InvalidSignature));
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::InvalidSignature)
+        );
         let mut bad = certificate(&keys, &set, 3);
         bad.signatures[1] = bad.signatures[0];
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::DuplicateSigner));
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::DuplicateSigner)
+        );
         let outsider = SigningKey::from_bytes(&[99; 32]);
         let mut bad = certificate(&keys, &set, 3);
         bad.signatures[0].public_key = ValidatorPublicKey(outsider.verifying_key().to_bytes());
-        assert_eq!(verify_commit_certificate(&bad, expected, &schedule), Err(CertificateError::UnknownSigner));
+        assert_eq!(
+            verify_commit_certificate(&bad, expected, &schedule),
+            Err(CertificateError::UnknownSigner)
+        );
     }
 
     #[test]
@@ -370,9 +472,14 @@ mod tests {
         let first = authenticated(&keys);
         let replacement_keys = vec![SigningKey::from_bytes(&[4; 32])];
         let second = authenticated(&replacement_keys);
-        let schedule = AuthenticatedValidatorSetSchedule::new(first.clone(), vec![
-            AuthenticatedValidatorSetUpdate { activation_height: 20, validator_set: second.clone() },
-        ]).unwrap();
+        let schedule = AuthenticatedValidatorSetSchedule::new(
+            first.clone(),
+            vec![AuthenticatedValidatorSetUpdate {
+                activation_height: 20,
+                validator_set: second.clone(),
+            }],
+        )
+        .unwrap();
         assert_eq!(schedule.validator_set_at(19).hash(), first.hash());
         assert_eq!(schedule.validator_set_at(20).hash(), second.hash());
         assert_ne!(first.hash(), second.hash());
