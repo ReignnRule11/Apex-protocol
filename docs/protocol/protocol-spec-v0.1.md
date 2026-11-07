@@ -23,8 +23,10 @@ Protocol version, chain ID, sender nonce, recipient or contract-creation marker,
 ## Proposed block commitment
 Protocol version, chain ID, height, parent hash, timestamp, proposer, transaction root, state root, receipt root, validator-set hash and consensus commit certificate. Anchor metadata does not determine APEX consensus validity.
 
-## Validity
-Reject malformed/non-canonical encoding, wrong chain ID, invalid signature, nonce mismatch, insufficient fee balance, gas violations, invalid proposer/commit evidence and supply-accounting violations. Identical parent state and ordered transactions must produce identical receipts and state root.
+## Validity and current implementation boundary
+The Rust consensus crate implements only deterministic proposal-header preflight: configured chain ID, protocol version, next sequential height and expected parent hash must match. It rejects height overflow. This check does not authenticate the proposer, validate transactions, decode a canonical block format, verify a consensus commit certificate, execute state transitions or establish finality.
+
+The protocol still requires rejection of malformed/non-canonical encoding, wrong chain ID, invalid signatures, nonce mismatch, insufficient fee balance, gas violations, invalid proposer/commit evidence and supply-accounting violations. Identical parent state and ordered transactions must produce identical receipts and state root. These full validity rules are not implemented.
 
 ## Validators
 Lifecycle: bond, activation, participation, delayed exit and withdrawal. Separate consensus, staking and node-identity keys. Slashing only for objectively provable offences such as equivocation, with evidence and appeal rules specified before activation.
