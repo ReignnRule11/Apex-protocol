@@ -97,7 +97,8 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
     ├── experiments/
-    │   ├── malachite-spike/          # Pinned Malachite API, finality gate, commit-key contract and tests
+    │   ├── malachite-spike/          # Pinned Malachite API and isolated finality research
+    │   │   └── src/finality_journal.rs # Durable journal and process-recovery tests
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
     │   ├── architecture/adr/            # ADR-0001 through ADR-0054
