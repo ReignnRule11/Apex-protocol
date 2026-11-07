@@ -2,33 +2,27 @@
 
 **Status:** engine candidate selected for research evaluation; no consensus engine is integrated or production-selected.
 
-APEX intends to integrate a mature BFT proof-of-stake protocol rather than invent one. Malachite is the preferred Rust-native candidate for an integration spike; CometBFT remains the reference/fallback comparator. See [the engine evaluation](consensus-engine-evaluation.md), [ADR-0004](../architecture/adr/ADR-0004-consensus-engine.md), [the integration spike](consensus-integration-spike.md) and [the adapter contract](consensus-adapter-contract.md).
+APEX intends to integrate a mature BFT proof-of-stake protocol rather than invent one. Malachite is the preferred Rust-native candidate for an integration spike; CometBFT remains the reference/fallback comparator. See the engine evaluation, ADR-0004, integration spike and adapter contract.
 
 ## Implemented preflight boundary
 
-The `apex-consensus` crate currently checks a proposed header against an expected parent:
-- chain ID must match;
-- protocol version must match;
-- height must equal parent height plus one, with overflow rejected;
-- parent hash must match the expected parent block hash.
+The `apex-consensus` crate checks chain ID, protocol version, sequential height and parent hash. These are structural checks only; they do not authenticate proposers, verify certificates or establish finality.
 
-These checks are deterministic and fail closed. They are not canonical block decoding, cryptographic authentication, transaction validation, validator-set verification, commit-certificate verification or finality. The header types are internal Rust data structures, not a ratified wire format. See `validate_proposal_header` in `crates/apex-consensus`.
+## Transaction and block planning
 
-## Transaction-admission boundary
+The crate also provides static transaction-admission checks, state-aware nonce and affordability checks, and pure transaction/block transition planning. The block planner preserves caller order, observes earlier planned nonce/balance changes, merges recipient writes, rejects duplicate temporary IDs, enforces cumulative declared gas and returns no plan on any invalid transaction. Sender identity and temporary IDs remain unauthenticated.
 
-The crate also provides static transaction-admission checks; see transaction-admission.md. These validate only chain/version identity, gas-limit bounds, fee-cap ordering and overflow-safe maximum-fee arithmetic. The Phase 5 state-aware prototype also checks account existence, exact nonce equality and balance sufficiency against a caller-supplied read-only state view. That view must be a stable snapshot of the candidate parent state; this is a caller obligation, not enforced persistence or snapshot isolation. Sender identity remains unauthenticated, and these checks do not verify signatures, decode canonical bytes, execute transactions or establish complete validity. The block gas limit is caller-supplied, not an approved network parameter.
+## Versioned application-state boundary (Phase 8)
 
-## Ordered block transition planning (Phase 7)\n\nThe consensus crate now includes a pure block planner that applies caller-ordered transactions against an in-memory overlay, enforces cumulative declared gas limits, rejects duplicate temporary opaque transaction IDs, merges account updates, and returns no plan on any late failure. It does not authenticate transaction IDs or senders, execute EVM code, persist state, compute roots, or establish finality. See [transaction admission and transition planning](transaction-admission.md).\n\n## Candidate constraints
+The separate `apex-state` crate binds candidate block plans to a versioned parent snapshot and defines an atomic compare-and-swap application contract. Its in-memory reference adapter checks every before-state and version precondition before any write, rejects stale/replayed plans and increments the version only after all checks pass. It is process-local and non-durable; production storage must implement a serializable atomic transaction. See transaction-admission.md.
 
-The current APEX workspace declares Rust 1.85. The upstream Malachite workspace currently declares Rust 1.88 and version 0.8.2. Do not add the dependency until APEX's MSRV policy is deliberately updated and the exact crate set, license, dependency graph and API are reviewed. Upstream describes Malachite as alpha and not externally audited; neither active development nor another project's use is an APEX assurance case.
+## Candidate constraints
+
+The APEX workspace declares Rust 1.85. The upstream Malachite workspace currently declares Rust 1.88 and version 0.8.2. Do not add the dependency until APEX's MSRV policy is deliberately updated and the exact crate set, license, dependency graph and API are reviewed. Upstream describes Malachite as alpha and not externally audited; neither active development nor another project's use is an APEX assurance case.
 
 ## Required protocol behavior
 
 Specify proposer selection, vote phases, commit certificates, timeouts, validator-set transitions, equivocation evidence, restart recovery and partition behavior. The familiar less-than-one-third Byzantine threshold is protocol-dependent and is not a guarantee until the exact engine, validator weighting rules and synchrony assumptions are fixed.
-
-## Integration boundary
-
-The engine must not execute transactions or decide application validity on behalf of APEX. APEX's application adapter must validate proposals deterministically against the correct parent state, enforce chain and protocol versions, and commit only engine-finalized blocks whose application transition succeeds. Proposal-header preflight is only one early guard and cannot substitute for full application validation or engine certificate verification.
 
 ## Required adversarial tests
 

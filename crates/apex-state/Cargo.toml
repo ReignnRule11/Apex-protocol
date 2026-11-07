@@ -1,0 +1,11 @@
+[package]
+name = "apex-state"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+apex-consensus = { path = "../apex-consensus" }
+apex-types.workspace = true
+thiserror.workspace = true

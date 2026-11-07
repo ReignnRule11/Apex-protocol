@@ -1,47 +1,29 @@
-# Transaction Admission and Transition Planning — Phase 7
+# Transaction Admission and Transition Planning — Phase 8
 
-**Status:** static preflight, state-aware admission, pure single-transaction planning, and ordered in-memory block planning are implemented as Rust prototypes. This is not full transaction or block execution.
+**Status:** static preflight, state-aware admission, pure transaction/block planning, and a versioned state-application reference boundary are implemented as Rust prototypes. This is not full execution or durable storage.
 
-## Static and state-aware admission
+## Existing planning boundary
 
-`validate_transaction_admission` checks chain ID, protocol version, nonzero gas limit, per-transaction gas bound, priority-fee/max-fee ordering, and checked multiplication of gas limit by maximum fee per gas. It returns a maximum-fee upper bound, not a charged or settled fee.
+The `apex-consensus` crate performs chain/version/gas/fee-envelope checks, state-aware nonce and affordability checks, and pure transaction/block transition planning. Block order is preserved; sequential nonce/balance effects are applied through an overlay; recipient writes are merged; declared gas limits are accumulated; duplicate temporary IDs are rejected. Sender and transaction IDs are not cryptographically authenticated. Maximum fee is an escrow upper bound, not settled gas cost.
 
-`validate_transaction_against_state` reads the sender from a caller-supplied read-only state view, rejects a missing sender, requires exact nonce equality, and checks balance against value plus the maximum-fee upper bound. The sender identifier is not authenticated. The state provider must expose a stable view of the exact candidate parent state; this prototype does not enforce snapshot isolation or state-root binding.
+## Phase 8: versioned snapshots and atomic application
 
-## Phase 6: single-transaction planning
+The `apex-state` crate adds:
 
-`plan_transaction_transition` advances the sender nonce, debits value plus maximum-fee escrow, and credits an existing recipient. Self-transfers net value to zero and deduct only the fee escrow. It returns before/after values and never mutates storage. A future storage adapter must commit every update atomically or none.
+- `StateVersion(u64)`: a monotonic internal concurrency token, not block height or state root.
+- `VersionedStateSnapshot`: an immutable-by-interface account snapshot implementing `AdmissionState`.
+- `VersionedBlockTransitionPlan`: a block plan bound to the exact parent snapshot version.
+- `StateStore`: a contract requiring consistent snapshots and linearizable compare-and-swap application.
+- `InMemoryStateStore`: a process-local reference adapter for tests.
 
-## Phase 7: ordered block planning
+The adapter checks the plan's parent version, strictly increasing unique account-update keys, and every before-state value before the first write. It then publishes every after-state and increments the version once. Stale/replayed plans, mismatched before-state, malformed update order, and version overflow fail without mutation.
 
-`plan_block_transition` accepts an ordered slice of `BlockTransaction` entries and constructs a pure in-memory overlay over the supplied parent state.
+This is not durable, crash-safe or multi-process storage. A production adapter must atomically commit the version and all account writes in one serializable transaction or equivalent, with consistent snapshot reads, concurrent-writer handling and crash recovery.
 
-- Input order is execution order; the planner does not sort or reorder transactions.
-- Each transaction sees the nonce and balances produced by all preceding transactions in the same candidate block. Multiple sequential transactions from one sender are therefore checked against the incremented overlay nonce and reduced overlay balance.
-- Recipient credits are merged into one final account update rather than emitted as conflicting writes.
-- Cumulative transaction gas limits are added with checked arithmetic and must not exceed the caller-supplied block gas limit. This is a sum of declared gas limits, not measured gas consumption.
-- Duplicate `TransactionId` values are rejected within the candidate block. `TransactionId(u64)` is a temporary caller-supplied opaque identifier used only for local duplicate detection. It is not a cryptographic hash, signature, canonical transaction ID, or replay-protection mechanism.
-- The final account-update vector is ordered by `AccountId` using a `BTreeMap`; this canonicalizes output ordering only. It does not change transaction execution order.
-- If any transaction fails, the function returns an error and no plan. The parent state is never mutated. Aggregate maximum-fee escrow is also accumulated with checked arithmetic.
+## Non-goals
 
-The result reports transaction count, cumulative declared gas limit, aggregate maximum-fee escrow, and one before/after update per touched account. Empty input yields an empty plan. No durable write occurs; the future application layer must bind the plan to a versioned parent-state snapshot and atomically commit all updates or none.
+No canonical transaction encoding/identity, signature verification, EVM execution, actual gas measurement, receipts, fee settlement/refunds, state root, block height binding, durable transaction index, production database schema, recovery/journaling, consensus certificate verification or finality is implemented. The state adapter checks preconditions; it does not prove that a plan came from trusted execution.
 
-## Trust boundaries and non-goals
+## Validation gates
 
-Not implemented: canonical transaction encoding or identifiers, signatures or sender derivation, intrinsic gas, EVM execution, transaction receipts, actual gas usage, fee settlement/refunds, base-fee burn, proposer rewards, state roots, contract storage, account creation, durable atomic commit, block header/certificate validation, consensus finality, or cross-node replay verification. Caller-provided transaction IDs and state views remain untrusted inputs. The planner is a deterministic arithmetic prototype, not an execution engine.
-
-Zero fee remains permitted until fee policy is ratified. The block gas limit remains caller-supplied rather than an approved network parameter.
-
-## Tests
-
-Tests cover sequential same-sender nonces, merged recipient credits, duplicate opaque IDs, cumulative gas-limit rejection, late-transaction failure without parent mutation, and deterministic output for identical ordered inputs. These unit tests do not establish persistent-state correctness, cross-process determinism, signature validity, or execution correctness.
-
-## Next gates
-
-1. Ratify canonical encoding and chain/version-bound signing domain.
-2. Select reviewed signature algorithms and add verification vectors.
-3. Replace placeholder account and transaction identifiers with approved types.
-4. Bind reads and writes to a versioned parent-state snapshot and atomic commit contract.
-5. Specify intrinsic gas, actual gas accounting, fee settlement, receipts and state-root construction.
-6. Add property-based, fuzz, persistence, fault-injection and cross-implementation replay tests.
-7. Integrate a pinned execution engine only after the above semantics and compatibility requirements are reviewed.
+Add property-based and fuzz testing, concurrency and crash-injection tests, durable database adapter tests, state-root specification and independent review before production use.
