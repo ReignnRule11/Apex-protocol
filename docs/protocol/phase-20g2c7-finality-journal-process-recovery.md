@@ -11,6 +11,7 @@ Test whether the isolated redb finality journal reopens in a consistent, fail-cl
 
 ## Delivered in this phase
 
+- Initializes the journal's empty table schema durably before any finality append, so an aborted first append reopens as an empty journal rather than an absent-schema error.
 - Refactors the private journal commit path to expose internal-only before-commit and after-commit test hooks; the public API remains unchanged.
 - Adds a child-process test probe that calls `std::process::exit`, bypassing Rust destructors and simulating abrupt process termination.
 - Before-commit termination test verifies that reopening exposes neither a journal payload nor a chain tip, and that the same-height commit can then be safely performed.
