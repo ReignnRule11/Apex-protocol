@@ -155,13 +155,18 @@ The isolated spike now contains a generic adapter over Malachite's native `Commi
 The adapter does not decode canonical APEX values, prove the supplied binding implementation, establish native-to-APEX validator key/power correspondence, consume `AppMsg::Finalized`, process `Decided`, gate an actual application commit, acknowledge `Next::Start`, or provide durable atomic recovery. It is an isolated API integration primitive; G2 remains BLOCKED. See the Phase 20G2C2 record and ADR-0049.
 
 
-## Phase 20G2C3 — Malachite Channels finality event-loop gate (submitted)
+## Phase 20G2C3 — Malachite Channels finality event-loop gate (merged; post-merge CI passed)
 
 The isolated spike adds a gate over the actual `Channels::consensus` receiver. The gate verifies and stages `AppMsg::Decided` before acknowledging it, without returning any next-height instruction. For `AppMsg::Finalized`, it re-verifies the extended native certificate and APEX identity binding, invokes the application's commit callback, checks the next-height increment, and only then returns `Next::Start`. Verification/binding/commit failures request `Next::Restart`; if restart parameters cannot be obtained, the reply is dropped so consensus cannot silently advance. Other application messages are delegated unchanged.
 
 This is still a generic orchestration boundary. The application implementation must supply bounded canonical value retrieval, native validator-set provenance, the exact pinned native verifier call, and durable commit semantics. The gate cannot prove those callback contracts. It does not start an engine or validate multi-validator behavior. Current tests only cover overflow detection; channel-level success/failure tests are next. G2 remains BLOCKED.
 
 
-## Phase 20G2C4 — deterministic channel finality tests (submitted)
+## Phase 20G2C4 — deterministic channel finality tests (merged; post-merge CI passed)
 
 The isolated Malachite spike now has deterministic tests using the pinned upstream channel message and engine response types plus the actual Tokio consensus receiver type. Tests cover successful `Decided` staging-before-acknowledgement without commit/height advance; dropped acknowledgements on verification or staging failure; successful `Finalized` verification and commit before `Next::Start(height + 1)`; restart on verification, identity-height or commit failure; dropped replies when restart parameters fail; checked-height overflow; and queued-message processing followed by receiver closure. The test context, test-only verified-token constructor and validator parameters are fixtures, not production trust inputs. These tests establish callback ordering and channel plumbing only; they do not execute Malachite's BFT engine, verify real signatures, validate APEX canonical bytes, prove validator-set provenance or establish durable atomicity. G2 remains BLOCKED. See the Phase 20G2C4 record and ADR-0051.
+
+
+## Phase 20G2C5 — idempotent finality commit contract (submitted)
+
+The gate now exposes a stable `FinalityCommitKey` derived from the verified APEX identity and distinguishes three storage outcomes. A proven `DefinitelyNotCommitted` result permits a same-height restart. An `Ambiguous` result may represent a committed transaction whose acknowledgement was lost; a `ConflictingFinality` result indicates a different identity at the same height. Both latter cases drop the Finalized reply and stall rather than risk replay or conceal a safety fault. Application implementations must atomically persist state and key and make same-key retries idempotent. Tests validate callback response policy only; no database adapter, crash recovery or live engine is implemented. G2 remains BLOCKED. See the Phase 20G2C5 record and ADR-0052.

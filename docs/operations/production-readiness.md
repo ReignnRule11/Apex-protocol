@@ -115,9 +115,9 @@ This is not cryptographically interchangeable with the APEX Phase 20G2A/20G2B pr
 
 ## Current verified Phase 20 status (supersedes earlier submitted/pending labels)
 
-- **20G2B is merged and post-merge main CI passed** on merge commit `6b4abb3c08279ca91a554ee716dd0980a1b57dcd` (workflow #42413539395). It provides an experimental APEX-native Ed25519 certificate verifier, not Malachite-native finality.
-- **20G2C1 is the current submitted subphase.** It records the pinned Malachite native certificate/verifier API and the required APEX identity and commit ordering. It does not implement code or change release-gate status.
-- **G2 remains BLOCKED.** The actual runtime event loop, native certificate adapter, application commit gate, durable cross-system recovery, signer anti-rollback, multi-process adversarial testing and independent review remain outstanding.
+- **20G2B through 20G2C4 are merged.** Phase 20G2C4 merge commit: `7f2945c629f2eea41779f0f210038f7f8094a5c7`; post-merge main workflow #42421014413 passed all four jobs.
+- **20G2C5 is submitted.** It classifies finality commit outcomes and prevents unsafe same-height restart after ambiguous or conflicting commits. Its contract and tests remain isolated research work.
+- **G2 remains BLOCKED.** There is no concrete atomic application-state/finality journal, authenticated validator governance, signer anti-rollback, durable restart reconciliation, live multi-validator runtime or independent safety/liveness review.
 
 
 ### Phase 20G2C2 — isolated native certificate adapter (submitted)
@@ -137,3 +137,8 @@ The gate is an ordering primitive, not proof of a correct application implementa
 ### Phase 20G2C4 — deterministic channel finality tests (submitted)
 
 The isolated Malachite spike adds deterministic tests over the actual pinned `AppMsg` and `Next` types and the Tokio consensus receiver. Evidence covers Decided verification/staging acknowledgement order with no commit/advance, dropped acknowledgements on verification/staging errors, Finalized commit-before-start ordering, restart behavior on verification/identity-height/commit failures, reply drop when restart parameters are unavailable, checked-height overflow and channel closure after queued processing. Test fixtures do not provide production certificate verification or storage. No live engine or production validator is started. These tests validate gate control flow only; they do not prove cryptographic correctness, canonical APEX value binding, durable atomic commit, restart recovery or BFT safety/liveness. G2 remains BLOCKED; release remains NO-GO. See Phase 20G2C4 and ADR-0051.
+
+
+### Phase 20G2C5 — idempotent finality commit contract (submitted)
+
+The isolated Malachite gate now derives a stable commit key from the opaque verified APEX identity and distinguishes a proven non-commit from an ambiguous storage outcome or conflicting finalized identity. Only a proven non-commit may request same-height restart; ambiguous/conflicting outcomes drop the Finalized reply and stall pending durable reconciliation. The application contract requires atomic persistence of application state plus the key and idempotent same-key retries. Tests cover classification and reply behavior only. No concrete database transaction, durable recovery journal, power-loss test or live engine exists. G2 remains BLOCKED; release remains NO-GO. See Phase 20G2C5 and ADR-0052.

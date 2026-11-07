@@ -59,7 +59,7 @@ The workspace also contains transaction admission/planning and a separate redb p
 
 The pinned Malachite v0.8.2 API audit is recorded in `docs/protocol/phase-20g2c1-malachite-native-finality-bridge.md` and ADR-0048. Malachite's native commit certificate and APEX's Phase 20G2B certificate use different signing domains: the runtime must use Malachite's native `VerifierExt::verify_commit_certificate`, then separately bind the verified value to canonical APEX block identity, chain/version/parent and validator-set context. The application must not advance on `Decided`; it may acknowledge `Finalized` only after successful durable commit. This subphase is a documentation/API contract only; no runtime integration is claimed.
 
-**Phase 20G2C3 — Malachite Channels finality event-loop gate (submitted).** Adds an isolated handler over the real `Channels::consensus` receiver. `Decided` is verified and staged without height advancement; `Finalized` is reverified and can emit `Next::Start` only after the application commit callback succeeds and the height increment is checked. Failures take a restart/stall path. Non-finality messages are delegated unchanged. The application callback remains responsible for canonical value decoding, authenticated validator provenance and durable storage. No live engine or production finality is claimed. See `docs/protocol/phase-20g2c3-channels-finality-event-loop.md` and ADR-0050.
+**Phase 20G2C3 — Malachite Channels finality event-loop gate (merged; post-merge CI passed).** Adds an isolated handler over the real `Channels::consensus` receiver. `Decided` is verified and staged without height advancement; `Finalized` is reverified and can emit `Next::Start` only after the application commit callback succeeds and the height increment is checked. Failures take a restart/stall path. Non-finality messages are delegated unchanged. The application callback remains responsible for canonical value decoding, authenticated validator provenance and durable storage. No live engine or production finality is claimed. See `docs/protocol/phase-20g2c3-channels-finality-event-loop.md` and ADR-0050.
 
 **Phase 20G2C2 — compile-checked Malachite-native finality adapter (merged; post-merge main CI passed).** Adds an isolated generic adapter that checks native height/round/value ID, requires an explicit native-value-ID-to-canonical-APEX-identity binding, delegates signature and quorum verification to the exact pinned Malachite `VerifierExt`, and emits an opaque verified token only on success. The direct signing dependency remains in `experiments/malachite-spike`, outside the production workspace. This is not an event loop, application commit gate, durable finality path or production BFT implementation. See `docs/protocol/phase-20g2c2-native-certificate-adapter.md` and ADR-0049.
 
@@ -97,10 +97,10 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
     ├── experiments/
-    │   ├── malachite-spike/          # Pinned Malachite API, EngineBuilder and tested finality event-loop gate
+    │   ├── malachite-spike/          # Pinned Malachite API, finality gate, commit-key contract and tests
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0051
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0052
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -127,8 +127,15 @@ No token is being offered. No investment or return is promised. No production ne
 No license has been selected. All rights are reserved unless and until a license is added.
 
 
-## Phase 20G2C4 — deterministic Malachite channel finality tests (submitted)
+## Phase 20G2C4 — deterministic Malachite channel finality tests (merged; post-merge CI passed)
 
 Adds deterministic tests against the pinned upstream `AppMsg`, `CommitCertificate`, `Next`, and consensus receiver types. Coverage verifies that `Decided` is acknowledged only after successful staging and never commits or advances; verification/staging failures drop the acknowledgement; `Finalized` sends the next-height start only after verification and commit; commit or identity/verification failures request restart; restart-parameter failure drops the reply; height overflow cannot start the next height; and the actual consensus receiver processes a queued decision before reporting channel closure. Test-only context and verified-token construction remain isolated to the spike. No live engine, cryptographic certificate, canonical APEX decoder, durable database or production application is exercised. G2 remains BLOCKED.
 
 See `docs/protocol/phase-20g2c4-channel-finality-tests.md` and ADR-0051.
+
+
+## Phase 20G2C5 — idempotent Malachite finality commit contract (submitted)
+
+Adds a stable `FinalityCommitKey` derived from the opaque verified APEX identity and classifies commit failures as definitely-not-committed, ambiguous, or conflicting-finality. Only proven non-commit permits same-height restart; ambiguous or conflicting outcomes drop the Finalized reply and stall pending durable recovery. The application contract requires atomic persistence of application state plus commit key and idempotent same-key retries. Deterministic tests cover response classification. No concrete database transaction, recovery journal, power-loss test, live engine or production application is exercised. G2 remains BLOCKED.
+
+See `docs/protocol/phase-20g2c5-idempotent-finality-commit-contract.md` and ADR-0052.

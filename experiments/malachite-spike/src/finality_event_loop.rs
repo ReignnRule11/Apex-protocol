@@ -20,14 +20,31 @@ use crate::native_finality_bridge::VerifiedNativeFinality;
 
 pub type GateFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, ()>> + Send + 'a>>;
 
+/// A commit error that distinguishes a proven abort from an uncertain outcome.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FinalityCommitError {
+    /// Storage proves that no application state was committed.
+    DefinitelyNotCommitted,
+    /// The commit may have succeeded; recovery must inspect its durable key.
+    Ambiguous,
+    /// A different finalized identity already occupies this height.
+    ConflictingFinality,
+}
+
+pub type CommitFuture<'a, Ctx> = Pin<Box<
+    dyn Future<Output = Result<HeightParams<Ctx>, FinalityCommitError>> + Send + 'a,
+>>;
+
 /// Application operations required by the channel finality gate.
 ///
 /// `verify_certificate` must call the pinned Malachite-native verifier and
 /// independently bind the certificate value ID to strictly decoded canonical
 /// APEX bytes and the recomputed APEX identity. `stage_decided` must not
 /// publish the value as finalized or advance the application height.
-/// `commit_finalized` must durably commit the verified identity before it
-/// returns parameters for the next height.
+/// `commit_finalized` must atomically persist application state and the
+/// verified token's stable `commit_key()` before returning next-height params.
+/// Same-key retries must be idempotent. Only a proven non-commit may be
+/// reported as `DefinitelyNotCommitted`; uncertain/conflicting outcomes stall.
 pub trait FinalityApplication<Ctx: Context>: Send {
     fn verify_certificate<'a>(
         &'a mut self,
@@ -42,7 +59,7 @@ pub trait FinalityApplication<Ctx: Context>: Send {
     fn commit_finalized<'a>(
         &'a mut self,
         verified: &'a VerifiedNativeFinality,
-    ) -> GateFuture<'a, HeightParams<Ctx>>;
+    ) -> CommitFuture<'a, Ctx>;
 
     fn restart_params<'a>(
         &'a mut self,
@@ -103,34 +120,35 @@ where
                 None
             };
 
-            let next = if let (Some(expected), Some(next_height)) = (expected_next, incremented) {
-                if next_height.as_u64() == expected {
+            let restart_is_safe = if let (Some(expected), Some(next_height)) = (expected_next, incremented) {
+                if next_height.as_u64() != expected {
+                    true
+                } else {
                     match app.verify_certificate(&certificate).await {
                         Ok(verified) if verified.identity().height == height.as_u64() => {
-                            app.commit_finalized(&verified)
-                                .await
-                                .ok()
-                                .map(|params| Next::Start(next_height, params))
+                            match app.commit_finalized(&verified).await {
+                                Ok(params) => {
+                                    let _ = reply.send(Next::Start(next_height, params));
+                                    return GateDispatch::Handled;
+                                }
+                                Err(FinalityCommitError::DefinitelyNotCommitted) => true,
+                                Err(FinalityCommitError::Ambiguous | FinalityCommitError::ConflictingFinality) => {
+                                    // Never blindly replay an uncertain or conflicting commit.
+                                    return GateDispatch::Handled;
+                                }
+                            }
                         }
-                        _ => None,
+                        _ => true,
                     }
-                } else {
-                    None
                 }
             } else {
-                None
+                true
             };
 
-            let instruction = match next {
-                Some(instruction) => Some(instruction),
-                None => app
-                    .restart_params(height)
-                    .await
-                    .ok()
-                    .map(|params| Next::Restart(height, params)),
-            };
-            if let Some(instruction) = instruction {
-                let _ = reply.send(instruction);
+            if restart_is_safe {
+                if let Ok(params) = app.restart_params(height).await {
+                    let _ = reply.send(Next::Restart(height, params));
+                }
             }
             GateDispatch::Handled
         }
@@ -220,12 +238,13 @@ mod tests {
         verify_ok: bool,
         stage_ok: bool,
         commit_ok: bool,
+        commit_failure: Option<FinalityCommitError>,
         restart_ok: bool,
         verified_height: u64,
     }
     impl Default for TestApplication {
         fn default() -> Self {
-            Self { events: Vec::new(), verify_ok: true, stage_ok: true, commit_ok: true, restart_ok: true, verified_height: 7 }
+            Self { events: Vec::new(), verify_ok: true, stage_ok: true, commit_ok: true, commit_failure: None, restart_ok: true, verified_height: 7 }
         }
     }
     impl FinalityApplication<TestContext> for TestApplication {
@@ -240,10 +259,19 @@ mod tests {
             let ok = self.stage_ok;
             Box::pin(async move { if ok { Ok(()) } else { Err(()) } })
         }
-        fn commit_finalized<'a>(&'a mut self, _verified: &'a VerifiedNativeFinality) -> GateFuture<'a, HeightParams<TestContext>> {
+        fn commit_finalized<'a>(&'a mut self, _verified: &'a VerifiedNativeFinality) -> CommitFuture<'a, TestContext> {
             self.events.push("commit");
             let ok = self.commit_ok;
-            Box::pin(async move { if ok { Ok(params()) } else { Err(()) } })
+            let failure = self.commit_failure;
+            Box::pin(async move {
+                if let Some(error) = failure {
+                    Err(error)
+                } else if ok {
+                    Ok(params())
+                } else {
+                    Err(FinalityCommitError::DefinitelyNotCommitted)
+                }
+            })
         }
         fn restart_params<'a>(&'a mut self, _height: TestHeight) -> GateFuture<'a, HeightParams<TestContext>> {
             self.events.push("restart");
@@ -286,13 +314,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn finalized_commit_failure_restarts_current_height() {
+    async fn definitely_uncommitted_finalized_attempt_restarts_current_height() {
         let mut app = TestApplication { commit_ok: false, ..Default::default() };
         let (reply, response) = oneshot::channel();
         let msg = AppMsg::Finalized { certificate: certificate(7), extensions: extensions(), evidence: evidence(), reply };
         handle_finality_message(msg, &mut app).await;
         assert!(matches!(response.await.expect("restart response"), Next::Restart(h, _) if h.as_u64() == 7));
         assert_eq!(app.events, ["verify", "commit", "restart"]);
+    }
+
+    #[tokio::test]
+    async fn ambiguous_or_conflicting_commit_outcomes_drop_reply_without_restart() {
+        for failure in [
+            FinalityCommitError::Ambiguous,
+            FinalityCommitError::ConflictingFinality,
+        ] {
+            let mut app = TestApplication {
+                commit_failure: Some(failure),
+                ..Default::default()
+            };
+            let (reply, response) = oneshot::channel();
+            let msg = AppMsg::Finalized {
+                certificate: certificate(7),
+                extensions: extensions(),
+                evidence: evidence(),
+                reply,
+            };
+            handle_finality_message(msg, &mut app).await;
+            assert!(response.await.is_err());
+            assert_eq!(app.events, ["verify", "commit"]);
+        }
     }
 
     #[tokio::test]
