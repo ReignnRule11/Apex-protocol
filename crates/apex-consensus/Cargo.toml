@@ -6,4 +6,5 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+apex-types.workspace = true
 thiserror.workspace = true
