@@ -31,6 +31,9 @@ git = "https://github.com/circlefin/malachite"
 rev = "a453b32155f4ba9f959724279b52f601bae92e09"
 default-features = false
 
+[dependencies.redb]
+version = "=4.5.0"
+
 [dev-dependencies]
 malachitebft-test = { package = "arc-malachitebft-test", git = "https://github.com/circlefin/malachite", rev = "a453b32155f4ba9f959724279b52f601bae92e09" }
 rand = { version = "0.8.5", features = ["std_rng"] }

@@ -139,3 +139,8 @@ See `docs/protocol/phase-20g2c4-channel-finality-tests.md` and ADR-0051.
 Adds a stable `FinalityCommitKey` derived from the opaque verified APEX identity and classifies commit failures as definitely-not-committed, ambiguous, or conflicting-finality. Only proven non-commit permits same-height restart; ambiguous or conflicting outcomes drop the Finalized reply and stall pending durable recovery. The application contract requires atomic persistence of application state plus commit key and idempotent same-key retries. Deterministic tests cover response classification. No concrete database transaction, recovery journal, power-loss test, live engine or production application is exercised. G2 remains BLOCKED.
 
 See `docs/protocol/phase-20g2c5-idempotent-finality-commit-contract.md` and ADR-0052.
+
+
+## Phase 20G2C6 — isolated durable finality journal (submitted)
+
+Adds a redb 4.5.0 journal prototype only to the isolated Malachite spike. It atomically records a verified APEX identity, opaque state payload and chain tip in one write transaction; exact retries are idempotent, conflicting identities/payloads fail closed, and height/parent continuity is enforced. Reopen/readback tests are included. This is not wired into the finality event loop, is not multi-process or power-loss validated, and does not make consensus WAL, application state and signer reservations atomic. G2/G4 remain blocked; release remains NO-GO. See `docs/protocol/phase-20g2c6-durable-finality-journal.md` and ADR-0053.

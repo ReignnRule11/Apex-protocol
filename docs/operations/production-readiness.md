@@ -142,3 +142,8 @@ The isolated Malachite spike adds deterministic tests over the actual pinned `Ap
 ### Phase 20G2C5 — idempotent finality commit contract (submitted)
 
 The isolated Malachite gate now derives a stable commit key from the opaque verified APEX identity and distinguishes a proven non-commit from an ambiguous storage outcome or conflicting finalized identity. Only a proven non-commit may request same-height restart; ambiguous/conflicting outcomes drop the Finalized reply and stall pending durable reconciliation. The application contract requires atomic persistence of application state plus the key and idempotent same-key retries. Tests cover classification and reply behavior only. No concrete database transaction, durable recovery journal, power-loss test or live engine exists. G2 remains BLOCKED; release remains NO-GO. See Phase 20G2C5 and ADR-0052.
+
+
+## Phase 20G2C6 — isolated durable finality journal prototype
+
+The isolated Malachite spike now contains a redb 4.5.0 finality journal experiment. It atomically stores the APEX identity/payload row and chain-tip row in one database transaction, enforces idempotent exact retries, rejects conflicting same-height identities/payloads, checks contiguous height and parent linkage, and supports reopen/readback. This is not integrated with `FinalityApplication`, the consensus WAL or signer journal. No process-crash/power-loss, multi-process, backup rollback or cross-subsystem atomicity proof exists. G2 and G4 remain BLOCKED; release remains NO-GO.
