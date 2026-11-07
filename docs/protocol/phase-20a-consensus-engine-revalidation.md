@@ -1,6 +1,6 @@
 # Phase 20A — Consensus-Engine Candidate Revalidation
 
-**Status:** Documentation and architecture gate in progress; no consensus engine dependency or runtime integration.
+**Status:** Complete; merged and independently verified. No consensus engine dependency or runtime integration.
 **Base main:** 4390fe2b40a5cdf07dba89fd5af3f07dbcaae67d
 **Release impact:** G2 remains BLOCKED. Production remains NO-GO.
 
@@ -46,6 +46,6 @@ No Malachite dependency, engine binary, network service, validator key, consensu
 
 ## Exit criteria
 
-Phase 20A is complete when this evidence and decision are merged and post-merge CI passes. It does not close G2 or authorize production adoption.
+Phase 20A is complete: this evidence and decision are merged, and post-merge main CI passed on `104cec631eca96ef4e95adcb355963cd8944a93b`. It does not close G2 or authorize production adoption.
 
 **Decision: RESEARCH SPIKE GO; PRODUCTION ADOPTION NO-GO.**

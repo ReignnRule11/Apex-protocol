@@ -47,9 +47,9 @@ In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressi
 
 ### Phase 20 — Consensus engine integration
 
-**20A — candidate revalidation (in progress).** Malachite v0.8.2 is pinned for research at upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` (tag `v0.8.2`, Apache-2.0). Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0. Upstream labels it alpha and not externally audited. No dependency is added and no production engine is selected.
+**20A — candidate revalidation (complete; merged and post-merge CI verified).** Malachite v0.8.2 is pinned for research at upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` (tag `v0.8.2`, Apache-2.0). Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0. Upstream labels it alpha and not externally audited. No dependency is added and no production engine is selected.
 
-**20B — isolated dependency/API spike.** Review exact crate selection and the resolved dependency graph; compile a separate adapter crate; reproduce upstream tests and map application, engine, networking, persistence and shutdown interfaces.
+**20B — isolated dependency/API spike (in progress).** A separate Cargo workspace at `experiments/malachite-spike` pins `arc-malachitebft-app-channel` to Malachite v0.8.2's exact upstream commit. CI compiles and tests the exported builder API without adding the engine to APEX's production workspace. The job generates and uploads its lockfile, resolved dependency tree and package license metadata. The dependency graph and upstream test reproduction remain review gates; no signer, validator or live network is enabled.
 
 **20C — APEX application/engine boundary.** Bind chain identity, protocol version, proposal validation, finalized decisions and deterministic application callbacks. Do not accept proposals until complete application validation exists.
 

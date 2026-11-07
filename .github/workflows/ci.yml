@@ -24,3 +24,55 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests
         run: cargo test --workspace
+
+  malachite-spike:
+    name: Isolated Malachite v0.8.2 API spike
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/malachite-spike
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.91.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: experiments/malachite-spike -> target
+      - name: Generate isolated lockfile
+        run: cargo generate-lockfile
+      - name: Compile pinned Malachite application API
+        run: cargo check --locked --all-targets
+      - name: Run isolated API smoke tests
+        run: cargo test --locked
+      - name: Capture resolved dependency tree
+        run: cargo tree --locked -e normal > dependency-tree.txt
+      - name: Capture package license metadata
+        run: |
+          cargo metadata --locked --format-version 1 > cargo-metadata.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          metadata = json.loads(Path("cargo-metadata.json").read_text())
+          packages = sorted(metadata["packages"], key=lambda p: (p["name"], p["version"]))
+          lines = [
+              f"Resolved packages: {len(packages)}",
+              "name | version | license | source",
+          ]
+          for package in packages:
+              license_value = package.get("license") or package.get("license_file") or "UNDECLARED"
+              source = package.get("source") or "workspace/path"
+              lines.append(f'{package["name"]} | {package["version"]} | {license_value} | {source}')
+          Path("dependency-licenses.txt").write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          PY
+      - name: Upload lockfile and dependency review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: malachite-v0.8.2-dependency-review
+          path: |
+            experiments/malachite-spike/Cargo.lock
+            experiments/malachite-spike/dependency-tree.txt
+            experiments/malachite-spike/cargo-metadata.json
+            experiments/malachite-spike/dependency-licenses.txt
+          if-no-files-found: warn
+          retention-days: 30
