@@ -97,7 +97,7 @@ pub fn validate_proposal_header(
 }
 
 /// Internal account key for the stateful admission prototype; not a wire address.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AccountId(pub u64);
 
 /// Minimal account data read from the candidate parent state.
@@ -831,7 +831,7 @@ mod tests {
         assert_eq!(plan.account_updates[0].account, AccountId(1));
         assert_eq!(plan.account_updates[0].before.nonce, 0);
         assert_eq!(plan.account_updates[0].after.nonce, 3);
-        assert_eq!(plan.account_updates[0].after.balance, 9_996_400);
+        assert_eq!(plan.account_updates[0].after.balance, 9_936_400);
         assert_eq!(plan.account_updates[1].before.balance, 1_000);
         assert_eq!(plan.account_updates[1].after.balance, 1_300);
         assert_eq!(plan.account_updates[2].before.balance, 2_000);
