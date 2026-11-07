@@ -418,7 +418,11 @@ mod tests {
 
     impl AdmissionState for TestState {
         fn account(&self, id: AccountId) -> Option<AccountState> {
-            if id == AccountId(1) { self.account } else { None }
+            if id == AccountId(1) {
+                self.account
+            } else {
+                None
+            }
         }
     }
 
@@ -434,7 +438,11 @@ mod tests {
     #[test]
     fn stateful_admission_accepts_matching_nonce_and_sufficient_balance() {
         assert_eq!(
-            validate_transaction_against_state(admission_context(), admission_tx(), &funded_state()),
+            validate_transaction_against_state(
+                admission_context(),
+                admission_tx(),
+                &funded_state()
+            ),
             Ok(2_100_000)
         );
     }
@@ -451,7 +459,10 @@ mod tests {
     #[test]
     fn stateful_admission_rejects_nonce_mismatch() {
         let state = TestState {
-            account: Some(AccountState { nonce: 5, balance: u128::MAX }),
+            account: Some(AccountState {
+                nonce: 5,
+                balance: u128::MAX,
+            }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
@@ -462,7 +473,10 @@ mod tests {
     #[test]
     fn stateful_admission_rejects_insufficient_balance() {
         let state = TestState {
-            account: Some(AccountState { nonce: 4, balance: 2_100_499 }),
+            account: Some(AccountState {
+                nonce: 4,
+                balance: 2_100_499,
+            }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
@@ -475,7 +489,10 @@ mod tests {
         let mut tx = admission_tx();
         tx.value = u128::MAX;
         let state = TestState {
-            account: Some(AccountState { nonce: 4, balance: u128::MAX }),
+            account: Some(AccountState {
+                nonce: 4,
+                balance: u128::MAX,
+            }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), tx, &state),
