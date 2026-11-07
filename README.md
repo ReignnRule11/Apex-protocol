@@ -29,9 +29,9 @@
 
 **Phase 19M — explicit revm builder integration (merged).** Adds an APEX-owned builder that binds the immutable EVM snapshot and Phase 19L-mapped CfgEnv/BlockEnv into revm 43.0.3 without Context::mainnet() or SpecId::LATEST. This constructs an EVM instance; it does not yet authenticate or execute APEX transactions.
 
-**Phase 19N — validated type-2 transaction environment (in progress).** Adds a bounded adapter from caller-authenticated type-2 fields into revm TxEnv, with exact chain-ID binding and caller-supplied input/access-list bounds. It does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees.
+**Phase 19N — validated type-2 transaction environment (merged).** Adds a bounded adapter from caller-authenticated type-2 fields into revm TxEnv, with exact chain-ID binding and caller-supplied input/access-list bounds. It does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees.
 
-**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 20A — consensus-engine candidate revalidation (in progress).** Pins Malachite v0.8.2 at exact upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` for research only. Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0, but upstream labels it alpha and not externally audited. No engine dependency or production adoption is approved. See `docs/protocol/phase-20a-consensus-engine-revalidation.md` and ADR-0039.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -39,7 +39,7 @@
 
 **Phases 14–16 — account encoding and Merkle proofs (merged).** These are account-only research prototypes. The 38-byte account codec and SHA-256 Merkle root cover only AccountId(u64), nonce(u64) and balance(u128), not the complete EVM state model.
 
-The workspace also contains transaction admission/planning and a separate redb persistence prototype for the historical narrow state model. Neither database adapter is a production selection. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
+The workspace also contains transaction admission/planning and a separate redb persistence prototype for the historical narrow state model. Neither database adapter is a production selection. There is no integrated BFT engine, validator networking, APEX commit-certificate verification, block production or finality.
 
 ## Production release status
 
@@ -67,7 +67,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0038
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0039
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
