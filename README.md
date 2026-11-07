@@ -100,7 +100,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── malachite-spike/          # Pinned Malachite API, finality gate, commit-key contract and tests
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0052
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0054
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -134,13 +134,18 @@ Adds deterministic tests against the pinned upstream `AppMsg`, `CommitCertificat
 See `docs/protocol/phase-20g2c4-channel-finality-tests.md` and ADR-0051.
 
 
-## Phase 20G2C5 — idempotent Malachite finality commit contract (submitted)
+## Phase 20G2C5 — idempotent Malachite finality commit contract (merged; post-merge main CI passed)
 
 Adds a stable `FinalityCommitKey` derived from the opaque verified APEX identity and classifies commit failures as definitely-not-committed, ambiguous, or conflicting-finality. Only proven non-commit permits same-height restart; ambiguous or conflicting outcomes drop the Finalized reply and stall pending durable recovery. The application contract requires atomic persistence of application state plus commit key and idempotent same-key retries. Deterministic tests cover response classification. No concrete database transaction, recovery journal, power-loss test, live engine or production application is exercised. G2 remains BLOCKED.
 
 See `docs/protocol/phase-20g2c5-idempotent-finality-commit-contract.md` and ADR-0052.
 
 
-## Phase 20G2C6 — isolated durable finality journal (submitted)
+## Phase 20G2C6 — isolated durable finality journal (merged; post-merge main CI passed)
 
 Adds a redb 4.5.0 journal prototype only to the isolated Malachite spike. It atomically records a verified APEX identity, opaque state payload and chain tip in one write transaction; exact retries are idempotent, conflicting identities/payloads fail closed, and height/parent continuity is enforced. Reopen/readback tests are included. This is not wired into the finality event loop, is not multi-process or power-loss validated, and does not make consensus WAL, application state and signer reservations atomic. G2/G4 remain blocked; release remains NO-GO. See `docs/protocol/phase-20g2c6-durable-finality-journal.md` and ADR-0053.
+
+
+## Phase 20G2C7 — finality journal process-termination recovery tests (implementation submitted)
+
+Adds isolated child-process tests that terminate abruptly after journal/tip rows are staged but before commit, and immediately after commit returns but before acknowledgement. A fresh process must observe no partial record/tip in the first case, and the complete record/tip plus idempotent retry in the second. These are controlled userspace process-exit tests only—not power-loss, kernel-crash, storage-device or filesystem durability proof. The journal remains isolated and disconnected from Malachite WAL and signer reservations. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c7-finality-journal-process-recovery.md` and ADR-0054.
