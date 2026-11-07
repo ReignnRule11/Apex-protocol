@@ -106,6 +106,15 @@ impl FinalityJournal {
                 if identity.parent_hash != previous.block_hash {
                     return Err(JournalError::ParentMismatch);
                 }
+            } else {
+                // The first journaled finalized block must extend the genesis
+                // anchor; an empty database is not permission to start at any height.
+                if identity.height != 1 {
+                    return Err(JournalError::HeightDiscontinuity);
+                }
+                if identity.parent_hash != [0; 32] {
+                    return Err(JournalError::ParentMismatch);
+                }
             }
 
             let mut record = Vec::with_capacity(IDENTITY_LEN + state_payload.len());
