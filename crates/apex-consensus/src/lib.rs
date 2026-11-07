@@ -226,10 +226,14 @@ pub fn plan_transaction_transition<S: AdmissionState>(
         .nonce
         .checked_add(1)
         .ok_or(TransactionAdmissionError::NonceOverflow)?;
-    let sender_debit = transaction
-        .value
-        .checked_add(maximum_fee)
-        .ok_or(TransactionAdmissionError::RequiredBalanceOverflow)?;
+    let sender_debit = if transaction.sender == transaction.recipient {
+        maximum_fee
+    } else {
+        transaction
+            .value
+            .checked_add(maximum_fee)
+            .ok_or(TransactionAdmissionError::RequiredBalanceOverflow)?
+    };
     let sender_after = AccountState {
         nonce: next_nonce,
         balance: sender_before.balance - sender_debit,
@@ -559,6 +563,7 @@ mod tests {
                 nonce: 5,
                 balance: u128::MAX,
             }),
+            recipient: Some(AccountState { nonce: 0, balance: 1_000 }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
@@ -569,10 +574,11 @@ mod tests {
     #[test]
     fn stateful_admission_rejects_insufficient_balance() {
         let state = TestState {
-            account: Some(AccountState {
+            sender: Some(AccountState {
                 nonce: 4,
                 balance: 2_100_499,
             }),
+            recipient: Some(AccountState { nonce: 0, balance: 1_000 }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
@@ -585,10 +591,11 @@ mod tests {
         let mut tx = admission_tx();
         tx.value = u128::MAX;
         let state = TestState {
-            account: Some(AccountState {
+            sender: Some(AccountState {
                 nonce: 4,
                 balance: u128::MAX,
             }),
+            recipient: Some(AccountState { nonce: 0, balance: 1_000 }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), tx, &state),
@@ -633,7 +640,7 @@ mod tests {
         let plan = plan_transaction_transition(admission_context(), tx, &state).unwrap();
         assert!(plan.recipient.is_none());
         assert_eq!(plan.sender.after.nonce, 5);
-        assert_eq!(plan.sender.after.balance, 400);
+        assert_eq!(plan.sender.after.balance, 500);
     }
 
     #[test]
