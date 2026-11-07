@@ -9,6 +9,8 @@
 - **Consequences:** first resolve APEX MSRV policy, then pin exact upstream versions, audit APIs/license/dependency tree, map persistence/signing/network/application interfaces, reproduce upstream tests, run APEX-specific fault-injection and recovery tests, bound resources and obtain independent security review. Reopen this ADR if any gate fails.
 - **Non-decisions:** No signature suite, chain ID, codec, validator economics, block interval, finality target or mainnet date is approved here.
 
+- **Phase 4 boundary:** The consensus crate includes static transaction-admission preflight. This is application-level field/arithmetic validation; it does not make a consensus engine responsible for transaction validity.
+
 ## Evidence
 
 - Upstream repository: https://github.com/circlefin/malachite

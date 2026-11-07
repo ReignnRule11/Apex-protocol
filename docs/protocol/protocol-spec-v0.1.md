@@ -23,8 +23,12 @@ Protocol version, chain ID, sender nonce, recipient or contract-creation marker,
 ## Proposed block commitment
 Protocol version, chain ID, height, parent hash, timestamp, proposer, transaction root, state root, receipt root, validator-set hash and consensus commit certificate. Anchor metadata does not determine APEX consensus validity.
 
+## Transaction admission preflight (Phase 4)
+
+The Rust consensus crate implements static checks over an internal transaction-admission structure: configured chain ID and protocol version must match; gas limit must be nonzero and no greater than a caller-supplied block gas limit; priority fee per gas must not exceed maximum fee per gas; and gas limit multiplied by maximum fee per gas must fit in u128. The helper returns that product as a maximum-fee upper bound, not a charged fee. No minimum fee is imposed because fee policy remains undecided. These checks do not verify signatures, sender identity, nonce against state, balances, intrinsic gas, calldata, canonical bytes, transaction ordering or execution. The structures are not a signed transaction type or wire format.
+
 ## Validity and current implementation boundary
-The Rust consensus crate implements only deterministic proposal-header preflight: configured chain ID, protocol version, next sequential height and expected parent hash must match. It rejects height overflow. This check does not authenticate the proposer, validate transactions, decode a canonical block format, verify a consensus commit certificate, execute state transitions or establish finality.
+The Rust consensus crate implements deterministic proposal-header preflight and limited static transaction-admission checks described above. These do not authenticate proposers, validate a complete block, decode canonical formats, verify commit certificates, execute state transitions or establish finality.
 
 The protocol still requires rejection of malformed/non-canonical encoding, wrong chain ID, invalid signatures, nonce mismatch, insufficient fee balance, gas violations, invalid proposer/commit evidence and supply-accounting violations. Identical parent state and ordered transactions must produce identical receipts and state root. These full validity rules are not implemented.
 

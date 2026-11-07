@@ -14,6 +14,10 @@ The `apex-consensus` crate currently checks a proposed header against an expecte
 
 These checks are deterministic and fail closed. They are not canonical block decoding, cryptographic authentication, transaction validation, validator-set verification, commit-certificate verification or finality. The header types are internal Rust data structures, not a ratified wire format. See `validate_proposal_header` in `crates/apex-consensus`.
 
+## Transaction-admission boundary
+
+The crate also provides static transaction-admission checks; see transaction-admission.md. These validate only chain/version identity, gas-limit bounds, fee-cap ordering and overflow-safe maximum-fee arithmetic. They do not consult account state, verify signatures, decode canonical bytes, execute transactions or establish validity. The block gas limit is caller-supplied, not an approved network parameter.
+
 ## Candidate constraints
 
 The current APEX workspace declares Rust 1.85. The upstream Malachite workspace currently declares Rust 1.88 and version 0.8.2. Do not add the dependency until APEX's MSRV policy is deliberately updated and the exact crate set, license, dependency graph and API are reviewed. Upstream describes Malachite as alpha and not externally audited; neither active development nor another project's use is an APEX assurance case.

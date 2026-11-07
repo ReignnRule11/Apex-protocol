@@ -9,8 +9,8 @@ Byzantine validators, colluding stake holders, eclipse/Sybil peers, spam senders
 ## Principal controls
 - Consensus: mature protocol, explicit assumptions, adversarial simulation and independent review. Malachite is currently an alpha research candidate, not an integrated or audited APEX component; its upstream MSRV (Rust 1.88) currently exceeds APEX's declared MSRV (Rust 1.85).
 - Proposal preflight: compare chain ID, protocol version, sequential height and parent hash before deeper processing. This is a structural guard only, not cryptographic or consensus verification.
-- Replay/signatures: chain- and version-bound signing domain, canonical encoding and test vectors.
-- Execution: pinned EVM revision, deterministic host interface, differential tests and fuzzing.
+- Transaction admission: static checks constrain chain/version, gas bounds and fee arithmetic; these do not authenticate a sender or validate state-dependent conditions.\n- Replay/signatures: chain- and version-bound signing domain, canonical encoding and test vectors.
+- Execution: pinned EVM revision, deterministic host interface, differential tests and fuzzing. Static fee arithmetic is not fee settlement or balance validation.
 - P2P: bounded decoding, quotas, peer scoring, connection limits and backpressure.
 - Keys: separate key roles, secure storage guidance, rotation and recovery.
 - Economics: supply invariants, staking/fee simulations and bounded governance.
