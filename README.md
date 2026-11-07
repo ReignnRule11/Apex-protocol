@@ -13,11 +13,11 @@
 
 ## Current engineering status
 
-**Phase 1 — protocol engineering.** The repository contains a draft protocol specification, threat model, architecture decision records, and initial Rust workspace primitives. No production consensus, transaction execution, P2P networking, validator operations, or Bitcoin anchoring is implemented.
+**Phase 2 — consensus integration spike (interface and compatibility evaluation).** Phase 1 established the protocol drafts, threat model, architecture decisions and Rust workspace primitives. The Phase 1 CI run for commit `aacba430cd66e2b003896b1c0826b299978ad26a` passed.
 
-Malachite is the preferred Rust-native BFT candidate for a contained prototype, subject to mandatory stability, fault-injection, recovery, resource-bound and independent security-review gates. CometBFT remains the reference/fallback comparator. See the consensus evaluation and ADR-0004.
+Malachite remains the preferred Rust-native candidate for a contained integration prototype, but it is not integrated or approved as a production dependency. Upstream currently identifies release 0.8.2 and Rust 1.88 as its workspace minimum, while APEX currently declares Rust 1.85. The upstream README also labels the software alpha and not externally audited. This compatibility and assurance gap must be resolved before adding it to the dependency graph. See the consensus evaluation, ADR-0004 and the integration-spike plan.
 
-The apex-consensus crate currently contains only a tested voting-power supermajority arithmetic helper. It is not a BFT engine. The apex-codec crate deliberately fails closed because a canonical wire encoding has not been selected.
+The `apex-consensus` crate currently contains only a tested voting-power supermajority arithmetic helper. It is not a BFT engine. The `apex-codec` crate deliberately fails closed because a canonical wire encoding has not been selected. No validator networking, consensus state machine, commit-certificate verification or block production is implemented.
 
 ## Repository map
 
