@@ -6,10 +6,11 @@ This document is the authoritative engineering release register. A green CI run 
 
 ## 1. Current baseline
 
-APEX remains a research-stage Layer-1. Phases 0–16 provide Rust infrastructure and bounded account/storage prototypes, not a functioning blockchain. Phase 17 adds a comprehensive protocol v0.2 draft and a decision register; it does not close G0 or authorize production implementation against unresolved parameters.
+APEX remains a research-stage Layer-1. Phases 0–17 provide Rust infrastructure and bounded account/storage prototypes plus a protocol v0.2 completeness draft; they do not constitute a functioning blockchain. Phase 18 has begun with a cryptographic identity-boundary proposal, not a ratified signature suite or authenticated transaction implementation.
 
 Critical systems not implemented or production-selected:
 - Ratified full protocol specification and complete state model.
+- Production chain identity/allocation and canonical transaction/block/receipt codecs.
 - Authenticated transaction envelopes, chain-bound signatures, canonical transaction IDs and replay protection.
 - Deterministic EVM execution, gas, receipts, fee settlement and full state commitment.
 - Production BFT consensus, authenticated certificates, validator transitions and finality.
@@ -21,7 +22,7 @@ Critical systems not implemented or production-selected:
 
 | Gate | Required evidence | Current status |
 |---|---|---|
-| G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft only |
+| G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 crypto proposal under review |
 | G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED |
 | G2 — Consensus correctness | Pinned engine, authenticated votes/certificates, validator transitions, anti-double-sign, restart recovery and safety/liveness evidence | BLOCKED |
 | G3 — Network correctness | Versioned P2P, bounded parsing, DoS controls, partitions/recovery and multi-node integration | BLOCKED |
@@ -33,10 +34,10 @@ Critical systems not implemented or production-selected:
 ## 3. Ordered implementation program
 
 ### Phase 17 — Protocol completeness baseline
-Draft specification v0.2, state-domain model and unresolved decision register. G0 remains blocked until ratification and evidence.
+Merged draft specification v0.2, state-domain model and unresolved decision register. G0 remains blocked until ratification and evidence.
 
 ### Phase 18 — Cryptographic identity and transaction authentication
-Select reviewed signature/key algorithms; implement canonical transaction envelopes, signature verification, transaction hashes, replay protection, bounded decoding and known-answer/fuzz vectors.
+In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Review the secp256k1/EVM transaction-authentication proposal; settle chain-ID representation and canonical envelope before implementing verification. Consensus signature selection remains dependent on the selected BFT engine. No production signature code is claimed.
 
 ### Phase 19 — Deterministic execution and fee accounting
 Pin EVM engine/fork; implement account/code/storage, execution, gas, receipts, fees, issuance/burn and supply conservation; differential-test and replay across architectures.
@@ -74,4 +75,4 @@ Require all previous gates, legal/license clearance, economic disclosures, gover
 
 ## 5. Current decision
 
-**NO-GO.** Protocol v0.2 is a review draft. G0 remains BLOCKED. Phase 18 must not begin selecting cryptographic algorithms by convenience; it must use the explicit decision register, compatibility analysis, security review and reproducible vectors.
+**NO-GO.** Protocol v0.2 is a review draft and Phase 18 is a proposal. G0 remains BLOCKED. No cryptographic algorithm, chain ID or production key lifecycle is ratified by this work.
