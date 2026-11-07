@@ -59,6 +59,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
     │   │   ├── revm_execution.rs
+    │   │   ├── revm_transaction.rs
     │   │   ├── state_diff.rs
     │   │   └── lib.rs
     │   ├── apex-evm-redb/
