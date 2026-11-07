@@ -1,6 +1,6 @@
-# Consensus Integration Spike — Phase 2
+# Consensus Integration Spike — Phase 3
 
-**Status:** architecture and compatibility spike; no engine dependency or running consensus implementation.
+**Status:** engine-neutral proposal-header boundary implemented and unit-tested; no engine dependency or running consensus implementation.
 **Review date:** 2026-11-07
 
 ## Objective
@@ -13,13 +13,23 @@ Prove that APEX can integrate a mature BFT engine without coupling protocol vali
 - The current Malachite upstream workspace declares version `0.8.2` and `rust-version = "1.88"`.
 - This is an explicit MSRV mismatch. No Malachite crate is present in APEX's dependency graph.
 - Malachite's upstream README describes it as alpha, under heavy development and not externally audited.
-- APEX CI passed on commit `aacba430cd66e2b003896b1c0826b299978ad26a`; that validates only the existing code, not consensus security.
+- `apex-consensus` now has a pure preflight function that checks chain ID, protocol version, sequential height and parent-hash linkage. It does not authenticate a proposer, validate transactions, verify a commit certificate or establish finality.
+- The previous documentation-only revision passed CI. This phase's code revision is subject to its own CI run.
+
+## Implemented in this phase
+
+- Shared `apex-types` is now consumed by `apex-consensus`.
+- `ExpectedParent` and `ProposalHeader` provide typed, engine-neutral in-memory structures.
+- `validate_proposal_header` performs deterministic chain/version/height/parent checks and rejects parent-height overflow.
+- Unit tests cover the valid case and each rejection path.
+
+These types are not canonical serialized protocol messages. No wire format, block hash algorithm, validator authentication or consensus engine API has been selected.
 
 ## Decision for this phase
 
 Do not integrate Malachite yet. First decide whether APEX will raise its declared MSRV to at least 1.88 and update CI/toolchain documentation accordingly. Do not lower Malachite's MSRV, patch upstream, or suppress Cargo compatibility warnings to force an integration.
 
-Create and review an engine-neutral application boundary before adding the dependency. The adapter should isolate the APEX state machine from the consensus implementation and should not expose upstream engine types throughout the protocol crates.
+Continue building the engine-neutral boundary in small, testable increments. Do not represent preflight checks as a full application adapter or production consensus implementation.
 
 ## Required adapter responsibilities
 
@@ -57,4 +67,5 @@ The spike is not complete until the harness is reproducible in CI and the result
 - Upstream README and maturity statement: https://github.com/circlefin/malachite/blob/main/README.md
 - Upstream workspace manifest: https://github.com/circlefin/malachite/blob/main/code/Cargo.toml
 - APEX consensus evaluation: ./consensus-engine-evaluation.md
+- APEX adapter contract: ./consensus-adapter-contract.md
 - APEX threat model: ../threat-model/overview.md
