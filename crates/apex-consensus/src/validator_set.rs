@@ -87,10 +87,7 @@ impl ValidatorSet {
 
     /// Counts each listed signer once. Unknown and duplicate identities fail closed.
     /// This proves only arithmetic quorum over supplied identities, not signatures.
-    pub fn has_supermajority(
-        &self,
-        signers: &[ValidatorId],
-    ) -> Result<bool, ValidatorSetError> {
+    pub fn has_supermajority(&self, signers: &[ValidatorId]) -> Result<bool, ValidatorSetError> {
         let mut seen = BTreeSet::new();
         let mut signed = 0_u64;
         for signer in signers {
@@ -243,10 +240,7 @@ mod tests {
 
     #[test]
     fn rejects_empty_zero_identity_zero_power_and_duplicates() {
-        assert_eq!(
-            ValidatorSet::new(vec![]),
-            Err(ValidatorSetError::EmptySet)
-        );
+        assert_eq!(ValidatorSet::new(vec![]), Err(ValidatorSetError::EmptySet));
         assert_eq!(
             ValidatorSet::new(vec![Validator {
                 id: id(0),
