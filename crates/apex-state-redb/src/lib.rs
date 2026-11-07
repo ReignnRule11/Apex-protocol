@@ -484,7 +484,7 @@ mod tests {
             store.apply(&plan(&store)).unwrap();
             store.check_integrity().unwrap();
             let snapshot = store.snapshot().unwrap();
-            let RedbStateStore { db } = store;
+            let RedbStateStore { db, .. } = store;
             db.close().unwrap();
             snapshot
         };
