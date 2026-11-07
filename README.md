@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 16 — cryptographic account non-membership proofs (implementation submitted for CI review).** Adds ordered-neighbor absence proofs for empty, before-first, between-neighbor and after-last cases without changing the Phase 14 root. Each neighbor is verified against the same expected root; production approval remains withheld. See `docs/protocol/phase-16-account-non-membership-proofs.md`.
+**Phase 16 — cryptographic account non-membership proofs (merged; PR CI green).** Adds ordered-neighbor absence proofs for empty, before-first, between-neighbor and after-last cases without changing the Phase 14 root. PR #15 merged as `1e971a60fb3534f562b74c19845cdad278ba2492`; format, Clippy and workspace tests passed. This remains an account-only research prototype. See `docs/protocol/phase-16-account-non-membership-proofs.md`.
 
 **Phase 15 — Merkle account membership proofs (merged; CI green).** Adds generation and independent verification of account inclusion proofs while preserving the exact Phase 14 root. PR #14 merged as `b76913d4d8aed099e0e051af4e6d344c698a6820`; CI passed formatting, Clippy and workspace tests. See `docs/protocol/phase-15-merkle-membership-proofs.md`.
 
@@ -27,9 +27,9 @@
 
 The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly pinned to 1.90.0. redb is isolated in its own adapter crate. This is a contained evaluation, not production approval.
 
-The redb account record is a private 32-byte little-endian storage schema (u64 nonce + u128 balance + zero-reserved u64). It is not protocol encoding. Phase 14's separate 38-byte canonical account record and account-only SHA-256 Merkle root remain a prototype. Phase 15 adds membership proofs only; it does not add cryptographic non-membership proofs or consensus root activation.
+The redb account record is a private 32-byte little-endian storage schema (u64 nonce + u128 balance + zero-reserved u64). It is not protocol encoding. Phase 14's separate 38-byte canonical account record and account-only SHA-256 Merkle root remain a prototype. Phases 15 and 16 add membership and non-membership proofs only; neither activates a state root in consensus.
 
-These remain research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, complete protocol state roots, production consensus engine, validator networking, commit-certificate verification, block production or consensus finality.
+These remain research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, complete protocol state roots, production consensus engine, validator networking, commit-certificate verification, block production or consensus finality. The production-readiness gates and release sequence are tracked in docs/operations/production-readiness.md.
 
 Malachite remains a consensus research candidate, not an integrated or production-approved dependency. Consensus adoption requires separate dependency, fault-injection, adversarial testing and security review.
 
@@ -40,15 +40,16 @@ Apex-protocol/
 ├── .github/workflows/ci.yml
 ├── crates/
 │   ├── apex-codec/                 # Canonical account-record v1 codec
-│   ├── apex-commitments/           # Account root + membership proof prototype
+│   ├── apex-commitments/           # Account root + membership/non-membership proof prototype
 │   ├── apex-consensus/
 │   ├── apex-state/                 # Backend-neutral StateStore + memory adapter
 │   ├── apex-state-redb/            # redb persistent adapter prototype
 │   ├── apex-node/                  # Placeholder CLI; not a running node
 │   └── apex-types/
 ├── docs/
-│   ├── architecture/adr/           # ADR-0001 through ADR-0019
+│   ├── architecture/adr/           # ADR-0001 through ADR-0020
 │   ├── protocol/                   # Specifications and phase records
+│   ├── operations/                 # Production readiness and release gates
 │   └── threat-model/
 ├── genesis/devnet.json
 ├── Cargo.toml
@@ -58,7 +59,7 @@ Apex-protocol/
 └── rust-toolchain.toml
 ```
 
-The tree is a high-level summary; inspect committed files for exact crate contents.
+See docs/operations/production-readiness.md for the current no-go conditions and staged path to a public testnet and mainnet. The tree is a high-level summary; inspect committed files for exact crate contents.
 
 ## Engineering principles
 

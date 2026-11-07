@@ -1,6 +1,6 @@
 # Phase 16 — Cryptographic Account Non-Membership Proofs
 
-**Status:** implementation submitted for CI review; research prototype, not production-approved.
+**Status:** merged in PR #15; format, Clippy and workspace tests passed. Research prototype; production approval withheld.
 
 ## Objective
 
@@ -29,3 +29,10 @@ Each neighbor is independently verified against the same caller-supplied expecte
 ## Validation
 
 Tests cover empty, before-first, between, after-last, existing-account refusal, wrong root/query, non-adjacent and reversed neighbors, and mixed-root/count attacks. The Phase 14 fixed root vector and Phase 15 inclusion tests remain in place.
+
+
+## Merge record
+
+PR #15: https://github.com/ReignnRule11/Apex-protocol/pull/15  
+Merge commit: 1e971a60fb3534f562b74c19845cdad278ba2492  
+PR CI: https://github.com/ReignnRule11/Apex-protocol/actions/runs/42380295427
