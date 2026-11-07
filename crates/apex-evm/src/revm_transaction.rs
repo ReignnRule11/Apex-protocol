@@ -7,7 +7,7 @@
 use crate::revm_environment::RevmExecutionEnvironment;
 use crate::{EvmAddress, U256Word};
 use revm::{
-    context::{TxEnv, transaction::AccessListItem},
+    context::{TxEnv, transaction::{AccessList, AccessListItem}},
     primitives::{Address, B256, Bytes, TxKind, U256},
 };
 use std::fmt;
@@ -194,7 +194,7 @@ impl AuthenticatedType2Transaction {
             data: Bytes::copy_from_slice(&self.input),
             nonce: self.nonce,
             chain_id: Some(self.chain_id),
-            access_list,
+            access_list: AccessList(access_list),
             gas_priority_fee: Some(self.max_priority_fee_per_gas),
             ..Default::default()
         })
