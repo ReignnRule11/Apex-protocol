@@ -71,7 +71,9 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-consensus/
     │   │   ├── src/consensus_message.rs     # Experimental domain-separated signing preimage
     │   │   ├── src/certificate.rs           # Experimental Ed25519 commit-certificate verifier
-    │   │   └── src/validator_set.rs        # Deterministic validator-set/lifecycle primitives
+    │   │   ├── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
+    │   │   ├── src/validator_set.rs         # Deterministic validator-set/lifecycle primitives
+    │   │   └── src/lib.rs
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
