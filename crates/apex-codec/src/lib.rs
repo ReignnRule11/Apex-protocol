@@ -78,7 +78,7 @@ mod tests {
             nonce: 9,
             balance: 10,
         });
-        assert_eq!(&encoded[..6], b"APEX\\x00\\x01");
+        assert_eq!(&encoded[..6], &[65, 80, 69, 88, 0, 1]);
         assert_eq!(&encoded[6..14], &[1, 2, 3, 4, 5, 6, 7, 8]);
     }
 
