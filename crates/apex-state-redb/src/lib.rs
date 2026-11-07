@@ -366,4 +366,134 @@ mod tests {
         assert_eq!(second.snapshot().unwrap().version(), StateVersion(8));
         assert_eq!(second.snapshot().unwrap().accounts().len(), 3);
     }
+
+    #[test]
+    fn materialized_snapshot_remains_stable_after_later_commit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.redb");
+        let mut store =
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
+        let old_snapshot = store.snapshot().unwrap();
+        let transition = plan(&store);
+        store.apply(&transition).unwrap();
+        let new_snapshot = store.snapshot().unwrap();
+
+        assert_eq!(old_snapshot.version(), StateVersion(12));
+        assert_eq!(old_snapshot.account(AccountId(2)).unwrap().balance, 500);
+        assert_eq!(new_snapshot.version(), StateVersion(13));
+        assert_eq!(new_snapshot.account(AccountId(2)).unwrap().balance, 600);
+    }
+
+    #[test]
+    fn closed_database_file_can_be_copied_and_restored_as_a_cold_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.redb");
+        let backup = dir.path().join("backup.redb");
+        let expected = {
+            let mut store =
+                RedbStateStore::open_or_initialize(&source, StateVersion(12), &genesis()).unwrap();
+            store.apply(&plan(&store)).unwrap();
+            store.check_integrity().unwrap();
+            store.snapshot().unwrap()
+        };
+
+        // This is deliberately a cold copy: the database handle is closed
+        // before the file is copied. Copying a live database is unsupported.
+        std::fs::copy(&source, &backup).unwrap();
+        let restored =
+            RedbStateStore::open_or_initialize(&backup, StateVersion(0), &BTreeMap::new())
+                .unwrap();
+        assert_eq!(restored.snapshot().unwrap(), expected);
+    }
+
+    #[test]
+    fn unknown_schema_version_fails_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.redb");
+        {
+            let db = Database::create(&path).unwrap();
+            let write = db.begin_write().unwrap();
+            {
+                let mut meta = write.open_table(META).unwrap();
+                meta.insert(META_SCHEMA_KEY, SCHEMA_VERSION + 1).unwrap();
+                meta.insert(META_STATE_VERSION_KEY, 12).unwrap();
+            }
+            write.commit().unwrap();
+        }
+
+        assert!(matches!(
+            RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new()),
+            Err(StateStoreError::UnsupportedSchema(version)) if version == SCHEMA_VERSION + 1
+        ));
+    }
+
+    #[test]
+    fn abrupt_process_exit_recovers_only_committed_state() {
+        use std::process::Command;
+
+        if let Ok(path) = std::env::var("APEX_REDB_CRASH_CHILD_PATH") {
+            let mode = std::env::var("APEX_REDB_CRASH_CHILD_MODE").unwrap();
+            let store = RedbStateStore::open_or_initialize(
+                &path,
+                StateVersion(12),
+                &genesis(),
+            )
+            .unwrap();
+
+            if mode == "uncommitted" {
+                let write = store.db.begin_write().unwrap();
+                {
+                    let mut accounts = write.open_table(ACCOUNTS).unwrap();
+                    let changed = encode_account(AccountState {
+                        nonce: 999,
+                        balance: 999,
+                    });
+                    accounts.insert(AccountId(1).0, changed.as_slice()).unwrap();
+                }
+                // The process terminates with a live, uncommitted transaction.
+                std::process::abort();
+            }
+
+            assert_eq!(mode, "committed");
+            let mut store = store;
+            let transition = plan(&store);
+            store.apply(&transition).unwrap();
+            // Terminate immediately after the adapter reports commit success.
+            std::process::abort();
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("crash-recovery.redb");
+        drop(
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap(),
+        );
+
+        for mode in ["uncommitted", "committed"] {
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tests::abrupt_process_exit_recovers_only_committed_state",
+                    "--nocapture",
+                ])
+                .env("APEX_REDB_CRASH_CHILD_PATH", &path)
+                .env("APEX_REDB_CRASH_CHILD_MODE", mode)
+                .status()
+                .unwrap();
+            assert!(!status.success(), "child process unexpectedly exited cleanly");
+            let recovered =
+                RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new())
+                    .unwrap();
+            let snapshot = recovered.snapshot().unwrap();
+            if mode == "uncommitted" {
+                assert_eq!(snapshot.version(), StateVersion(12));
+                assert_eq!(snapshot.account(AccountId(1)).unwrap().nonce, 0);
+                assert_eq!(snapshot.account(AccountId(1)).unwrap().balance, 1_000_000);
+            } else {
+                assert_eq!(snapshot.version(), StateVersion(13));
+                assert_eq!(snapshot.account(AccountId(1)).unwrap().nonce, 2);
+                assert_eq!(snapshot.account(AccountId(1)).unwrap().balance, 957_700);
+            }
+        }
+    }
+
 }

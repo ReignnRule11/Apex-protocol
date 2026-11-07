@@ -41,8 +41,11 @@ No canonical account encoding, protocol state root, Merkle proofs, block hash bi
 - [x] Test stale-plan rejection and late precondition failure.
 - [x] Ensure existing data cannot be overwritten by bootstrap input.
 - [x] Pass CI on the exact pinned toolchain.
-- [ ] Add fault-injection/process interruption tests.
-- [ ] Validate concurrent access and backup/restore.
+- [x] Add controlled process-interruption tests for uncommitted and successfully committed transactions (Phase 11; process crash only).
+- [x] Validate cold backup/restore after clean database close.
+- [x] Validate stable materialized snapshots and fail-closed unknown-schema behavior.
+- [ ] Add storage I/O and disk-full fault injection.
+- [ ] Validate multi-process access and concurrent independent writers.
 - [ ] Complete dependency audit and independent storage review.
 
 ## Next gate

@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 10 — durable state storage spike.** A separate `apex-state-redb` crate now implements a prototype persistent StateStore adapter using redb 4.5.0. Account updates and the next state version are committed in one immediate-durability database transaction. Snapshots are read consistently, stale plans are rejected, and existing initialized data is not overwritten by later bootstrap input. The adapter has close/reopen, atomicity and integrity-check tests.
+**Phase 11 — storage reliability validation (in review).** The apex-state-redb prototype now includes abrupt-process-exit recovery tests for an uncommitted write and a commit that returned success, stable materialized-snapshot checks, cold-backup restore, and fail-closed unknown-schema coverage. These are process-level and controlled-file tests, not power-loss, disk-full, device-failure or production-recovery certification. See docs/protocol/phase-11-storage-reliability.md.
 
 The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. The Phase 10 PR's format, Clippy and workspace tests passed on the pinned toolchain. This is a contained evaluation, not production approval; multi-process modes are not enabled.
 
@@ -77,6 +77,7 @@ Apex-protocol/
 │   │   ├── monetary-policy.md
 │   │   ├── phase-9-storage-and-commitments.md
 │   │   ├── phase-10-redb-storage-spike.md
+│   │   ├── phase-11-storage-reliability.md
 │   │   ├── protocol-spec-v0.1.md
 │   │   ├── state-commitments.md
 │   │   ├── storage-architecture.md
