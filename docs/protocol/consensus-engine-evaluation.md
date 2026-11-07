@@ -56,8 +56,8 @@ The isolated dependency is deliberately limited to the channel application facad
 ## Ordered Phase 20 gates
 
 1. **20A — candidate revalidation:** exact upstream version/commit, license, MSRV and maturity recorded. Complete.
-2. **20B — isolated dependency/API spike:** exact crate selection, Cargo.lock resolution, full dependency/license/advisory review, reproducible upstream tests, and a minimal isolated engine build.
-3. **20C — application boundary:** map proposal validation, deterministic application callbacks, finalized decision verification, replay and commit handoff.
+2. **20B — isolated dependency/API spike:** complete for the pinned compile/API and upstream Rust unit-test scope. Legal compatibility, RustSec review, committed lockfile and upstream Maelstrom/Quint suites remain open.
+3. **20C — application boundary:** in progress. `apex-consensus::application_boundary` separates candidate validation, engine-specific finality verification and application commit. Its verifier is an interface contract only; no production verifier or durable replay/atomic commit protocol exists.
 4. **20D — signer safety:** ratify a dedicated consensus signature suite and domain; test durable anti-double-sign across crash, restore/backup and key rotation.
 5. **20E — validator/finality semantics:** validator-set updates, activation/exit boundaries, certificate verification and equivocation evidence.
 6. **20F — adversarial integration:** at least four independent processes; Byzantine behavior, conflicting proposals, partitions, delayed/dropped/reordered messages, restart/recovery, churn, deterministic replay, resource exhaustion and CI reproduction.

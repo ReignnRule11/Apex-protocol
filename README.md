@@ -33,9 +33,9 @@
 
 **Phase 20A — consensus-engine candidate revalidation (merged and independently verified).** Pins Malachite v0.8.2 at exact upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` for research only. Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0, but upstream labels it alpha and not externally audited. No engine dependency or production adoption is approved. See `docs/protocol/phase-20a-consensus-engine-revalidation.md` and ADR-0039.
 
-**Phase 20B — isolated Malachite dependency/API spike (in progress).** Adds a separate Cargo workspace under `experiments/malachite-spike`, pinned to the exact v0.8.2 upstream commit. It compiles only the public channel-builder API surface and runs a small API smoke test. The dedicated CI job generates a lockfile, checks/tests the spike, and uploads the resolved dependency tree and license metadata for review. No Malachite dependency is added to the production workspace. See `docs/protocol/phase-20b-malachite-isolated-api-spike.md` and ADR-0040.
+**Phase 20B — isolated Malachite dependency/API spike (merged; exact-head validation passed; post-merge CI running).** Adds a separate Cargo workspace under `experiments/malachite-spike`, pinned to the exact v0.8.2 upstream commit. It compiles only the public channel-builder API surface and runs a small API smoke test. The dedicated CI job generates a lockfile, checks/tests the spike, and uploads the resolved dependency tree and license metadata for review. No Malachite dependency is added to the production workspace. See `docs/protocol/phase-20b-malachite-isolated-api-spike.md` and ADR-0040.
 
-**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 20C — engine-neutral application boundary (in progress).** Adds bounded proposal and proof envelopes, chain/version/height/parent linkage, an application validation callback, a separate engine-specific finality-verification interface, and a commit handoff that is reachable only after exact-identity verification. No production verifier, canonical codec, durable replay protection or cross-system atomic commit is implemented. See `docs/protocol/phase-20c-application-engine-boundary.md` and ADR-0041.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -59,6 +59,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
+    │   │   └── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
@@ -74,7 +75,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     ├── experiments/
     │   └── malachite-spike/          # Separate Cargo workspace; research only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0040
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0041
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
