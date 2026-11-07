@@ -15,10 +15,7 @@ pub enum QuorumError {
 
 /// Returns true only when signed power is strictly greater than two-thirds
 /// of total power. This arithmetic helper is not a consensus implementation.
-pub fn has_supermajority(
-    signed: VotingPower,
-    total: VotingPower,
-) -> Result<bool, QuorumError> {
+pub fn has_supermajority(signed: VotingPower, total: VotingPower) -> Result<bool, QuorumError> {
     if total.0 == 0 {
         return Err(QuorumError::ZeroTotal);
     }
