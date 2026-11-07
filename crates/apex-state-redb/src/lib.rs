@@ -85,7 +85,7 @@ impl RedbStateStore {
 
     /// Run redb's integrity verification explicitly. Opening the database
     /// also performs redb's normal recovery procedure.
-    pub fn check_integrity(&self) -> Result<(), StateStoreError> {
+    pub fn check_integrity(&mut self) -> Result<(), StateStoreError> {
         self.db.check_integrity().map_err(backend)?;
         Ok(())
     }
@@ -229,7 +229,7 @@ fn backend(error: impl std::fmt::Display) -> StateStoreError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apex_consensus::{AdmissionContext, BlockTransaction, TransactionAdmission, TransactionId};
+    use apex_consensus::{AdmissionContext, AdmissionState, BlockTransaction, TransactionAdmission, TransactionId};
     use apex_state::{StateStore, plan_versioned_block_transition};
     use apex_types::ChainId;
     use std::collections::BTreeMap;
