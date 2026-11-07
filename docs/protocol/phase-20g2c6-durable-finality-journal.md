@@ -15,7 +15,7 @@ Turn the Phase 20G2C5 idempotent commit contract into a concrete, bounded persis
 - Stores the chain tip in a second table updated in the same redb write transaction as the journal record.
 - Derives the storage key from `FinalityCommitKey`, which is obtainable from the opaque verified-native-finality token.
 - Enforces same-key/same-payload idempotency; rejects a conflicting identity or payload at the same height.
-- Enforces contiguous height progression and parent-hash linkage after the first record.
+- Requires the first journaled finalized block to be height 1 with a zero parent-hash genesis anchor; subsequent records must be contiguous and parent-linked.
 - Bounds payload size at construction and supports reopen/readback of persisted payloads.
 - Treats a write-transaction commit error as ambiguous; it must not be translated into a same-height retry.
 
