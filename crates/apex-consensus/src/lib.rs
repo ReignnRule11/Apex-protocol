@@ -583,7 +583,10 @@ mod tests {
                 nonce: 4,
                 balance: 2_100_499,
             }),
-            recipient: Some(AccountState { nonce: 0, balance: 1_000 }),
+            recipient: Some(AccountState {
+                nonce: 0,
+                balance: 1_000,
+            }),
         };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
