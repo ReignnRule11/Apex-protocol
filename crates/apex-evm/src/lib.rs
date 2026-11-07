@@ -357,7 +357,7 @@ mod tests {
         ));
         assert!(matches!(
             Database::code_by_hash(&mut database, B256::from([9; 32])),
-            Err(RevmDatabaseError::CodeMissing(EvmCodeHash([9; 32])))
+            Err(RevmDatabaseError::CodeMissing(EvmCodeHash(bytes))) if bytes == [9; 32]
         ));
     }
 
