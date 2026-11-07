@@ -10,6 +10,8 @@ members = [
     "crates/apex-evm",
     "crates/apex-evm-redb",
     "crates/apex-node",
+    "crates/apex-signer-safety",
+    "crates/apex-signer-redb",
 ]
 
 [workspace.package]

@@ -53,12 +53,20 @@ The isolated experiment is located at `experiments/malachite-spike`. It depends 
 
 The isolated dependency is deliberately limited to the channel application facade: this tests the public integration entry point and makes its transitive scope visible. No default validator signer is instantiated; no network identity, listening socket, WAL path, peer, consensus actor or block is created. The isolated compile and smoke tests passed on the exact APEX PR head. The generated dependency evidence contains 415 package records (397 registry, 17 exact-revision Malachite Git packages, one local path); all declare license metadata, but no legal compatibility conclusion is drawn. The upstream Rust CI unit-test command is now reproduced in a separate APEX CI job using cargo-nextest and the exact source revision. Upstream Maelstrom integration tests and Quint/MBT model checking remain out of scope for this first spike.
 
+## Phase 20C application boundary (merged)
+
+PR #39 merged as `e7fd62b4646e3b022113f452175c1e00df2ad5ce`. The exact-head PR workflow and post-merge `main` workflow passed. The engine-neutral boundary checks proposal linkage, delegates deterministic validation, requires exact-identity finality verification and gates application commit. It remains an orchestration interface, not a production verifier or atomic commit protocol.
+
+## Phase 20D durable signer safety (implementation submitted)
+
+The new `apex-signer-safety` and `apex-signer-redb` crates persist exact-message reservations under a complete signing coordinate. A first reservation is committed before success is returned; an exact retry is idempotent; conflicting bytes are rejected. No signature algorithm, canonical consensus codec, key format or engine signing adapter is selected. Backup rollback and multi-process signing remain blockers. See the Phase 20D record and ADR-0042.
+
 ## Ordered Phase 20 gates
 
 1. **20A — candidate revalidation:** exact upstream version/commit, license, MSRV and maturity recorded. Complete.
 2. **20B — isolated dependency/API spike:** complete for the pinned compile/API and upstream Rust unit-test scope. Legal compatibility, RustSec review, committed lockfile and upstream Maelstrom/Quint suites remain open.
-3. **20C — application boundary:** in progress. `apex-consensus::application_boundary` separates candidate validation, engine-specific finality verification and application commit. Its verifier is an interface contract only; no production verifier or durable replay/atomic commit protocol exists.
-4. **20D — signer safety:** ratify a dedicated consensus signature suite and domain; test durable anti-double-sign across crash, restore/backup and key rotation.
+3. **20C — application boundary:** complete; PR #39 merged and post-merge CI passed. `apex-consensus::application_boundary` separates candidate validation, engine-specific finality verification and application commit. Its verifier is an interface contract only; no production verifier or durable replay/atomic commit protocol exists.
+4. **20D — signer safety:** durable reservation prototype submitted; signature suite/domain ratification, backup rollback protection, key custody and key rotation remain open.
 5. **20E — validator/finality semantics:** validator-set updates, activation/exit boundaries, certificate verification and equivocation evidence.
 6. **20F — adversarial integration:** at least four independent processes; Byzantine behavior, conflicting proposals, partitions, delayed/dropped/reordered messages, restart/recovery, churn, deterministic replay, resource exhaustion and CI reproduction.
 7. **Independent assurance:** review pinned code/dependency graph, protocol assumptions, signer lifecycle and test evidence before public testnet.

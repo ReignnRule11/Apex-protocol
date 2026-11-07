@@ -1,6 +1,8 @@
 # Phase 20C — Engine-Neutral APEX Application Boundary
 
-**Status:** Implementation and exact-head CI validation in progress.
+**Status:** Complete; PR #39 merged and post-merge main CI passed.
+**PR:** https://github.com/ReignnRule11/Apex-protocol/pull/39
+**Merge commit:** `e7fd62b4646e3b022113f452175c1e00df2ad5ce`
 **Base main:** `7b52c164789905e16cd40b967e2fb4f905d3feb9`
 **Release impact:** G1 and G2 remain BLOCKED. Production remains NO-GO.
 
