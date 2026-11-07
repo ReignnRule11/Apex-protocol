@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/apex-types", "crates/apex-codec", "crates/apex-consensus", "crates/apex-node"]
+members = ["crates/apex-types", "crates/apex-codec", "crates/apex-consensus", "crates/apex-state", "crates/apex-node"]
 
 [workspace.package]
 version = "0.1.0"
