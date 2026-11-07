@@ -181,10 +181,8 @@ pub enum SigningSafetyError {
 /// Must atomically persist a first reservation before returning Reserved.
 /// Exact retries are idempotent; conflicting bytes must fail closed.
 pub trait SigningSafetyStore {
-    fn reserve(
-        &mut self,
-        intent: &SigningIntent,
-    ) -> Result<ReservationOutcome, SigningSafetyError>;
+    fn reserve(&mut self, intent: &SigningIntent)
+    -> Result<ReservationOutcome, SigningSafetyError>;
 }
 
 /// Process-local reference implementation for tests only.
