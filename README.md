@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 19A — revm compatibility spike submitted.** Adds an isolated `apex-evm` crate with exact revm 43.0.3, default features disabled and `std` explicitly enabled. The spike tests dependency resolution/compilation under Rust 1.90.0; it does not execute EVM transactions or ratify a fork. CI evidence is pending. See `docs/protocol/phase-19-revm-compatibility-spike.md` and ADR-0025.
+**Phase 19A — revm compatibility spike.** Adds an isolated `apex-evm` crate with exact revm 43.0.3, default features disabled and `std` explicitly enabled. CI on Rust 1.90.0 exposed the dependency graph's declared Rust 1.91.0 minimum; workspace metadata, toolchain and CI have been aligned to 1.91.0 and the updated run is pending. This does not execute EVM transactions or ratify a fork. See `docs/protocol/phase-19-revm-compatibility-spike.md` and ADR-0025.
 
 **Phase 19 — Deterministic EVM execution (engine evaluation).** revm is the preferred candidate; no execution adapter or fork is selected. Osaka/Fusaka-era behavior remains a candidate baseline; Glamsterdam is excluded pending finalization and ratification. See `docs/protocol/phase-19-deterministic-execution.md` and ADR-0024.
 
@@ -27,7 +27,7 @@
 
 The workspace also contains transaction admission/planning and a redb persistence prototype. These are not authenticated transaction processing, EVM execution, a production database selection or a functioning blockchain. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
 
-The workspace and CI are pinned to Rust 1.90.0 due to the exact redb 4.5.0 dependency. redb remains an isolated research adapter, not production approval.
+The workspace and CI are now pinned to Rust 1.91.0, the minimum declared by the selected revm candidate graph. redb remains an isolated research adapter, not production approval.
 
 ## Production release status
 
