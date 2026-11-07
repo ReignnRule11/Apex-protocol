@@ -33,16 +33,16 @@ The redb 32-byte little-endian account record remains a private storage format, 
 
 ## Validity and current implementation boundary
 
-The Rust crates do not authenticate proposers or transaction senders, decode canonical formats, verify commit certificates, execute EVM state transitions, persist durable state, calculate state roots or establish finality. Identical parent state and ordered transactions must eventually produce identical receipts and state root; this is not yet implemented.
+The Rust crates do not authenticate proposers or transaction senders, decode canonical transactions or blocks, verify commit certificates, execute EVM state transitions, calculate a complete protocol state root or establish finality. Phase 14 does implement a strict account-record v1 codec and an account-only SHA-256 Merkle commitment prototype; it is not the complete protocol state. Identical parent state and ordered transactions must eventually produce identical receipts and state root; this is not yet implemented.
 
 ## Validators
 Lifecycle: bond, activation, participation, delayed exit and withdrawal. Separate consensus, staking and node-identity keys. Slashing only for objectively provable offences such as equivocation, with evidence and appeal rules specified before activation.
 
 ## Consensus assumptions and candidate status
-Malachite is a Rust-native Tendermint-style BFT research candidate; CometBFT remains a reference/fallback comparator. No engine is integrated. Malachite upstream declares Rust 1.88 while APEX declares Rust 1.85; this incompatibility must be resolved before dependency adoption. Upstream also describes Malachite as alpha and not externally audited. The common less-than-one-third Byzantine voting-power threshold remains protocol-dependent and is not an APEX security guarantee.
+Malachite is a Rust-native Tendermint-style BFT research candidate; CometBFT remains a reference/fallback comparator. No engine is integrated. Malachite upstream declares Rust 1.88; the workspace currently targets Rust 1.90, but dependency adoption still requires a pinned release and the previously defined security, compatibility and fault-injection gates. Upstream also describes Malachite as alpha and not externally audited. The common less-than-one-third Byzantine voting-power threshold remains protocol-dependent and is not an APEX security guarantee.
 
 ## Performance and compatibility
 2–5 second blocks and 2–10 second finality are exploratory targets only, not measured results. EVM support requires a pinned fork and conformance tests for opcodes, precompiles, gas and edge cases.
 
 ## Open decisions
-Consensus dependency and version, chain ID, codec, crypto suite, EVM revision, storage engine, state commitment structure/hash suite, validator economics, supply ceiling, issuance, fee parameters, governance thresholds and Bitcoin anchor policy remain undecided. No example value is an approved parameter.
+Consensus dependency and version, chain ID, general transaction/block codec, full protocol crypto suite, EVM revision, storage engine, complete state commitment structure and activation, validator economics, supply ceiling, issuance, fee parameters, governance thresholds and Bitcoin anchor policy remain undecided. No example value is an approved parameter.
