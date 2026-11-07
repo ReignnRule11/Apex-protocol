@@ -27,6 +27,8 @@
 
 **Phase 19F — persistent full-width EVM state prototype (merged).** PR #26 adds a separate `apex-evm-redb` crate. It stores full-width account, code, storage and block-hash records under versioned keys; one redb transaction writes the new snapshot and advances the current-version pointer. Historical versions are retained. PR CI #42388264492 and post-merge CI #42388315877 passed. This remains a single-process/single-writer prototype, with no garbage collection, canonical state encoding, state root or cross-subsystem consensus commit.
 
+**Phase 19G — persistent-state corruption and recovery validation (in progress).** Adds reopen tests for incomplete metadata, unsupported schema versions and malformed current-version account records. This is fail-closed corruption testing, not power-loss or disk-failure simulation.
+
 **Phase 19 — deterministic EVM execution (in progress).** Actual revm state-diff extraction, explicit fork/block context, canonical transaction authentication, fee settlement, receipts and complete state commitments remain unimplemented.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.

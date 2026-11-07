@@ -611,6 +611,23 @@ mod tests {
         assert_eq!(reopened.snapshot().unwrap().accounts().count(), 1);
     }
 
+    fn rewrite_metadata(path: &std::path::Path, key: u8, value: Option<u64>) {
+        let db = Database::create(path).unwrap();
+        let write = db.begin_write().unwrap();
+        {
+            let mut table = write.open_table(META).unwrap();
+            match value {
+                Some(value) => {
+                    table.insert(key, value).unwrap();
+                }
+                None => {
+                    table.remove(key).unwrap();
+                }
+            }
+        }
+        write.commit().unwrap();
+    }
+
     #[test]
     fn integrity_check_passes_after_committed_snapshot() {
         let dir = tempfile::tempdir().unwrap();
@@ -618,5 +635,59 @@ mod tests {
         let mut store =
             RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
         store.check_integrity().unwrap();
+    }
+
+    #[test]
+    fn reopen_rejects_incomplete_metadata_without_reinitializing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        drop(RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap());
+
+        rewrite_metadata(&path, META_CURRENT_VERSION_KEY, None);
+
+        assert_eq!(
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
+            Some(PersistentEvmStateError::CorruptMetadata)
+        );
+    }
+
+    #[test]
+    fn reopen_rejects_unsupported_schema_without_reinitializing() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        drop(RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap());
+
+        rewrite_metadata(&path, META_SCHEMA_KEY, Some(SCHEMA_VERSION + 1));
+
+        assert_eq!(
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
+            Some(PersistentEvmStateError::UnsupportedSchema(
+                SCHEMA_VERSION + 1
+            ))
+        );
+    }
+
+    #[test]
+    fn reopen_rejects_malformed_current_account_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        drop(RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap());
+
+        let db = Database::create(&path).unwrap();
+        let write = db.begin_write().unwrap();
+        {
+            let mut table = write.open_table(ACCOUNTS).unwrap();
+            let mut key = [0_u8; ACCOUNT_KEY_LEN];
+            key[..8].copy_from_slice(&12_u64.to_be_bytes());
+            key[8..].copy_from_slice(&address(1).0);
+            table.insert(key.as_slice(), &[0xAA][..]).unwrap();
+        }
+        write.commit().unwrap();
+        drop(db);
+
+        assert_eq!(
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
+            Some(PersistentEvmStateError::CorruptRecord("account"))
+        );
     }
 }

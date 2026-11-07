@@ -38,6 +38,9 @@ PR #26 and post-merge CI passed. Adds `apex-evm-redb`, separate from the legacy 
 
 The adapter uses redb's default exclusive file lock and Immediate durability. It is single-process/single-writer. Resource limits are caller supplied and not protocol parameters. It has no garbage collection, online backup, multi-process coordination, canonical wire encoding, state root or atomic consensus/signer commit. Commit errors latch the instance as requiring reopen/reconciliation.
 
+## Phase 19G — persistent-state corruption and recovery validation
+Adds tests proving reopen rejects incomplete metadata, unsupported schema versions and malformed current-version account records without falling back to the supplied initial snapshot. These are controlled redb corruption tests, not actual crash/power-loss or I/O fault simulation. See `phase-19g-storage-corruption-recovery.md` and ADR-0031.
+
 ## Required next work
 
 1. Add fault-injection and restart/recovery tests around commit ambiguity, schema corruption and orphaned records.
