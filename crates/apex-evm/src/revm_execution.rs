@@ -26,10 +26,7 @@ pub fn build_revm_evm<'a>(
     let (cfg, block) = environment.into_parts();
     let spec = *cfg.spec();
 
-    Context::<BlockEnv, TxEnv, CfgEnv, EvmDatabaseView<'a>>::new(
-        snapshot.database_view(),
-        spec,
-    )
+    Context::<BlockEnv, TxEnv, CfgEnv, EvmDatabaseView<'a>>::new(snapshot.database_view(), spec)
         .with_cfg(cfg)
         .with_block(block)
         .build_mainnet()
