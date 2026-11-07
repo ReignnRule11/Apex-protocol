@@ -1,6 +1,6 @@
 # Phase 15 — Merkle Membership Proofs
 
-**Status:** implementation proposed on review branch; not production-approved.
+**Status:** merged in PR #14; CI passed formatting, Clippy and workspace tests. Research prototype; not production-approved.
 
 ## Scope
 
