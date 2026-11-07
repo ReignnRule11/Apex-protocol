@@ -63,10 +63,10 @@ impl fmt::Display for RevmStateDiffError {
                 )
             }
             Self::ExecutionReverted => {
-                write!(f, "reverted EVM execution cannot produce a committed state delta")
+                write!(\n                    f,\n                    "reverted EVM execution cannot produce a committed state delta"\n                )
             }
             Self::ExecutionHalted => {
-                write!(f, "halted EVM execution cannot produce a committed state delta")
+                write!(\n                    f,\n                    "halted EVM execution cannot produce a committed state delta"\n                )
             }
         }
     }
