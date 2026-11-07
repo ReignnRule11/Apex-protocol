@@ -73,6 +73,13 @@ enum Lifecycle {
     ReopenRequired,
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CommitFault {
+    BeforeCommit,
+    AcknowledgementLost,
+}
+
 /// Single-process redb persistence for complete full-width EVM snapshots.
 ///
 /// Every applied delta writes a complete versioned snapshot and updates the
@@ -84,6 +91,8 @@ pub struct RedbEvmStateStore {
     db: Database,
     state: EvmStateStore,
     lifecycle: Lifecycle,
+    #[cfg(test)]
+    commit_fault: Option<CommitFault>,
 }
 
 impl RedbEvmStateStore {
@@ -143,6 +152,8 @@ impl RedbEvmStateStore {
             db,
             state: EvmStateStore::new(snapshot),
             lifecycle: Lifecycle::Ready,
+            #[cfg(test)]
+            commit_fault: None,
         })
     }
 
@@ -170,6 +181,29 @@ impl RedbEvmStateStore {
             let mut meta = write.open_table(META).map_err(backend)?;
             meta.insert(META_CURRENT_VERSION_KEY, next_version)
                 .map_err(backend)?;
+        }
+
+        #[cfg(test)]
+        if let Some(fault) = self.commit_fault.take() {
+            match fault {
+                CommitFault::BeforeCommit => {
+                    drop(write);
+                    self.lifecycle = Lifecycle::ReopenRequired;
+                    return Err(PersistentEvmStateError::Backend(
+                        "injected failure before commit".into(),
+                    ));
+                }
+                CommitFault::AcknowledgementLost => {
+                    if let Err(error) = write.commit() {
+                        self.lifecycle = Lifecycle::ReopenRequired;
+                        return Err(backend(error));
+                    }
+                    self.lifecycle = Lifecycle::ReopenRequired;
+                    return Err(PersistentEvmStateError::Backend(
+                        "injected lost commit acknowledgement".into(),
+                    ));
+                }
+            }
         }
 
         if let Err(error) = write.commit() {
@@ -689,5 +723,100 @@ mod tests {
             RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).err(),
             Some(PersistentEvmStateError::CorruptRecord("account"))
         );
+    }
+
+    #[test]
+    fn pre_commit_failure_latches_store_and_reopen_keeps_parent_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        let mut store =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        let delta = empty_delta(12);
+        store.commit_fault = Some(CommitFault::BeforeCommit);
+
+        assert_eq!(
+            store.apply(&delta),
+            Err(PersistentEvmStateError::Backend(
+                "injected failure before commit".into()
+            ))
+        );
+        assert_eq!(
+            store.snapshot().err(),
+            Some(PersistentEvmStateError::ReopenRequired)
+        );
+        drop(store);
+
+        let mut reopened =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        assert_eq!(reopened.snapshot().unwrap().parent_state_version(), 12);
+        assert_eq!(reopened.apply(&delta), Ok(13));
+        drop(reopened);
+
+        let verified =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        assert_eq!(verified.snapshot().unwrap().parent_state_version(), 13);
+    }
+
+    #[test]
+    fn lost_commit_acknowledgement_latches_and_reopen_reconciles_committed_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        let mut store =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        let delta = empty_delta(12);
+        store.commit_fault = Some(CommitFault::AcknowledgementLost);
+
+        assert_eq!(
+            store.apply(&delta),
+            Err(PersistentEvmStateError::Backend(
+                "injected lost commit acknowledgement".into()
+            ))
+        );
+        assert_eq!(
+            store.snapshot().err(),
+            Some(PersistentEvmStateError::ReopenRequired)
+        );
+        drop(store);
+
+        let mut reopened =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        assert_eq!(reopened.snapshot().unwrap().parent_state_version(), 13);
+        assert_eq!(
+            reopened.apply(&delta),
+            Err(PersistentEvmStateError::Apply(
+                EvmStateApplyError::StaleParent {
+                    expected: 12,
+                    actual: 13,
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn orphaned_future_version_records_are_not_selected_as_current_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("evm.redb");
+        let store =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        let mut candidate = store.state.clone();
+        candidate.apply(&empty_delta(12)).unwrap();
+        let orphaned_snapshot = candidate.snapshot().clone();
+        drop(store);
+
+        let db = Database::create(&path).unwrap();
+        let write = db.begin_write().unwrap();
+        write_snapshot_records(&write, &orphaned_snapshot).unwrap();
+        write.commit().unwrap();
+        drop(db);
+
+        let mut reopened =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        assert_eq!(reopened.snapshot().unwrap().parent_state_version(), 12);
+        assert_eq!(reopened.apply(&empty_delta(12)), Ok(13));
+        drop(reopened);
+
+        let verified =
+            RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
+        assert_eq!(verified.snapshot().unwrap().parent_state_version(), 13);
     }
 }

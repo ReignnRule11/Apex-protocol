@@ -27,7 +27,9 @@
 
 **Phase 19F — persistent full-width EVM state prototype (merged).** PR #26 adds a separate `apex-evm-redb` crate. It stores full-width account, code, storage and block-hash records under versioned keys; one redb transaction writes the new snapshot and advances the current-version pointer. Historical versions are retained. PR CI #42388264492 and post-merge CI #42388315877 passed. This remains a single-process/single-writer prototype, with no garbage collection, canonical state encoding, state root or cross-subsystem consensus commit.
 
-**Phase 19G — persistent-state corruption and recovery validation (in progress).** Adds reopen tests for incomplete metadata, unsupported schema versions and malformed current-version account records. This is fail-closed corruption testing, not power-loss or disk-failure simulation.
+**Phase 19G — persistent-state corruption and recovery validation (merged).** PR #28 merged at `c653b073e446620b5f6ede38c7d41c7bde2c72dd`; PR CI #42389694673 and post-merge CI #42389851008 passed. Adds controlled reopen-corruption tests for incomplete metadata, unsupported schema versions and malformed current-version account records.
+
+**Phase 19H — commit ambiguity and orphaned-version recovery tests (implementation submitted).** Adds test-only pre-commit failure, lost-acknowledgement-after-commit and orphaned-future-version tests. These validate reopen reconciliation semantics but do not simulate OS crash, power loss or device I/O faults.
 
 **Phase 19 — deterministic EVM execution (in progress).** Actual revm state-diff extraction, explicit fork/block context, canonical transaction authentication, fee settlement, receipts and complete state commitments remain unimplemented.
 
@@ -62,7 +64,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0030
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0032
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
