@@ -1,6 +1,6 @@
 # Phase 10 — redb Durable Storage Spike
 
-**Status:** implementation prototype; validation pending CI and broader fault-injection work.
+**Status:** prototype implemented; GitHub Actions passed on Rust 1.90.0 (format, Clippy, workspace tests). Extended fault-injection and operational validation remain open.
 
 ## Objective
 
@@ -25,6 +25,7 @@ Implement a durable reference adapter behind the backend-neutral state-store int
 - Version overflow and stale-plan rejection.
 - Explicit integrity-check method.
 - Close/reopen and atomicity regression tests.
+- CI validation on the merged PR head: format, Clippy and workspace tests passed.
 
 ## Not implemented
 
@@ -39,7 +40,7 @@ No canonical account encoding, protocol state root, Merkle proofs, block hash bi
 - [x] Test close/reopen persistence.
 - [x] Test stale-plan rejection and late precondition failure.
 - [x] Ensure existing data cannot be overwritten by bootstrap input.
-- [ ] Pass CI on the exact pinned toolchain.
+- [x] Pass CI on the exact pinned toolchain.
 - [ ] Add fault-injection/process interruption tests.
 - [ ] Validate concurrent access and backup/restore.
 - [ ] Complete dependency audit and independent storage review.
