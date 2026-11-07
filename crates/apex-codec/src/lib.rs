@@ -91,13 +91,25 @@ mod tests {
         });
         let mut trailing = encoded.to_vec();
         trailing.push(0);
-        assert_eq!(decode_account_record_v1(&trailing), Err(CodecError::InvalidLength));
-        assert_eq!(decode_account_record_v1(&encoded[..37]), Err(CodecError::InvalidLength));
+        assert_eq!(
+            decode_account_record_v1(&trailing),
+            Err(CodecError::InvalidLength)
+        );
+        assert_eq!(
+            decode_account_record_v1(&encoded[..37]),
+            Err(CodecError::InvalidLength)
+        );
         let mut wrong_magic = encoded;
         wrong_magic[0] = 0;
-        assert_eq!(decode_account_record_v1(&wrong_magic), Err(CodecError::InvalidMagic));
+        assert_eq!(
+            decode_account_record_v1(&wrong_magic),
+            Err(CodecError::InvalidMagic)
+        );
         let mut wrong_version = encoded;
         wrong_version[5] = 2;
-        assert_eq!(decode_account_record_v1(&wrong_version), Err(CodecError::UnsupportedVersion));
+        assert_eq!(
+            decode_account_record_v1(&wrong_version),
+            Err(CodecError::UnsupportedVersion)
+        );
     }
 }
