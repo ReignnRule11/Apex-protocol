@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use revm::{
-    database_interface::{Database, DBErrorMarker},
+    database_interface::{DBErrorMarker, Database},
     primitives::{Address, B256, Bytes, StorageKey, StorageValue, U256},
     state::{AccountInfo, Bytecode},
 };
@@ -226,15 +226,15 @@ impl Database for EvmDatabaseView<'_> {
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         let mut address_bytes = [0_u8; 20];
         address_bytes.copy_from_slice(address.as_slice());
-        Ok(EvmDatabaseView::basic(self, EvmAddress(address_bytes)).map(|account| {
-            AccountInfo {
+        Ok(
+            EvmDatabaseView::basic(self, EvmAddress(address_bytes)).map(|account| AccountInfo {
                 balance: U256::from_be_bytes(account.balance.0),
                 nonce: account.nonce,
                 code_hash: B256::from(account.code_hash.0),
                 account_id: None,
                 code: None,
-            }
-        }))
+            }),
+        )
     }
 
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
@@ -308,7 +308,6 @@ mod tests {
     }
 
 
-
     #[test]
     fn revm_database_trait_reads_full_width_snapshot_values() {
         let snapshot = snapshot();
@@ -334,9 +333,11 @@ mod tests {
             Database::block_hash(&mut database, 999).unwrap(),
             B256::ZERO
         );
-        assert!(Database::basic(&mut database, Address::from_slice(&address(2).0))
-            .unwrap()
-            .is_none());
+        assert!(
+            Database::basic(&mut database, Address::from_slice(&address(2).0))
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
