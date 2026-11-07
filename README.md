@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 13 — storage lifecycle and schema migration (PR checks green; awaiting merge).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors. See `docs/protocol/phase-13-storage-lifecycle-and-migration.md`.
+**Phase 13 — storage lifecycle and schema migration (merged; post-merge CI green).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors. See `docs/protocol/phase-13-storage-lifecycle-and-migration.md`.
 
 **Phase 12 — storage concurrency and failure-boundary engineering (merged; CI green).** The redb adapter now has concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation that verifies reopen/reconciliation prevents duplicate application. The injected faults are adapter-boundary simulations, not real disk-full or device-I/O fault injection. See docs/protocol/phase-12-concurrency-failure-engineering.md.
 
