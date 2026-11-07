@@ -4,7 +4,7 @@
 //! explicitly scheduled authenticated validator set; it is not yet wired into
 //! Malachite or the application commit path.
 use crate::consensus_message::{ConsensusMessageStep, ConsensusSigningMessage};
-use crate::validator_set::{Validator, ValidatorId, ValidatorSet};
+use crate::validator_set::{ValidatorId, ValidatorSet};
 use ed25519_dalek::{Signature, VerifyingKey};
 use sha2_11::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -297,6 +297,7 @@ pub fn verify_commit_certificate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::validator_set::Validator;
     use ed25519_dalek::{Signer, SigningKey};
 
     fn keys() -> Vec<SigningKey> {
