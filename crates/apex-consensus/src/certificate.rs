@@ -67,6 +67,9 @@ impl AuthenticatedValidatorSet {
                 .ok_or(CertificateError::ValidatorKeySetMismatch)?;
             let verifying_key = VerifyingKey::from_bytes(&public_key.0)
                 .map_err(|_| CertificateError::InvalidPublicKey)?;
+            if verifying_key.is_weak() {
+                return Err(CertificateError::InvalidPublicKey);
+            }
             authenticated.push(AuthenticatedValidator {
                 id,
                 voting_power: validator.voting_power,
@@ -75,10 +78,12 @@ impl AuthenticatedValidatorSet {
             });
         }
         authenticated.sort_by_key(|validator| validator.id);
+        let validator_count = u32::try_from(authenticated.len())
+            .map_err(|_| CertificateError::TooManyValidators)?;
         let mut hasher = Sha256::new();
         hasher.update(VALIDATOR_SET_DOMAIN);
         hasher.update([1_u8]);
-        hasher.update((authenticated.len() as u32).to_be_bytes());
+        hasher.update(validator_count.to_be_bytes());
         for validator in &authenticated {
             hasher.update(validator.id.0);
             hasher.update(validator.voting_power.to_be_bytes());
@@ -168,6 +173,10 @@ pub enum CertificateError {
     DuplicateValidatorKey,
     #[error("authenticated validator-set schedule is invalid")]
     InvalidValidatorSetSchedule,
+    #[error("validator count exceeds the canonical u32 encoding")]
+    TooManyValidators,
+    #[error("certificate has more signatures than scheduled validators")]
+    TooManySignatures,
     #[error("certificate chain ID or protocol version is invalid")]
     WrongChainContext,
     #[error("certificate height does not match the expected height")]
@@ -214,6 +223,9 @@ pub fn verify_commit_certificate(
     let validators = schedule.validator_set_at(expected.height);
     if certificate.validator_set_hash != validators.hash() {
         return Err(CertificateError::WrongValidatorSet);
+    }
+    if certificate.signatures.len() > validators.validators.len() {
+        return Err(CertificateError::TooManySignatures);
     }
 
     let mut seen = BTreeSet::new();
