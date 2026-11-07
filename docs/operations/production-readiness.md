@@ -17,7 +17,7 @@ Critical systems not implemented or production-selected:
 - Complete deterministic EVM transaction pipeline, gas/fee settlement, receipts and full state commitment.
 - Authenticated block/genesis validation feeding the execution context and ratified APEX fork/gas/precompile semantics.
 - Full transaction-to-persistent-state integration and atomic consensus/signer/application commit.
-- Production BFT consensus, authenticated certificates, authenticated validator transitions and finality.
+- Integrated production BFT consensus, authenticated validator transitions and application-gated finality; the isolated Ed25519 certificate verifier is experimental and disconnected.
 - Authenticated P2P networking, transaction pool, block production and sync.
 - RPC, genesis tooling, upgrades, operator runbooks, observability and independent audits.
 
@@ -61,9 +61,9 @@ In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressi
 
 
 
-**20G1 — pinned Malachite EngineBuilder adapter (implementation submitted for exact-head CI).** The isolated `experiments/malachite-spike` workspace now contains a generic, typed adapter that invokes the real v0.8.2 `EngineBuilder::build` API with upstream WAL, network, consensus, sync and request contexts. The adapter is compile-checked against the exact upstream commit and does not add Malachite to the APEX production workspace. It is not an engine runtime test: no engine is started, no socket or validator key is created, no APEX application event loop is attached, and no finality certificate is authenticated or committed. G2 remains BLOCKED. The next subphase must supply an APEX-specific application and signer/network boundary, then run actual multi-validator integration tests before any production adoption. See the Phase 20G1 record and ADR-0045.
+**20G1 — pinned Malachite EngineBuilder adapter (complete; PR #43 merged and post-merge main CI passed).** The isolated `experiments/malachite-spike` workspace now contains a generic, typed adapter that invokes the real v0.8.2 `EngineBuilder::build` API with upstream WAL, network, consensus, sync and request contexts. The adapter is compile-checked against the exact upstream commit and does not add Malachite to the APEX production workspace. It is not an engine runtime test: no engine is started, no socket or validator key is created, no APEX application event loop is attached, and no finality certificate is authenticated or committed. G2 remains BLOCKED. The next subphase must supply an APEX-specific application and signer/network boundary, then run actual multi-validator integration tests before any production adoption. See the Phase 20G1 record and ADR-0045.
 
-**20G2A — canonical consensus signing preimage (implementation submitted).** Adds an experimental fixed-width preimage codec binding chain ID, protocol version, height, round, step, signer identity, validator-set hash and block hash. It does not implement signing or verification, bind signer identity to a public key, verify certificates, or ratify the profile. G2 remains BLOCKED.\n\nProduction adoption remains blocked until the complete suite, recovery/signing safety and independent review pass.
+**20G2A — canonical consensus signing preimage (complete; PR #44 merged and post-merge main CI passed).** Adds an experimental fixed-width preimage codec binding chain ID, protocol version, height, round, step, signer identity, validator-set hash and block hash. It does not implement signing or verification, bind signer identity to a public key, verify certificates, or ratify the profile. G2 remains BLOCKED.\n\nProduction adoption remains blocked until the complete suite, recovery/signing safety and independent review pass.
 
 ### Phase 21 — P2P networking and node services
 Implement versioned libp2p, peer identity, discovery, gossip/sync, quotas, DoS controls, mempool and block pipeline.
@@ -96,3 +96,6 @@ Require all previous gates, legal/license clearance, economic disclosures, gover
 ## 5. Current decision
 
 **NO-GO.** Protocol v0.2 is a review draft and Phase 18/19 contain proposals and adapters, not a ratified production protocol. No numeric chain ID, transaction codec, BFT signature algorithm, APEX EVM fork/gas policy or production key lifecycle is ratified.
+
+
+**20G2B — authenticated consensus signatures and commit certificates (implementation submitted for exact-head CI).** Adds pinned ed25519-dalek 3.0.0 strict Ed25519 verification, public-key-derived validator IDs, canonical authenticated validator-set hashing, exact-height authenticated validator-set schedules, and precommit certificate verification against the scheduled set. The verifier rejects malformed/weak keys, unknown/duplicate signers, mismatched chain/protocol/height/set/block context, invalid signatures and insufficient quorum. It does not authenticate validator-set governance updates, define a canonical certificate wire decoder, connect to Malachite or gate application commits. G2 remains BLOCKED pending runtime integration, signer-key custody/recovery, fault testing and independent review. See the Phase 20G2B record and ADR-0047.
