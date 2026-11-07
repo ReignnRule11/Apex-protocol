@@ -83,6 +83,11 @@ Publish reproducible artifacts and genesis; onboard independent validators; sust
 ### Phase 26 — Mainnet go/no-go
 Require all previous gates, legal/license clearance, economic disclosures, governance/emergency controls, independent sign-off and a signed launch decision.
 
+
+### Phase 20G2C8 — cross-subsystem recovery protocol design (proposed for review)
+
+Defines a recovery authority model across the Malachite consensus WAL, signer reservation journal, finality journal and materialized application state. The signer journal is monotonic; WAL records are replay evidence only; the finality journal is the ordered APEX commit ledger after native certificate verification; application state is a rebuildable projection. Startup must remain locked until all stores reconcile. The design specifies commit ordering, replay rules, a fail-closed decision matrix and validation gates. It does not establish that the pinned Malachite WAL exposes the required evidence, implement adapters, create cross-database atomicity or provide backup rollback protection. **G2 and G4 remain BLOCKED; release remains NO-GO.** See the Phase 20G2C8 record and ADR-0055.
+
 ## 4. Non-negotiable controls
 
 - No mocks or stubs presented as protocol functionality.
@@ -149,7 +154,7 @@ The isolated Malachite gate now derives a stable commit key from the opaque veri
 The isolated Malachite spike now contains a redb 4.5.0 finality journal experiment. It atomically stores the APEX identity/payload row and chain-tip row in one database transaction, enforces idempotent exact retries, rejects conflicting same-height identities/payloads, checks contiguous height and parent linkage, and supports reopen/readback. This is not integrated with `FinalityApplication`, the consensus WAL or signer journal. No process-crash/power-loss, multi-process, backup rollback or cross-subsystem atomicity proof exists. G2 and G4 remain BLOCKED; release remains NO-GO.
 
 
-### Phase 20G2C7 — finality journal process-termination recovery tests (implementation submitted)
+### Phase 20G2C7 — finality journal process-termination recovery tests (merged; post-merge main CI passed)
 
 The isolated redb finality journal now has child-process tests for abrupt exit at two application transaction boundaries. Exit after both rows are staged but before commit must reopen with no payload or chain tip and permit the same-height commit. Exit after commit returns but before acknowledgement must reopen with the complete payload and tip and accept an exact retry as `AlreadyCommitted`. The child uses `std::process::exit` to bypass Rust destructors; CI exercises a process termination/reopen sequence on its runner.
 

@@ -63,6 +63,11 @@ The pinned Malachite v0.8.2 API audit is recorded in `docs/protocol/phase-20g2c1
 
 **Phase 20G2C2 — compile-checked Malachite-native finality adapter (merged; post-merge main CI passed).** Adds an isolated generic adapter that checks native height/round/value ID, requires an explicit native-value-ID-to-canonical-APEX-identity binding, delegates signature and quorum verification to the exact pinned Malachite `VerifierExt`, and emits an opaque verified token only on success. The direct signing dependency remains in `experiments/malachite-spike`, outside the production workspace. This is not an event loop, application commit gate, durable finality path or production BFT implementation. See `docs/protocol/phase-20g2c2-native-certificate-adapter.md` and ADR-0049.
 
+
+## Phase 20G2C8 — cross-subsystem recovery protocol design (proposed for review)
+
+Defines a fail-closed recovery authority model across the Malachite consensus WAL, signer reservation journal, APEX finality journal and materialized application state. Specifies commit ordering, a startup recovery lock, replay/reconciliation rules, a decision matrix and validation requirements. This is a design-only phase: it does not assume the pinned Malachite WAL exposes the required inspection/replay evidence, does not integrate stores or enable validators, and does not establish cross-database atomicity or anti-rollback protection. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c8-cross-subsystem-recovery-protocol.md` and ADR-0055.
+
 ## Production release status
 
 **NO-GO — not production-ready.**
@@ -101,7 +106,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   │   └── src/finality_journal.rs # Durable journal and process-recovery tests
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0054
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0055
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -147,6 +152,6 @@ See `docs/protocol/phase-20g2c5-idempotent-finality-commit-contract.md` and ADR-
 Adds a redb 4.5.0 journal prototype only to the isolated Malachite spike. It atomically records a verified APEX identity, opaque state payload and chain tip in one write transaction; exact retries are idempotent, conflicting identities/payloads fail closed, and height/parent continuity is enforced. Reopen/readback tests are included. This is not wired into the finality event loop, is not multi-process or power-loss validated, and does not make consensus WAL, application state and signer reservations atomic. G2/G4 remain blocked; release remains NO-GO. See `docs/protocol/phase-20g2c6-durable-finality-journal.md` and ADR-0053.
 
 
-## Phase 20G2C7 — finality journal process-termination recovery tests (implementation submitted)
+## Phase 20G2C7 — finality journal process-termination recovery tests (merged; post-merge main CI passed)
 
 Adds isolated child-process tests that terminate abruptly after journal/tip rows are staged but before commit, and immediately after commit returns but before acknowledgement. A fresh process must observe no partial record/tip in the first case, and the complete record/tip plus idempotent retry in the second. These are controlled userspace process-exit tests only—not power-loss, kernel-crash, storage-device or filesystem durability proof. The journal remains isolated and disconnected from Malachite WAL and signer reservations. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c7-finality-journal-process-recovery.md` and ADR-0054.
