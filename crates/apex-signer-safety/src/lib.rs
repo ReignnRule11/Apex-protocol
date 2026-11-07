@@ -9,9 +9,17 @@ use thiserror::Error;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
-pub enum ConsensusStep { Proposal = 1, Prevote = 2, Precommit = 3 }
+pub enum ConsensusStep {
+    Proposal = 1,
+    Prevote = 2,
+    Precommit = 3,
+}
 
-impl ConsensusStep { pub const fn as_u8(self) -> u8 { self as u8 } }
+impl ConsensusStep {
+    pub const fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
 
 /// Stable protocol-level signer identity; not a key or public-key encoding.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -19,10 +27,15 @@ pub struct SignerId([u8; 32]);
 
 impl SignerId {
     pub fn new(bytes: [u8; 32]) -> Result<Self, SigningSafetyError> {
-        if bytes == [0; 32] { return Err(SigningSafetyError::ZeroSignerId); }
+        if bytes == [0; 32] {
+            return Err(SigningSafetyError::ZeroSignerId);
+        }
         Ok(Self(bytes))
     }
-    pub const fn as_bytes(self) -> [u8; 32] { self.0 }
+
+    pub const fn as_bytes(self) -> [u8; 32] {
+        self.0
+    }
 }
 
 /// Complete consensus coordinate protected against conflicting signatures.
@@ -37,18 +50,54 @@ pub struct SigningCoordinate {
 }
 
 impl SigningCoordinate {
-    pub fn new(chain_id: ChainId256, protocol_version: u32, height: u64, round: u32,
-        step: ConsensusStep, signer: SignerId) -> Result<Self, SigningSafetyError> {
-        if chain_id.is_zero() { return Err(SigningSafetyError::ZeroChainId); }
-        if protocol_version == 0 { return Err(SigningSafetyError::ZeroProtocolVersion); }
-        Ok(Self { chain_id, protocol_version, height, round, step, signer })
+    pub fn new(
+        chain_id: ChainId256,
+        protocol_version: u32,
+        height: u64,
+        round: u32,
+        step: ConsensusStep,
+        signer: SignerId,
+    ) -> Result<Self, SigningSafetyError> {
+        if chain_id.is_zero() {
+            return Err(SigningSafetyError::ZeroChainId);
+        }
+        if protocol_version == 0 {
+            return Err(SigningSafetyError::ZeroProtocolVersion);
+        }
+        Ok(Self {
+            chain_id,
+            protocol_version,
+            height,
+            round,
+            step,
+            signer,
+        })
     }
-    pub const fn chain_id(self) -> ChainId256 { self.chain_id }
-    pub const fn protocol_version(self) -> u32 { self.protocol_version }
-    pub const fn height(self) -> u64 { self.height }
-    pub const fn round(self) -> u32 { self.round }
-    pub const fn step(self) -> ConsensusStep { self.step }
-    pub const fn signer(self) -> SignerId { self.signer }
+
+    pub const fn chain_id(self) -> ChainId256 {
+        self.chain_id
+    }
+
+    pub const fn protocol_version(self) -> u32 {
+        self.protocol_version
+    }
+
+    pub const fn height(self) -> u64 {
+        self.height
+    }
+
+    pub const fn round(self) -> u32 {
+        self.round
+    }
+
+    pub const fn step(self) -> ConsensusStep {
+        self.step
+    }
+
+    pub const fn signer(self) -> SignerId {
+        self.signer
+    }
+
     /// Fixed-width 81-byte key; numeric fields use big-endian encoding.
     pub fn storage_key(self) -> [u8; 81] {
         let mut key = [0_u8; 81];
@@ -64,54 +113,99 @@ impl SigningCoordinate {
 
 /// Exact caller-supplied canonical message bytes; no codec is selected here.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SigningIntent { coordinate: SigningCoordinate, message: Vec<u8> }
+pub struct SigningIntent {
+    coordinate: SigningCoordinate,
+    message: Vec<u8>,
+}
 
 impl SigningIntent {
-    pub fn new(coordinate: SigningCoordinate, message: Vec<u8>, max_message_bytes: usize)
-        -> Result<Self, SigningSafetyError> {
-        if max_message_bytes == 0 { return Err(SigningSafetyError::ZeroMessageLimit); }
-        if message.is_empty() { return Err(SigningSafetyError::EmptyMessage); }
-        if message.len() > max_message_bytes { return Err(SigningSafetyError::MessageTooLarge); }
-        Ok(Self { coordinate, message })
+    pub fn new(
+        coordinate: SigningCoordinate,
+        message: Vec<u8>,
+        max_message_bytes: usize,
+    ) -> Result<Self, SigningSafetyError> {
+        if max_message_bytes == 0 {
+            return Err(SigningSafetyError::ZeroMessageLimit);
+        }
+        if message.is_empty() {
+            return Err(SigningSafetyError::EmptyMessage);
+        }
+        if message.len() > max_message_bytes {
+            return Err(SigningSafetyError::MessageTooLarge);
+        }
+        Ok(Self {
+            coordinate,
+            message,
+        })
     }
-    pub const fn coordinate(&self) -> SigningCoordinate { self.coordinate }
-    pub fn message(&self) -> &[u8] { &self.message }
+
+    pub const fn coordinate(&self) -> SigningCoordinate {
+        self.coordinate
+    }
+
+    pub fn message(&self) -> &[u8] {
+        &self.message
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ReservationOutcome { Reserved, ExistingIdentical }
+pub enum ReservationOutcome {
+    Reserved,
+    ExistingIdentical,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
 pub enum SigningSafetyError {
-    #[error("chain ID must be non-zero")] ZeroChainId,
-    #[error("protocol version must be non-zero")] ZeroProtocolVersion,
-    #[error("signer identity must be non-zero")] ZeroSignerId,
-    #[error("message byte limit must be non-zero")] ZeroMessageLimit,
-    #[error("signing message must not be empty")] EmptyMessage,
-    #[error("signing message exceeds its configured byte limit")] MessageTooLarge,
-    #[error("this consensus coordinate is already reserved for different bytes")] DoubleSignPrevented,
-    #[error("signing reservation storage is unavailable")] StorageUnavailable,
-    #[error("signing reservation storage has an unsupported schema")] UnsupportedSchema,
-    #[error("signing reservation storage is corrupt")] CorruptStorage,
+    #[error("chain ID must be non-zero")]
+    ZeroChainId,
+    #[error("protocol version must be non-zero")]
+    ZeroProtocolVersion,
+    #[error("signer identity must be non-zero")]
+    ZeroSignerId,
+    #[error("message byte limit must be non-zero")]
+    ZeroMessageLimit,
+    #[error("signing message must not be empty")]
+    EmptyMessage,
+    #[error("signing message exceeds its configured byte limit")]
+    MessageTooLarge,
+    #[error("this consensus coordinate is already reserved for different bytes")]
+    DoubleSignPrevented,
+    #[error("signing reservation storage is unavailable")]
+    StorageUnavailable,
+    #[error("signing reservation storage has an unsupported schema")]
+    UnsupportedSchema,
+    #[error("signing reservation storage is corrupt")]
+    CorruptStorage,
 }
 
 /// Must atomically persist a first reservation before returning Reserved.
 /// Exact retries are idempotent; conflicting bytes must fail closed.
 pub trait SigningSafetyStore {
-    fn reserve(&mut self, intent: &SigningIntent) -> Result<ReservationOutcome, SigningSafetyError>;
+    fn reserve(
+        &mut self,
+        intent: &SigningIntent,
+    ) -> Result<ReservationOutcome, SigningSafetyError>;
 }
 
 /// Process-local reference implementation for tests only.
 #[derive(Clone, Debug, Default)]
-pub struct InMemorySigningSafetyStore { reservations: HashMap<SigningCoordinate, Vec<u8>> }
+pub struct InMemorySigningSafetyStore {
+    reservations: HashMap<SigningCoordinate, Vec<u8>>,
+}
 
 impl SigningSafetyStore for InMemorySigningSafetyStore {
-    fn reserve(&mut self, intent: &SigningIntent) -> Result<ReservationOutcome, SigningSafetyError> {
+    fn reserve(
+        &mut self,
+        intent: &SigningIntent,
+    ) -> Result<ReservationOutcome, SigningSafetyError> {
         match self.reservations.get(&intent.coordinate) {
-            Some(existing) if existing == &intent.message => Ok(ReservationOutcome::ExistingIdentical),
+            Some(existing) if existing == &intent.message => {
+                Ok(ReservationOutcome::ExistingIdentical)
+            }
             Some(_) => Err(SigningSafetyError::DoubleSignPrevented),
             None => {
-                self.reservations.insert(intent.coordinate, intent.message.clone());
+                self.reservations
+                    .insert(intent.coordinate, intent.message.clone());
                 Ok(ReservationOutcome::Reserved)
             }
         }
@@ -121,49 +215,101 @@ impl SigningSafetyStore for InMemorySigningSafetyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     fn intent(message: &[u8]) -> SigningIntent {
         let signer = SignerId::new([7; 32]).unwrap();
-        let coordinate = SigningCoordinate::new(ChainId256::from_u64(42), 1, 9, 2,
-            ConsensusStep::Precommit, signer).unwrap();
+        let coordinate = SigningCoordinate::new(
+            ChainId256::from_u64(42),
+            1,
+            9,
+            2,
+            ConsensusStep::Precommit,
+            signer,
+        )
+        .unwrap();
         SigningIntent::new(coordinate, message.to_vec(), 1024).unwrap()
     }
+
     #[test]
     fn first_reservation_and_exact_retry_are_idempotent() {
         let mut store = InMemorySigningSafetyStore::default();
-        assert_eq!(store.reserve(&intent(b"vote-a")), Ok(ReservationOutcome::Reserved));
-        assert_eq!(store.reserve(&intent(b"vote-a")), Ok(ReservationOutcome::ExistingIdentical));
+        assert_eq!(
+            store.reserve(&intent(b"vote-a")),
+            Ok(ReservationOutcome::Reserved)
+        );
+        assert_eq!(
+            store.reserve(&intent(b"vote-a")),
+            Ok(ReservationOutcome::ExistingIdentical)
+        );
     }
+
     #[test]
     fn conflicting_bytes_at_same_coordinate_are_rejected() {
         let mut store = InMemorySigningSafetyStore::default();
         store.reserve(&intent(b"vote-a")).unwrap();
-        assert_eq!(store.reserve(&intent(b"vote-b")), Err(SigningSafetyError::DoubleSignPrevented));
+        assert_eq!(
+            store.reserve(&intent(b"vote-b")),
+            Err(SigningSafetyError::DoubleSignPrevented)
+        );
     }
+
     #[test]
     fn distinct_coordinates_can_be_reserved() {
         let mut store = InMemorySigningSafetyStore::default();
         let first = intent(b"vote-a");
-        let coordinate = SigningCoordinate::new(first.coordinate.chain_id, 1, 10, 0,
-            ConsensusStep::Precommit, first.coordinate.signer).unwrap();
+        let coordinate = SigningCoordinate::new(
+            first.coordinate.chain_id,
+            1,
+            10,
+            0,
+            ConsensusStep::Precommit,
+            first.coordinate.signer,
+        )
+        .unwrap();
         let next = SigningIntent::new(coordinate, b"vote-b".to_vec(), 1024).unwrap();
         assert_eq!(store.reserve(&first), Ok(ReservationOutcome::Reserved));
         assert_eq!(store.reserve(&next), Ok(ReservationOutcome::Reserved));
     }
+
     #[test]
     fn rejects_zero_context_empty_and_oversized_messages() {
         let signer = SignerId::new([1; 32]).unwrap();
-        assert_eq!(SigningCoordinate::new(ChainId256::from_u64(0), 1, 1, 0,
-            ConsensusStep::Proposal, signer), Err(SigningSafetyError::ZeroChainId));
+        assert_eq!(
+            SigningCoordinate::new(
+                ChainId256::from_u64(0),
+                1,
+                1,
+                0,
+                ConsensusStep::Proposal,
+                signer
+            ),
+            Err(SigningSafetyError::ZeroChainId)
+        );
         let coordinate = intent(b"x").coordinate();
-        assert_eq!(SigningIntent::new(coordinate, vec![], 1), Err(SigningSafetyError::EmptyMessage));
-        assert_eq!(SigningIntent::new(coordinate, vec![1, 2], 1), Err(SigningSafetyError::MessageTooLarge));
+        assert_eq!(
+            SigningIntent::new(coordinate, vec![], 1),
+            Err(SigningSafetyError::EmptyMessage)
+        );
+        assert_eq!(
+            SigningIntent::new(coordinate, vec![1, 2], 1),
+            Err(SigningSafetyError::MessageTooLarge)
+        );
     }
+
     #[test]
     fn storage_key_binds_coordinate_and_is_fixed_width() {
         let first = intent(b"vote-a").coordinate().storage_key();
         let signer = SignerId::new([8; 32]).unwrap();
-        let other = SigningCoordinate::new(ChainId256::from_u64(42), 1, 9, 2,
-            ConsensusStep::Precommit, signer).unwrap().storage_key();
+        let other = SigningCoordinate::new(
+            ChainId256::from_u64(42),
+            1,
+            9,
+            2,
+            ConsensusStep::Precommit,
+            signer,
+        )
+        .unwrap()
+        .storage_key();
         assert_ne!(first, other);
         assert_eq!(first.len(), 81);
     }
