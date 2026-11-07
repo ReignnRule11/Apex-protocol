@@ -82,8 +82,8 @@ impl std::error::Error for RevmStateDiffError {}
 /// `EvmStateStore::apply` or the persistent adapter's equivalent checks.
 ///
 /// This function does not settle fees, create receipts, select a fork, or
-/// authorize a transaction. Reverted/failed execution results must not be
-/// passed here as committed state.
+/// authorize a transaction. Prefer `extract_successful_revm_result_delta` so
+/// revert and halt outcomes are structurally rejected before extraction.
 pub fn extract_revm_state_delta(
     parent: &EvmStateSnapshot,
     state: &EvmState,
@@ -205,7 +205,7 @@ mod tests {
     use super::*;
     use crate::{EvmStateStore, SnapshotLimits};
     use revm::{
-        context_interface::result::{Output, ResultGas, SuccessReason},
+        context_interface::result::{HaltReason, Output, ResultGas, SuccessReason},
         primitives::{Address, Bytes, U256},
         state::{Account, AccountInfo, Bytecode, EvmStorageSlot, TransactionId},
     };
@@ -322,6 +322,24 @@ mod tests {
         assert_eq!(
             extract_successful_revm_result_delta(&parent, &execution),
             Err(RevmStateDiffError::ExecutionReverted)
+        );
+    }
+
+
+    #[test]
+    fn halted_result_cannot_produce_a_state_delta() {
+        let (parent, state) = parent_and_state();
+        let execution = ExecResultAndState::new(
+            ExecutionResult::Halt {
+                reason: HaltReason::NotActivated,
+                gas: ResultGas::default(),
+                logs: Vec::new(),
+            },
+            state,
+        );
+        assert_eq!(
+            extract_successful_revm_result_delta(&parent, &execution),
+            Err(RevmStateDiffError::ExecutionHalted)
         );
     }
 
