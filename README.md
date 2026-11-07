@@ -31,7 +31,9 @@
 
 **Phase 19H — commit ambiguity and orphaned-version recovery tests (merged).** PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`; PR CI #42390234287 and post-merge CI #42390288716 passed. Adds test-only pre-commit failure, lost-acknowledgement-after-commit and orphaned-future-version tests. These validate reopen reconciliation semantics but do not simulate OS crash, power loss or device I/O faults.
 
-**Phase 19 — deterministic EVM execution (in progress).** Actual revm state-diff extraction, explicit fork/block context, canonical transaction authentication, fee settlement, receipts and complete state commitments remain unimplemented.
+**Phase 19I — revm state-diff extraction (implementation PR #31; CI/review pending).** Adds `crates/apex-evm/src/state_diff.rs`, which converts revm `EvmState` into deterministic APEX account/code/storage deltas bound to the exact parent `StateVersion`. It checks supplied bytecode hashes and collisions, validates revm original storage values against the parent, and leaves publication to the existing atomic apply boundary. Selfdestruct/account deletion fails closed until fork-specific semantics are ratified. Tests exercise constructed revm state values; they are not official execution fixtures or a complete transaction-to-state integration. The caller must pass only successful execution state; the API does not yet accept a success-gated transaction result type.
+
+**Phase 19 — remaining work.** Explicit fork/block context, success-gated transaction execution, canonical transaction authentication, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -57,14 +59,14 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
-    │   ├── apex-evm/                    # revm candidate, harness, full-width state and adapters
+    │   ├── apex-evm/                    # revm candidate, harness, full-width state, state-diff adapter and adapters
     │   ├── apex-evm-redb/               # versioned full-width EVM persistence prototype
     │   ├── apex-state/                  # legacy AccountId/u128 state prototype
     │   ├── apex-state-redb/             # persistence prototype for legacy state only
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0032
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0033
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
