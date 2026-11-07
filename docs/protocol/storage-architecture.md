@@ -1,4 +1,4 @@
-# Persistent State Storage Architecture — Phase 10
+# Persistent State Storage Architecture — Phases 10–11
 
 **Status:** redb adapter prototype implemented; not production-approved.
 
@@ -32,7 +32,7 @@ A snapshot is read inside one redb read transaction and materialized into a sort
 - redb performs its documented recovery when the database is opened.
 - The adapter exposes an explicit integrity-check method.
 - Malformed metadata, unsupported schema versions, and malformed account records return errors; no defaults are synthesized.
-- Backups must use a supported consistent mechanism or occur after closing the database. Copying a live database file is not supported by this prototype.
+- The tested backup procedure is a cold file copy only: close the database successfully, then copy the file, then reopen the copy and compare the recovered snapshot. Copying a live database file is not supported. No online backup API is exposed by APEX.
 - Immediate durability is the redb default and is retained; the adapter does not request non-durable commits.
 - No claim is made about power-loss behavior beyond the backend's documented contract and supported filesystem/platform assumptions.
 
@@ -45,10 +45,13 @@ The adapter pins redb 4.5.0 exactly. Its upstream Cargo manifest declares Rust 1
 Implemented tests cover:
 - Bootstrap and first initialization.
 - Durable multi-account application and version increment.
-- Close/reopen persistence.
-- Stale-plan rejection.
-- Late before-state mismatch with no partial writes.
+- Close/reopen persistence and stable materialized snapshots.
+- Stale-plan rejection and late before-state mismatch with no partial writes.
 - Existing database is not overwritten by later genesis input.
 - Explicit redb integrity check.
+- Abrupt subprocess termination with an uncommitted write; reopen preserves the prior committed version and account values.
+- Abrupt subprocess termination immediately after a successful commit; reopen observes the committed version and account values.
+- Cold backup by copying a closed database file and restoring it with equivalent snapshot contents.
+- Unknown schema versions fail closed.
 
-Not yet covered: process-kill/power-loss fault injection, disk-full and injected I/O errors, cross-process races, migration interruption, backup/restore, long-running soak tests, benchmarks, and independent review.
+Still not covered: true power interruption, OS/kernel crash, disk-full and injected storage I/O errors, cross-process races, concurrent independent writers, migration interruption/rollback, long-running soak tests, benchmarks, and independent review. The subprocess tests exercise process termination only; they do not simulate loss of kernel page cache, storage-controller cache, or physical power.
