@@ -27,7 +27,9 @@
 
 **Phase 19L — explicit revm environment mapping (merged).** Requires an explicit matching APEX ForkId/revm SpecId binding; maps block context into revm 43.0.3 CfgEnv/BlockEnv; rejects chain-ID/base-fee values that would be truncated and unsupported fork profiles. The first adapter supports only post-Merge/pre-Cancun profiles and uses revm's mainnet gas table provisionally, not as ratified APEX gas policy.
 
-**Phase 19M — explicit revm builder integration (in progress).** Adds an APEX-owned builder that binds the immutable EVM snapshot and Phase 19L-mapped CfgEnv/BlockEnv into revm 43.0.3 without Context::mainnet() or SpecId::LATEST. This constructs an EVM instance; it does not yet authenticate or execute APEX transactions.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 19M — explicit revm builder integration (in progress).** Adds an APEX-owned builder that binds the immutable EVM snapshot and Phase 19L-mapped CfgEnv/BlockEnv into revm 43.0.3 without Context::mainnet() or SpecId::LATEST. This constructs an EVM instance; it does not yet authenticate or execute APEX transactions.
+
+**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -53,7 +55,8 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-consensus/
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
-    │   │   ├── revm_environment.rs\n    │   │   ├── revm_execution.rs
+    │   │   ├── revm_environment.rs
+    │   │   ├── revm_execution.rs
     │   │   ├── state_diff.rs
     │   │   └── lib.rs
     │   ├── apex-evm-redb/
