@@ -286,7 +286,6 @@ pub fn plan_transaction_transition<S: AdmissionState>(
     })
 }
 
-
 /// Temporary caller-supplied transaction identity used only for duplicate
 /// detection inside one candidate block. This is not a transaction hash,
 /// signature, replay-protection primitive, or canonical protocol identifier.
@@ -782,7 +781,6 @@ mod tests {
             Err(TransactionAdmissionError::RecipientBalanceOverflow)
         );
     }
-
 
     struct MapState(BTreeMap<AccountId, AccountState>);
 
