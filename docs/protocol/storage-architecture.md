@@ -1,4 +1,4 @@
-# Persistent State Storage Architecture — Phases 10–11
+# Persistent State Storage Architecture — Phases 10–12
 
 **Status:** redb adapter prototype implemented; not production-approved.
 
@@ -25,7 +25,15 @@ All account writes and the state-version update are within the same database tra
 
 ## Snapshot and concurrency contract
 
-A snapshot is read inside one redb read transaction and materialized into a sorted BTreeMap. The snapshot contains one committed StateVersion. The adapter uses redb's default exclusive-file locking mode and is currently single-process/single-handle. It does not yet test concurrent independent writer processes or offer multi-process mode. A future multi-process adapter must explicitly select and test redb 4.5's concurrency mode.
+A snapshot is read inside one redb read transaction and materialized into a sorted BTreeMap. The snapshot contains one committed StateVersion. The adapter uses redb's default exclusive-file locking mode and remains single-process/single-handle. Phase 12 exercises concurrent read transactions through a shared adapter reference and serialized writers through a process-local mutex. Competing plans built from the same parent version produce one success and one stale-version rejection. This does not enable or test multiple independent processes or redb's optional multi-process concurrency mode.
+
+## Failure injection and ambiguous commit handling
+
+Phase 12 adds a test-only `StateStore` decorator with two controlled failure points:
+- Before delegation: returns an injected backend error without invoking the redb adapter; the persisted snapshot remains unchanged.
+- After delegated apply returns success: returns an injected lost-acknowledgement error even though the underlying commit has completed. The test closes and reopens the database, observes the incremented StateVersion and account values, and confirms that retrying the original plan is rejected as stale.
+
+This validates APEX caller behavior when an acknowledgement is lost. It does **not** inject an actual redb, filesystem, disk-full, short-write, permission, or device I/O error. It cannot prove backend failure atomicity for those conditions.
 
 ## Recovery and operational requirements
 
@@ -54,4 +62,4 @@ Implemented tests cover:
 - Cold backup by copying a closed database file and restoring it with equivalent snapshot contents.
 - Unknown schema versions fail closed.
 
-Still not covered: true power interruption, OS/kernel crash, disk-full and injected storage I/O errors, cross-process races, concurrent independent writers, migration interruption/rollback, long-running soak tests, benchmarks, and independent review. The subprocess tests exercise process termination only; they do not simulate loss of kernel page cache, storage-controller cache, or physical power.
+Still not covered: true power interruption, OS/kernel crash, disk-full and actual storage I/O errors, cross-process races, independent multi-process writers, migration interruption/rollback, long-running soak tests, benchmarks, and independent review. Phase 12's concurrent-reader test and mutex-serialized competing-writer test are process-local. Its injected failures simulate adapter-boundary outcomes, not physical I/O failures. The subprocess tests exercise process termination only; they do not simulate loss of kernel page cache, storage-controller cache, or physical power.

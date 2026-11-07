@@ -502,4 +502,165 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn concurrent_readers_observe_complete_consistent_snapshots() {
+        use std::sync::Arc;
+        use std::thread;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("concurrent-readers.redb");
+        let store = Arc::new(
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap(),
+        );
+
+        let readers: Vec<_> = (0..8)
+            .map(|_| {
+                let store = Arc::clone(&store);
+                thread::spawn(move || {
+                    for _ in 0..50 {
+                        let snapshot = store.snapshot().unwrap();
+                        assert_eq!(snapshot.version(), StateVersion(12));
+                        assert_eq!(snapshot.accounts().len(), 3);
+                        assert_eq!(snapshot.account(AccountId(1)).unwrap().balance, 1_000_000);
+                    }
+                })
+            })
+            .collect();
+
+        for reader in readers {
+            reader.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn serialized_competing_writers_allow_only_one_plan_for_a_parent_version() {
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("serialized-writers.redb");
+        let store = RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis())
+            .unwrap();
+        let first_plan = plan(&store);
+        let second_plan = first_plan.clone();
+        let store = Arc::new(Mutex::new(store));
+
+        let first = {
+            let store = Arc::clone(&store);
+            thread::spawn(move || store.lock().unwrap().apply(&first_plan))
+        };
+        let second = {
+            let store = Arc::clone(&store);
+            thread::spawn(move || store.lock().unwrap().apply(&second_plan))
+        };
+
+        let results = [first.join().unwrap(), second.join().unwrap()];
+        assert_eq!(
+            results.iter().filter(|result| **result == Ok(StateVersion(13))).count(),
+            1
+        );
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Err(StateStoreError::StaleVersion { .. })))
+                .count(),
+            1
+        );
+        assert_eq!(
+            store.lock().unwrap().snapshot().unwrap().version(),
+            StateVersion(13)
+        );
+    }
+
+    #[derive(Clone, Copy)]
+    enum InjectedFailure {
+        BeforeApply,
+        AfterCommitAcknowledgementLost,
+    }
+
+    struct FaultInjectingStore {
+        inner: RedbStateStore,
+        failure: InjectedFailure,
+    }
+
+    impl StateStore for FaultInjectingStore {
+        fn snapshot(&self) -> Result<VersionedStateSnapshot, StateStoreError> {
+            self.inner.snapshot()
+        }
+
+        fn apply(
+            &mut self,
+            plan: &VersionedBlockTransitionPlan,
+        ) -> Result<StateVersion, StateStoreError> {
+            match self.failure {
+                InjectedFailure::BeforeApply => Err(StateStoreError::Backend(
+                    "injected failure before delegating to the storage adapter".into(),
+                )),
+                InjectedFailure::AfterCommitAcknowledgementLost => {
+                    self.inner.apply(plan)?;
+                    Err(StateStoreError::Backend(
+                        "injected lost acknowledgement after durable commit".into(),
+                    ))
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn injected_pre_apply_failure_leaves_persistent_state_unchanged() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("pre-apply-fault.redb");
+        let inner =
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
+        let transition = plan(&inner);
+        let before = inner.snapshot().unwrap();
+        let mut store = FaultInjectingStore {
+            inner,
+            failure: InjectedFailure::BeforeApply,
+        };
+
+        assert!(matches!(
+            store.apply(&transition),
+            Err(StateStoreError::Backend(message))
+                if message.contains("before delegating")
+        ));
+        assert_eq!(store.snapshot().unwrap(), before);
+    }
+
+    #[test]
+    fn lost_commit_acknowledgement_is_reconciled_by_reopen_not_retry() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("lost-ack.redb");
+        let inner =
+            RedbStateStore::open_or_initialize(&path, StateVersion(12), &genesis()).unwrap();
+        let transition = plan(&inner);
+        let mut store = FaultInjectingStore {
+            inner,
+            failure: InjectedFailure::AfterCommitAcknowledgementLost,
+        };
+
+        assert!(matches!(
+            store.apply(&transition),
+            Err(StateStoreError::Backend(message))
+                if message.contains("lost acknowledgement")
+        ));
+        drop(store);
+
+        let mut reopened =
+            RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new()).unwrap();
+        let persisted = reopened.snapshot().unwrap();
+        assert_eq!(persisted.version(), StateVersion(13));
+        assert_eq!(persisted.account(AccountId(1)).unwrap().nonce, 2);
+        assert_eq!(persisted.account(AccountId(2)).unwrap().balance, 600);
+        assert_eq!(
+            reopened.apply(&transition),
+            Err(StateStoreError::StaleVersion {
+                expected: StateVersion(12),
+                actual: StateVersion(13),
+            })
+        );
+        assert_eq!(reopened.snapshot().unwrap(), persisted);
+    }
+
 }

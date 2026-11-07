@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 11 — storage reliability validation (in review).** The apex-state-redb prototype now includes abrupt-process-exit recovery tests for an uncommitted write and a commit that returned success, stable materialized-snapshot checks, cold-backup restore, and fail-closed unknown-schema coverage. These are process-level and controlled-file tests, not power-loss, disk-full, device-failure or production-recovery certification. See docs/protocol/phase-11-storage-reliability.md.
+**Phase 12 — storage concurrency and failure-boundary engineering (in review).** The redb adapter now has concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation that verifies reopen/reconciliation prevents duplicate application. The injected faults are adapter-boundary simulations, not real disk-full or device-I/O fault injection. See docs/protocol/phase-12-concurrency-failure-engineering.md.
 
 The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. The Phase 10 PR's format, Clippy and workspace tests passed on the pinned toolchain. This is a contained evaluation, not production approval; multi-process modes are not enabled.
 
@@ -78,6 +78,7 @@ Apex-protocol/
 │   │   ├── phase-9-storage-and-commitments.md
 │   │   ├── phase-10-redb-storage-spike.md
 │   │   ├── phase-11-storage-reliability.md
+│   │   ├── phase-12-concurrency-failure-engineering.md
 │   │   ├── protocol-spec-v0.1.md
 │   │   ├── state-commitments.md
 │   │   ├── storage-architecture.md
