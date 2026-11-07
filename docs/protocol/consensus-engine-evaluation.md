@@ -175,3 +175,8 @@ The gate now exposes a stable `FinalityCommitKey` derived from the verified APEX
 ## Phase 20G2C6 — isolated durable finality journal prototype
 
 An isolated redb 4.5.0 experiment now persists the verified APEX identity and opaque application-state payload together with a per-chain tip record in a single write transaction. Exact key/payload retries are idempotent; conflicting identities, conflicting payloads, height gaps and parent mismatches fail closed. A write-transaction commit error is classified as ambiguous. Reopen/readback tests are intended to validate the basic persistence boundary. This is not a production adapter, does not run inside the finality callback, and does not coordinate application state with Malachite WAL or signer reservations. No crash/power-loss proof or multi-process safety claim is made.
+
+
+## Phase 20G2C7 — process-termination recovery boundary
+
+The isolated redb finality journal's controlled recovery tests now terminate a child process after journal/tip staging but before transaction commit, and after commit returns but before acknowledgement. Reopening from a fresh process must show either neither row (pre-commit) or the complete payload/tip (post-commit); the post-commit exact retry must be idempotent. This is application-boundary process termination only. It is not power-loss, kernel-crash, torn-write, storage-device or filesystem durability evidence. No Malachite WAL, signer reservation or application state cross-subsystem integration is present. The experiment remains isolated; G2/G4 remain blocked and release remains NO-GO.

@@ -51,11 +51,13 @@ pub struct FinalityJournal {
 impl FinalityJournal {
     pub fn create(path: impl AsRef<Path>, max_payload_bytes: usize) -> Result<Self, JournalError> {
         let database = Database::create(path).map_err(|_| JournalError::DatabaseUnavailable)?;
+        ensure_tables(&database)?;
         Ok(Self { database, max_payload_bytes })
     }
 
     pub fn open(path: impl AsRef<Path>, max_payload_bytes: usize) -> Result<Self, JournalError> {
         let database = Database::open(path).map_err(|_| JournalError::DatabaseUnavailable)?;
+        ensure_tables(&database)?;
         Ok(Self { database, max_payload_bytes })
     }
 
@@ -68,6 +70,22 @@ impl FinalityJournal {
         key: FinalityCommitKey,
         state_payload: &[u8],
     ) -> Result<JournalCommit, JournalError> {
+        self.commit_with_hooks(key, state_payload, || {}, || {})
+    }
+
+    // The hooks make the two process-termination boundaries observable in tests.
+    // They are not exposed by the public API and do not alter the transaction.
+    fn commit_with_hooks<BeforeCommit, AfterCommit>(
+        &self,
+        key: FinalityCommitKey,
+        state_payload: &[u8],
+        before_commit: BeforeCommit,
+        after_commit: AfterCommit,
+    ) -> Result<JournalCommit, JournalError>
+    where
+        BeforeCommit: FnOnce(),
+        AfterCommit: FnOnce(),
+    {
         let identity = key.identity();
         identity.validate().map_err(|_| JournalError::InvalidIdentity)?;
         if state_payload.len() > self.max_payload_bytes {
@@ -124,7 +142,11 @@ impl FinalityJournal {
             tips.insert(chain_key.as_slice(), encoded_identity.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)?;
         }
 
+        // The staged transaction is dropped without commit if this process exits.
+        before_commit();
         write_txn.commit().map_err(|_| JournalError::Ambiguous)?;
+        // This boundary models a lost acknowledgement after the durable API returns.
+        after_commit();
         Ok(JournalCommit::Committed)
     }
 
@@ -162,6 +184,19 @@ impl FinalityJournal {
             None => Ok(None),
         }
     }
+}
+
+// Keep the empty schema durable before any finality append is attempted.
+ // This ensures an aborted first append reopens as an empty journal rather than
+ // appearing corrupt merely because its tables were created in that aborted txn.
+fn ensure_tables(database: &Database) -> Result<(), JournalError> {
+    let write_txn = database.begin_write().map_err(|_| JournalError::DatabaseUnavailable)?;
+    {
+        let _journal = write_txn.open_table(JOURNAL).map_err(|_| JournalError::DatabaseUnavailable)?;
+        let _tips = write_txn.open_table(TIPS).map_err(|_| JournalError::DatabaseUnavailable)?;
+    }
+    write_txn.commit().map_err(|_| JournalError::Ambiguous)?;
+    Ok(())
 }
 
 fn encode_identity(identity: ApexBlockIdentity) -> Vec<u8> {
@@ -210,7 +245,11 @@ fn encode_chain_key(identity: ApexBlockIdentity) -> Vec<u8> {
 mod tests {
     use super::*;
     use crate::native_finality_bridge::VerifiedNativeFinality;
+    use std::process::Command;
     use tempfile::NamedTempFile;
+
+    const CRASH_PATH_ENV: &str = "APEX_FINALITY_JOURNAL_CRASH_PATH";
+    const CRASH_STAGE_ENV: &str = "APEX_FINALITY_JOURNAL_CRASH_STAGE";
 
     fn verified(height: u64, parent_hash: [u8; 32], block_hash: [u8; 32]) -> FinalityCommitKey {
         VerifiedNativeFinality::test_only(ApexBlockIdentity {
@@ -256,5 +295,69 @@ mod tests {
         let journal = FinalityJournal::create(file.path(), 4).unwrap();
         assert_eq!(journal.commit(verified(1, [0; 32], [2; 32]), b"12345"), Err(JournalError::PayloadTooLarge));
         assert_eq!(journal.commit(verified(2, [0; 32], [3; 32]), b"ok"), Err(JournalError::HeightDiscontinuity));
+    }
+
+    // The child exits without running Rust destructors, approximating abrupt
+    // process termination (not a power cut or storage-device failure).
+    #[test]
+    fn child_process_commit_crash_probe() {
+        let Ok(path) = std::env::var(CRASH_PATH_ENV) else {
+            return;
+        };
+        let stage = std::env::var(CRASH_STAGE_ENV).unwrap();
+        let journal = FinalityJournal::open(path, 1024).unwrap();
+        let key = verified(1, [0; 32], [2; 32]);
+        let before_commit = || {
+            if stage == "before_commit" {
+                std::process::exit(71);
+            }
+        };
+        let after_commit = || {
+            if stage == "after_commit" {
+                std::process::exit(72);
+            }
+        };
+        let _ = journal.commit_with_hooks(key, b"crash-state", before_commit, after_commit);
+        panic!("crash probe did not terminate at a requested boundary");
+    }
+
+    fn terminate_child(path: &Path, stage: &str, expected_code: i32) {
+        let status = Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("finality_journal::tests::child_process_commit_crash_probe")
+            .arg("--nocapture")
+            .env(CRASH_PATH_ENV, path)
+            .env(CRASH_STAGE_ENV, stage)
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(expected_code));
+    }
+
+    #[test]
+    fn process_exit_before_commit_leaves_no_partial_record_or_tip() {
+        let file = NamedTempFile::new().unwrap();
+        drop(FinalityJournal::create(file.path(), 1024).unwrap());
+
+        terminate_child(file.path(), "before_commit", 71);
+
+        let reopened = FinalityJournal::open(file.path(), 1024).unwrap();
+        let identity = verified(1, [0; 32], [2; 32]).identity();
+        assert_eq!(reopened.read_payload(identity), Ok(None));
+        assert_eq!(reopened.tip([1; 32], 1), Ok(None));
+        assert_eq!(reopened.commit(verified(1, [0; 32], [2; 32]), b"crash-state"), Ok(JournalCommit::Committed));
+    }
+
+    #[test]
+    fn process_exit_after_commit_recovers_record_and_exact_retry_is_idempotent() {
+        let file = NamedTempFile::new().unwrap();
+        drop(FinalityJournal::create(file.path(), 1024).unwrap());
+
+        terminate_child(file.path(), "after_commit", 72);
+
+        let reopened = FinalityJournal::open(file.path(), 1024).unwrap();
+        let key = verified(1, [0; 32], [2; 32]);
+        assert_eq!(reopened.read_payload(key.identity()), Ok(Some(b"crash-state".to_vec())));
+        assert_eq!(reopened.tip([1; 32], 1), Ok(Some(key.identity())));
+        assert_eq!(reopened.commit(key, b"crash-state"), Ok(JournalCommit::AlreadyCommitted));
     }
 }
