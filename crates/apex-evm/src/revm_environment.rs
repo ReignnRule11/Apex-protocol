@@ -138,19 +138,21 @@ impl RevmExecutionEnvironment {
         cfg.set_spec_and_mainnet_gas_params(spec);
         cfg.chain_id = chain_id;
 
-        let mut block = BlockEnv::default();
-        block.number = U256::from(context.block_number());
-        block.timestamp = U256::from(context.timestamp());
-        block.gas_limit = context.gas_limit();
-        block.basefee = base_fee;
-        block.beneficiary = Address::from_slice(&context.beneficiary().0);
-        block.difficulty = U256::ZERO;
-        block.prevrandao = Some(B256::from(prevrandao));
-        // No blob-gas inputs exist in BlockExecutionContext yet. Do not keep
-        // revm's Default blob environment, which would invent blob context.
-        block.blob_excess_gas_and_price = None;
-        // Slot semantics are not supported by this adapter range.
-        block.slot_num = 0;
+        // Construct every field explicitly; do not inherit environment values
+        // from revm defaults that are not represented by the APEX context.
+        let block = BlockEnv {
+            number: U256::from(context.block_number()),
+            timestamp: U256::from(context.timestamp()),
+            gas_limit: context.gas_limit(),
+            basefee: base_fee,
+            beneficiary: Address::from_slice(&context.beneficiary().0),
+            difficulty: U256::ZERO,
+            prevrandao: Some(B256::from(prevrandao)),
+            // No blob-gas inputs exist in BlockExecutionContext yet.
+            blob_excess_gas_and_price: None,
+            // Slot semantics are not supported by this adapter range.
+            slot_num: 0,
+        };
 
         Ok(Self { cfg, block })
     }
