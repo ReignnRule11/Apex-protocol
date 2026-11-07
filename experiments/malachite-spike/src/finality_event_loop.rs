@@ -41,8 +41,10 @@ pub type CommitFuture<'a, Ctx> = Pin<Box<
 /// independently bind the certificate value ID to strictly decoded canonical
 /// APEX bytes and the recomputed APEX identity. `stage_decided` must not
 /// publish the value as finalized or advance the application height.
-/// `commit_finalized` must durably commit the verified identity before it
-/// returns parameters for the next height.
+/// `commit_finalized` must atomically persist application state and the
+/// verified token's stable `commit_key()` before returning next-height params.
+/// Same-key retries must be idempotent. Only a proven non-commit may be
+/// reported as `DefinitelyNotCommitted`; uncertain/conflicting outcomes stall.
 pub trait FinalityApplication<Ctx: Context>: Send {
     fn verify_certificate<'a>(
         &'a mut self,
@@ -257,7 +259,7 @@ mod tests {
             let ok = self.stage_ok;
             Box::pin(async move { if ok { Ok(()) } else { Err(()) } })
         }
-        fn commit_finalized<'a>(&'a mut self, _verified: &'a VerifiedNativeFinality) -> GateFuture<'a, HeightParams<TestContext>> {
+        fn commit_finalized<'a>(&'a mut self, _verified: &'a VerifiedNativeFinality) -> CommitFuture<'a, TestContext> {
             self.events.push("commit");
             let ok = self.commit_ok;
             let failure = self.commit_failure;

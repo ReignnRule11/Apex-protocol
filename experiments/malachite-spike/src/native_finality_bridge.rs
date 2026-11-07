@@ -55,11 +55,6 @@ pub struct FinalityCommitKey {
 }
 
 impl FinalityCommitKey {
-    /// Stable key for idempotent application commits and crash recovery.
-    pub const fn commit_key(&self) -> FinalityCommitKey {
-        FinalityCommitKey { identity: self.identity }
-    }
-
     pub const fn identity(&self) -> ApexBlockIdentity {
         self.identity
     }
@@ -74,6 +69,11 @@ pub struct VerifiedNativeFinality {
 }
 
 impl VerifiedNativeFinality {
+    /// Stable key for idempotent application commits and crash recovery.
+    pub const fn commit_key(&self) -> FinalityCommitKey {
+        FinalityCommitKey { identity: self.identity }
+    }
+
     /// Construct a verified token only inside deterministic gate tests.
     #[cfg(test)]
     pub(crate) fn test_only(identity: ApexBlockIdentity) -> Self {
