@@ -146,7 +146,10 @@ mod tests {
 
     #[test]
     fn accepts_matching_chain_version_height_and_parent() {
-        assert_eq!(validate_proposal_header(expected_parent(), proposal()), Ok(()));
+        assert_eq!(
+            validate_proposal_header(expected_parent(), proposal()),
+            Ok(())
+        );
     }
 
     #[test]
