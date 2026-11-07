@@ -59,6 +59,8 @@ The workspace also contains transaction admission/planning and a separate redb p
 
 The pinned Malachite v0.8.2 API audit is recorded in `docs/protocol/phase-20g2c1-malachite-native-finality-bridge.md` and ADR-0048. Malachite's native commit certificate and APEX's Phase 20G2B certificate use different signing domains: the runtime must use Malachite's native `VerifierExt::verify_commit_certificate`, then separately bind the verified value to canonical APEX block identity, chain/version/parent and validator-set context. The application must not advance on `Decided`; it may acknowledge `Finalized` only after successful durable commit. This subphase is a documentation/API contract only; no runtime integration is claimed.
 
+**Phase 20G2C2 — compile-checked Malachite-native finality adapter (submitted).** Adds an isolated generic adapter that checks native height/round/value ID, requires an explicit native-value-ID-to-canonical-APEX-identity binding, delegates signature and quorum verification to the exact pinned Malachite `VerifierExt`, and emits an opaque verified token only on success. The direct signing dependency remains in `experiments/malachite-spike`, outside the production workspace. This is not an event loop, application commit gate, durable finality path or production BFT implementation. See `docs/protocol/phase-20g2c2-native-certificate-adapter.md` and ADR-0049.
+
 ## Production release status
 
 **NO-GO — not production-ready.**
@@ -96,7 +98,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── malachite-spike/          # Pinned Malachite API + typed EngineBuilder adapter
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0048
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0049
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
