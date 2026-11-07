@@ -6,6 +6,7 @@ members = [
     "crates/apex-consensus",
     "crates/apex-state",
     "crates/apex-state-redb",
+    "crates/apex-commitments",
     "crates/apex-node",
 ]
 
@@ -21,3 +22,4 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 apex-types = { path = "crates/apex-types" }
 redb = "=4.5.0"
+sha2 = "=0.10.9"
