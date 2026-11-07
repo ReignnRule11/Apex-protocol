@@ -51,11 +51,13 @@ pub struct FinalityJournal {
 impl FinalityJournal {
     pub fn create(path: impl AsRef<Path>, max_payload_bytes: usize) -> Result<Self, JournalError> {
         let database = Database::create(path).map_err(|_| JournalError::DatabaseUnavailable)?;
+        ensure_tables(&database)?;
         Ok(Self { database, max_payload_bytes })
     }
 
     pub fn open(path: impl AsRef<Path>, max_payload_bytes: usize) -> Result<Self, JournalError> {
         let database = Database::open(path).map_err(|_| JournalError::DatabaseUnavailable)?;
+        ensure_tables(&database)?;
         Ok(Self { database, max_payload_bytes })
     }
 
@@ -182,6 +184,19 @@ impl FinalityJournal {
             None => Ok(None),
         }
     }
+}
+
+// Keep the empty schema durable before any finality append is attempted.
+ // This ensures an aborted first append reopens as an empty journal rather than
+ // appearing corrupt merely because its tables were created in that aborted txn.
+fn ensure_tables(database: &Database) -> Result<(), JournalError> {
+    let write_txn = database.begin_write().map_err(|_| JournalError::DatabaseUnavailable)?;
+    {
+        let _journal = write_txn.open_table(JOURNAL).map_err(|_| JournalError::DatabaseUnavailable)?;
+        let _tips = write_txn.open_table(TIPS).map_err(|_| JournalError::DatabaseUnavailable)?;
+    }
+    write_txn.commit().map_err(|_| JournalError::Ambiguous)?;
+    Ok(())
 }
 
 fn encode_identity(identity: ApexBlockIdentity) -> Vec<u8> {
