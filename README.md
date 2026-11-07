@@ -6,32 +6,32 @@
 
 ## Design direction
 
-- Independent proof-of-stake BFT consensus, with explicit safety and liveness assumptions.
-- Rust implementation and deterministic state-transition rules.
-- EVM-compatible execution as a planned capability, subject to a pinned revision and conformance testing.
+- Independent proof-of-stake BFT consensus using a mature engine, subject to selection and integration gates.
+- Rust implementation with a hybrid consensus/application architecture.
+- EVM-compatible execution target, subject to a pinned revision and differential conformance testing.
 - Full transaction-data availability in the initial design.
-- Optional Bitcoin checkpoint anchoring for external commitment evidence. Anchoring is not APEX consensus and does not transfer Bitcoin security to APEX.
-- Hybrid monetary-policy direction: proposed hard supply ceiling, scheduled issuance, base-fee burn and proposer priority fees. Numerical parameters remain undecided.
+- Optional Bitcoin checkpoint anchoring for external commitment evidence only; it does not transfer Bitcoin security to APEX.
+- Hybrid monetary-policy direction: hard supply ceiling, scheduled issuance, base-fee burn and proposer priority fees. Numerical parameters remain unapproved.
 
 ## Current engineering status
 
-**Phase 16 — cryptographic account non-membership proofs (merged; PR CI green).** Adds ordered-neighbor absence proofs for empty, before-first, between-neighbor and after-last cases without changing the Phase 14 root. PR #15 merged as `1e971a60fb3534f562b74c19845cdad278ba2492`; format, Clippy and workspace tests passed. This remains an account-only research prototype. See `docs/protocol/phase-16-account-non-membership-proofs.md`.
+**Phase 17 — Protocol completeness baseline (draft submitted for review).** Adds Protocol Specification v0.2, a complete state-domain model, transaction/block/consensus contracts, monetary invariants, genesis/upgrade requirements and an explicit unresolved decision register. G0 remains blocked; this is not a ratified production protocol. See `docs/protocol/protocol-spec-v0.2.md` and `docs/protocol/phase-17-protocol-completeness.md`.
 
-**Phase 15 — Merkle account membership proofs (merged; CI green).** Adds generation and independent verification of account inclusion proofs while preserving the exact Phase 14 root. PR #14 merged as `b76913d4d8aed099e0e051af4e6d344c698a6820`; CI passed formatting, Clippy and workspace tests. See `docs/protocol/phase-15-merkle-membership-proofs.md`.
+**Phase 16 — account non-membership proofs (merged; PR CI and post-merge CI green).** Ordered-neighbor absence proofs for empty, before-first, between-neighbor and after-last cases. Account-only research prototype. See `docs/protocol/phase-16-account-non-membership-proofs.md`.
 
-**Phase 14 — canonical account encoding and state commitment prototype (merged; implementation CI passed).** The 38-byte account codec and SHA-256 Merkle commitment are limited to the current AccountId/nonce/balance model; this is not the complete protocol state root.
+**Phase 15 — account membership proofs (merged; CI green).** Inclusion proof generation and verification, preserving the Phase 14 root. Account-only research prototype.
 
-**Phase 13 — storage lifecycle and schema migration (merged; post-merge CI green).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors.
+**Phase 14 — canonical account encoding and state commitment prototype.** The 38-byte account codec and SHA-256 Merkle root cover only AccountId(u64), nonce(u64) and balance(u128). This is not the production EVM state model.
 
-**Phase 12 — storage concurrency and failure-boundary engineering (merged; CI green).** Includes concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation. Injected faults are adapter-boundary simulations, not real disk-full or device-I/O injection.
+The workspace also contains transaction admission/planning and a redb persistence prototype. These are not authenticated transaction processing, EVM execution, a production database selection or a functioning blockchain. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
 
-The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly pinned to 1.90.0. redb is isolated in its own adapter crate. This is a contained evaluation, not production approval.
+The workspace and CI are pinned to Rust 1.90.0 due to the exact redb 4.5.0 dependency. redb remains an isolated research adapter, not production approval.
 
-The redb account record is a private 32-byte little-endian storage schema (u64 nonce + u128 balance + zero-reserved u64). It is not protocol encoding. Phase 14's separate 38-byte canonical account record and account-only SHA-256 Merkle root remain a prototype. Phases 15 and 16 add membership and non-membership proofs only; neither activates a state root in consensus.
+## Production release status
 
-These remain research prototypes, not a functioning blockchain. There is no signature verification, canonical transaction identity, EVM execution, actual gas measurement, fee settlement, receipts, complete protocol state roots, production consensus engine, validator networking, commit-certificate verification, block production or consensus finality. The production-readiness gates and release sequence are tracked in docs/operations/production-readiness.md.
+<badge color="danger">NO-GO — not production-ready</badge>
 
-Malachite remains a consensus research candidate, not an integrated or production-approved dependency. Consensus adoption requires separate dependency, fault-injection, adversarial testing and security review.
+The production-readiness register defines G0–G7 and Phases 17–26: `docs/operations/production-readiness.md`. A green CI run validates only the code in that run; it is not protocol assurance or a security audit.
 
 ## Repository structure
 
@@ -39,15 +39,15 @@ Malachite remains a consensus research candidate, not an integrated or productio
 Apex-protocol/
 ├── .github/workflows/ci.yml
 ├── crates/
-│   ├── apex-codec/                 # Canonical account-record v1 codec
-│   ├── apex-commitments/           # Account root + membership/non-membership proof prototype
+│   ├── apex-codec/
+│   ├── apex-commitments/
 │   ├── apex-consensus/
-│   ├── apex-state/                 # Backend-neutral StateStore + memory adapter
-│   ├── apex-state-redb/            # redb persistent adapter prototype
+│   ├── apex-state/
+│   ├── apex-state-redb/
 │   ├── apex-node/                  # Placeholder CLI; not a running node
 │   └── apex-types/
 ├── docs/
-│   ├── architecture/adr/           # ADR-0001 through ADR-0020
+│   ├── architecture/adr/           # ADR-0001 through ADR-0021
 │   ├── protocol/                   # Specifications and phase records
 │   ├── operations/                 # Production readiness and release gates
 │   └── threat-model/
@@ -59,25 +59,17 @@ Apex-protocol/
 └── rust-toolchain.toml
 ```
 
-See docs/operations/production-readiness.md for the current no-go conditions and staged path to a public testnet and mainnet. The tree is a high-level summary; inspect committed files for exact crate contents.
-
 ## Engineering principles
 
 1. Safety before throughput claims.
 2. Deterministic execution and canonical encoding.
 3. Separate local storage integrity from protocol state commitments.
 4. Explicit trust assumptions and adversarial testing.
-5. No custom consensus algorithm without formal review and compelling evidence.
+5. No custom consensus algorithm without compelling evidence and review.
 6. No mainnet, decentralization or security claims without independent validators, audits and operational evidence.
 
-## CI
-
-GitHub Actions runs formatting, Clippy and workspace tests on Rust 1.90.0. A green CI run validates only the code included in that run; it is not a protocol security audit.
-
-## Risk and token status
+## Token and license status
 
 No token is being offered. No investment or return is promised. No production network is available. Do not use this software to custody funds or secure production assets.
 
-## License
-
-No license has been selected yet. All rights are reserved unless and until a license is added.
+No license has been selected. All rights are reserved unless and until a license is added.
