@@ -7,8 +7,8 @@
 use crate::revm_environment::RevmExecutionEnvironment;
 use crate::{EvmAddress, U256Word};
 use revm::{
-    context::TxEnv,
-    primitives::{AccessList, AccessListItem, Address, Bytes, TxKind, U256},
+    context::{transaction::AccessListItem, TxEnv},
+    primitives::{Address, B256, Bytes, TxKind, U256},
 };
 use std::fmt;
 
@@ -177,10 +177,10 @@ impl AuthenticatedType2Transaction {
                 storage_keys: entry
                     .storage_keys
                     .iter()
-                    .map(|key| U256::from_be_bytes(key.0))
+                    .map(|key| B256::from(key.0))
                     .collect(),
             })
-            .collect::<AccessList>();
+            .collect::<Vec<AccessListItem>>();
 
         Ok(TxEnv {
             tx_type: 0x02,
@@ -278,7 +278,10 @@ mod tests {
         assert_eq!(env.access_list.len(), 1);
         assert_eq!(
             env.access_list[0].storage_keys,
-            vec![U256::from(3), U256::from(4)]
+            vec![
+                B256::from(U256::from(3).to_be_bytes()),
+                B256::from(U256::from(4).to_be_bytes())
+            ]
         );
     }
 
