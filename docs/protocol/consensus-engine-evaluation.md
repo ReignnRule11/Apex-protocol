@@ -47,6 +47,12 @@ Repository: https://github.com/cometbft/cometbft
 - Credible reference/fallback if Malachite API stability, assurance or operational fit fails.
 - Costs include a Go runtime/process boundary or interoperability layer in a Rust-first node.
 
+## Phase 20B isolated API spike
+
+The isolated experiment is located at `experiments/malachite-spike`. It depends only on the public channel-based application crate `arc-malachitebft-app-channel`, pinned by Git revision to the v0.8.2 tag commit. The crate transitively brings in Malachite's application, engine, network, sync, signing and WAL crates. The experiment re-exports selected public builder/context types and smoke-tests the request-context API. This is a compile/API compatibility probe, not a running consensus node. The experiment has its own Cargo workspace and does not modify the APEX root workspace dependency graph. CI generates a lockfile and publishes the lockfile, dependency tree and license metadata as an artifact for inspection.
+
+The isolated dependency is deliberately limited to the channel application facade: this tests the public integration entry point and makes its transitive scope visible. No default validator signer is instantiated; no network identity, listening socket, WAL path, peer, consensus actor or block is created. The isolated compile and smoke tests passed on the exact APEX PR head. The generated dependency evidence contains 415 package records (397 registry, 17 exact-revision Malachite Git packages, one local path); all declare license metadata, but no legal compatibility conclusion is drawn. The upstream Rust CI unit-test command is now reproduced in a separate APEX CI job using cargo-nextest and the exact source revision. Upstream Maelstrom integration tests and Quint/MBT model checking remain out of scope for this first spike.
+
 ## Ordered Phase 20 gates
 
 1. **20A — candidate revalidation:** exact upstream version/commit, license, MSRV and maturity recorded. Complete.

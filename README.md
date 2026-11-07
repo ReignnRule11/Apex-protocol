@@ -31,7 +31,9 @@
 
 **Phase 19N — validated type-2 transaction environment (merged).** Adds a bounded adapter from caller-authenticated type-2 fields into revm TxEnv, with exact chain-ID binding and caller-supplied input/access-list bounds. It does not decode RLP, verify signatures, recover senders, perform state admission, execute transactions or settle fees.
 
-**Phase 20A — consensus-engine candidate revalidation (in progress).** Pins Malachite v0.8.2 at exact upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` for research only. Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0, but upstream labels it alpha and not externally audited. No engine dependency or production adoption is approved. See `docs/protocol/phase-20a-consensus-engine-revalidation.md` and ADR-0039.
+**Phase 20A — consensus-engine candidate revalidation (merged and independently verified).** Pins Malachite v0.8.2 at exact upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` for research only. Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0, but upstream labels it alpha and not externally audited. No engine dependency or production adoption is approved. See `docs/protocol/phase-20a-consensus-engine-revalidation.md` and ADR-0039.
+
+**Phase 20B — isolated Malachite dependency/API spike (in progress).** Adds a separate Cargo workspace under `experiments/malachite-spike`, pinned to the exact v0.8.2 upstream commit. It compiles only the public channel-builder API surface and runs a small API smoke test. The dedicated CI job generates a lockfile, checks/tests the spike, and uploads the resolved dependency tree and license metadata for review. No Malachite dependency is added to the production workspace. See `docs/protocol/phase-20b-malachite-isolated-api-spike.md` and ADR-0040.
 
 **Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
@@ -69,8 +71,10 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-state-redb/
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
+    ├── experiments/
+    │   └── malachite-spike/          # Separate Cargo workspace; research only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0039
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0040
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
