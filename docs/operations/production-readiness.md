@@ -8,6 +8,8 @@ This document is the authoritative engineering release register. A green CI run 
 
 APEX remains a research-stage Layer-1. Phases 0–17 provide Rust infrastructure and bounded account/storage prototypes plus a protocol v0.2 completeness draft; they do not constitute a functioning blockchain. Phase 18 adds a 256-bit chain-ID value type and proposes a type-2 EIP-1559 transaction profile; no numeric chain ID, canonical transaction decoder or signature verification is implemented.
 
+Phase 19A pins revm 43.0.3 and Rust 1.91.0. Phase 19B contains a passing minimal test-only execution harness. Phase 19C introduces a separate full-width EVM state model and immutable read boundary; it is not yet wired to revm's Database trait or a persistent full-width store.
+
 Critical systems not implemented or production-selected:
 - Ratified full protocol specification and complete state model.
 - Production chain identity/allocation and canonical transaction/block/receipt codecs.
@@ -23,7 +25,7 @@ Critical systems not implemented or production-selected:
 | Gate | Required evidence | Current status |
 |---|---|---|
 | G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 chain-ID/envelope proposals pending ratification |
-| G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED — revm 43.0.3 compile-only candidate; Rust 1.90.0 MSRV failure recorded; 1.91.0 validation pending |
+| G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED — revm 43.0.3 harness passes a narrow fixture; full-width state read model is prototype only; no revm database adapter, persistent EVM state, fee settlement, receipts or complete root |
 | G2 — Consensus correctness | Pinned engine, authenticated votes/certificates, validator transitions, anti-double-sign, restart recovery and safety/liveness evidence | BLOCKED |
 | G3 — Network correctness | Versioned P2P, bounded parsing, DoS controls, partitions/recovery and multi-node integration | BLOCKED |
 | G4 — Durable operation | Atomic cross-subsystem commits, crash/power-loss testing, migrations, backup/restore, state sync and rollback | BLOCKED |
@@ -40,7 +42,7 @@ Merged draft specification v0.2, state-domain model and unresolved decision regi
 In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Review the secp256k1/EVM transaction-authentication proposal; settle chain-ID representation and canonical envelope before implementing verification. Consensus signature selection remains dependent on the selected BFT engine. No production signature code is claimed.
 
 ### Phase 19 — Deterministic execution and fee accounting
-In progress. revm 43.0.3 is isolated in `crates/apex-evm` with default features disabled and `std` enabled explicitly. The first CI run proved Rust 1.90.0 is below the dependency graph's declared 1.91.0 MSRV; the workspace/toolchain/CI pins are now raised to 1.91.0 and require fresh CI validation. This is not an execution adapter or engine approval. Dependency graph review, fork ratification, state adapter, official fixtures, differential tests, fee settlement and complete-state commitment remain open. See Phase 19A and ADR-0025.
+In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phase 19A compatibility and Phase 19B minimal execution harness are merged with passing PR and post-merge CI. Phase 19C introduces a full-width immutable EVM state read model with explicit caller limits; it does not yet implement revm's database trait or persistent state. Next work: engine adapter, persistent full-width state and atomic state diffs, explicit execution context, fork ratification, canonical type-2 authentication, exact fee settlement, receipts, full commitments, official fixtures and differential tests. See Phase 19A–19C and ADR-0024–0027.
 
 ### Phase 20 — Consensus engine integration
 Select pinned BFT revision; implement authenticated proposals/votes/certificates, validator changes, evidence, durable anti-double-sign and multi-node Byzantine/recovery tests.
