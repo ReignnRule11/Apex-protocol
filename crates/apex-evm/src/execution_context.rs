@@ -26,11 +26,11 @@ impl ForkId {
         let mut i = 0;
         while i < 32 {
             if self.0[i] != 0 {
-                return true;
+                return false;
             }
             i += 1;
         }
-        false
+        true
     }
 }
 
