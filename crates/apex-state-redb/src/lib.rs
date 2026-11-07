@@ -47,7 +47,8 @@ pub fn migrate_v1_to_v2(path: impl AsRef<Path>) -> Result<(), StateStoreError> {
             .map_err(backend)?
             .ok_or(StateStoreError::Uninitialized)?
             .value();
-        meta.get(META_STATE_VERSION_KEY).map_err(backend)?
+        meta.get(META_STATE_VERSION_KEY)
+            .map_err(backend)?
             .ok_or(StateStoreError::CorruptMetadata)?;
         value
     };
