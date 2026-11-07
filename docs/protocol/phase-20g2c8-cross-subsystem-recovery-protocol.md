@@ -31,7 +31,7 @@ This is a proposed authority contract, not evidence that the current Malachite A
 
 ### Normal finality path
 
-1. **Reserve before signing.** Persist the exact canonical signing preimage at its complete chain/protocol/height/round/step/signer coordinate before invoking a signer. An identical reservation is idempotent; different bytes at the same coordinate are a safety fault.
+1. **Reserve before signing.** Persist the exact canonical signing bytes for the active signer protocol/domain at its complete chain/protocol/height/round/step/signer coordinate before invoking a signer. An identical reservation is idempotent; different bytes at the same coordinate are a safety fault. APEX's Phase 20G2A preimage and Malachite's native signing bytes use different domains and must not be treated as interchangeable.
 2. **Persist consensus protocol state.** The engine must durably record the relevant vote/decision state according to its documented WAL contract. APEX must not infer WAL durability from an in-memory channel message.
 3. **Verify native finality.** Verify the native Malachite commit certificate with the pinned native verifier. Bind its value ID to canonical APEX block bytes, recomputed block identity, chain/version/height/parent and the authenticated validator context.
 4. **Append finality record.** In one finality-journal transaction, append the verified identity and complete deterministic recovery payload, and advance the chain tip. A commit error is ambiguous; do not blindly retry a different payload or advance the engine.
@@ -45,7 +45,7 @@ The finality journal is the durable APEX application commit ledger in this desig
 Startup begins in **RECOVERY_LOCKED**. No validator signing, proposal/vote emission, application serving or consensus-height advancement is permitted until every required check succeeds.
 
 1. Open all stores read-only where possible; validate schema/version, checksums/integrity metadata, chain identity and configured protocol version. Preserve the original stores for forensic inspection.
-2. Validate signer reservations. Every WAL-observed signed vote/intent must have an exact matching reservation. Reservations not represented in the WAL are retained as abandoned-or-pending intents; they are not evidence of corruption by themselves. A same-coordinate byte mismatch or a WAL signature without a reservation is a safety halt.
+2. Validate signer reservations. Every WAL-observed signed vote/intent must map to an exact reservation through an explicit, versioned, signer-domain-aware coordinate mapping. Reservations not represented in the WAL are retained as abandoned-or-pending intents; they are not evidence of corruption by themselves. If the mapping or exact signing bytes cannot be proven, remain locked. A same-coordinate byte mismatch or a WAL signature without a reservation is a safety halt.
 3. Read the finality journal's contiguous chain and tip. Validate each record's identity, parent linkage, payload bounds and canonical recovery-data format. Any gap, duplicate conflict, malformed payload or unexplained tip mismatch is a safety halt.
 4. Replay the consensus WAL through an adapter that exposes enough authenticated, ordered decision evidence to compare it with the finality journal. Reverify each replayed finality certificate and canonical identity before considering it for append.
 5. If the WAL contains a valid finalized decision immediately after the journal tip, append it through the normal idempotent finality path, in strict height order. Repeat until WAL and finality journal agree. A decision that cannot be independently reverified is not replay authority.
@@ -63,7 +63,7 @@ If a component cannot provide the evidence required by these steps, the correct 
 | WAL has a later, valid, independently reverified finalized decision; journal is exactly one or more heights behind | Replay and append each missing height in order |
 | Application projection is behind the journal and recovery data is valid | Deterministically replay; verify resulting commitment before unlocking |
 | Reservation exists but corresponding WAL vote is absent | Preserve reservation; do not reuse coordinate; continue only if all WAL-observed signatures are covered |
-| WAL contains a signed vote with no exact reservation | Safety halt; signing history cannot be proven safe |
+| WAL contains a signed vote with no exact domain-aware reservation mapping | Safety halt; signing history cannot be proven safe |
 | Same signer coordinate has different preimage bytes | Safety halt; preserve both evidence sources |
 | Same height has a different finalized identity or payload | Safety halt; never overwrite or choose one automatically |
 | Finality journal is ahead of WAL, has a gap, or has a parent mismatch | Safety halt; suspected rollback/corruption or unsupported recovery |
@@ -75,7 +75,7 @@ If a component cannot provide the evidence required by these steps, the correct 
 ## Minimum adapter and data contracts before implementation
 
 - A version-pinned Malachite WAL adapter must document durable write boundaries, replay ordering, finalized-decision extraction, corruption behavior and how native certificates/value IDs are recovered. If any item is unavailable, stop and reassess the engine integration.
-- The signer adapter must expose immutable reservation enumeration and exact coordinate/preimage comparison without exporting private keys.
+- The signer adapter must expose immutable reservation enumeration and exact coordinate/bytes comparison without exporting private keys. It must identify the active signing domain and map Malachite's native signing coordinates/bytes to reservations explicitly; APEX's Phase 20G2A signing preimage is a distinct domain and cannot be substituted.
 - Each finality record must contain canonical identity fields plus versioned, bounded, deterministic recovery data. The current journal's opaque payload is not sufficient until a canonical decoder, state commitment and replay semantics are specified.
 - The application adapter must expose its applied identity and state commitment, and provide an idempotent transactional apply or deterministic rebuild path.
 - All adapters must reject chain/version mismatch, non-contiguous heights, parent mismatch, duplicate conflicts, unknown schema versions and arithmetic overflow.

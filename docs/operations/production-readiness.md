@@ -83,11 +83,6 @@ Publish reproducible artifacts and genesis; onboard independent validators; sust
 ### Phase 26 — Mainnet go/no-go
 Require all previous gates, legal/license clearance, economic disclosures, governance/emergency controls, independent sign-off and a signed launch decision.
 
-
-### Phase 20G2C8 — cross-subsystem recovery protocol design (proposed for review)
-
-Defines a recovery authority model across the Malachite consensus WAL, signer reservation journal, finality journal and materialized application state. The signer journal is monotonic; WAL records are replay evidence only; the finality journal is the ordered APEX commit ledger after native certificate verification; application state is a rebuildable projection. Startup must remain locked until all stores reconcile. The design specifies commit ordering, replay rules, a fail-closed decision matrix and validation gates. It does not establish that the pinned Malachite WAL exposes the required evidence, implement adapters, create cross-database atomicity or provide backup rollback protection. **G2 and G4 remain BLOCKED; release remains NO-GO.** See the Phase 20G2C8 record and ADR-0055.
-
 ## 4. Non-negotiable controls
 
 - No mocks or stubs presented as protocol functionality.
@@ -159,3 +154,7 @@ The isolated Malachite spike now contains a redb 4.5.0 finality journal experime
 The isolated redb finality journal now has child-process tests for abrupt exit at two application transaction boundaries. Exit after both rows are staged but before commit must reopen with no payload or chain tip and permit the same-height commit. Exit after commit returns but before acknowledgement must reopen with the complete payload and tip and accept an exact retry as `AlreadyCommitted`. The child uses `std::process::exit` to bypass Rust destructors; CI exercises a process termination/reopen sequence on its runner.
 
 This does not simulate a power cut, kernel panic, torn write, disk-full/I/O failure, storage-controller cache loss or filesystem/device matrix. It does not establish multi-process writer safety, backup rollback protection, cross-subsystem atomicity or production recovery. The journal remains disconnected from the Malachite WAL and signer journal. **G2 and G4 remain BLOCKED; release remains NO-GO.** See the Phase 20G2C7 record and ADR-0054.
+
+### Phase 20G2C8 — cross-subsystem recovery protocol design (proposed for review)
+
+Defines a recovery authority model across the Malachite consensus WAL, signer reservation journal, finality journal and materialized application state. The signer journal is monotonic and domain-aware; Malachite's native signing bytes must not be conflated with APEX's Phase 20G2A signing preimage. WAL records are replay evidence only; the finality journal is the ordered APEX commit ledger after native certificate verification; application state is a rebuildable projection. Startup must remain locked until all stores reconcile. The design specifies commit ordering, replay rules, a fail-closed decision matrix and validation gates. It does not establish that the pinned Malachite WAL exposes the required evidence, implement adapters, create cross-database atomicity or provide backup rollback protection. **G2 and G4 remain BLOCKED; release remains NO-GO.** See the Phase 20G2C8 record and ADR-0055.
