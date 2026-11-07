@@ -505,7 +505,14 @@ mod tests {
 
         let old_hash = EvmCodeHash([0x77; 32]);
         let new_hash = EvmCodeHash([0x78; 32]);
-        let before_account = store.snapshot().unwrap().accounts().next().unwrap().1.clone();
+        let before_account = store
+            .snapshot()
+            .unwrap()
+            .accounts()
+            .next()
+            .unwrap()
+            .1
+            .clone();
         let mut after_account = before_account.clone();
         after_account.nonce = 8;
         after_account.balance = U256Word([0x91; 32]);
@@ -518,15 +525,18 @@ mod tests {
                 before: Some(before_account),
                 after: Some(after_account),
             }],
-            code_updates: vec![apex_evm::EvmCodeUpdate {
-                code_hash: old_hash,
-                before: Some(vec![0x60, 0x00]),
-                after: None,
-            }, apex_evm::EvmCodeUpdate {
-                code_hash: new_hash,
-                before: None,
-                after: Some(vec![0x60, 0x01]),
-            }],
+            code_updates: vec![
+                apex_evm::EvmCodeUpdate {
+                    code_hash: old_hash,
+                    before: Some(vec![0x60, 0x00]),
+                    after: None,
+                },
+                apex_evm::EvmCodeUpdate {
+                    code_hash: new_hash,
+                    before: None,
+                    after: Some(vec![0x60, 0x01]),
+                },
+            ],
             storage_updates: vec![apex_evm::EvmStorageUpdate {
                 address: address(1),
                 key: U256Word::from_u64(5),
