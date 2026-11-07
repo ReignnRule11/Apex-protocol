@@ -38,7 +38,10 @@ impl fmt::Display for RevmStateDiffError {
                 write!(f, "bytecode hash mismatch for {address:?} ({hash:?})")
             }
             Self::CodeHashCollision(hash) => {
-                write!(f, "different bytecode supplied for existing code hash {hash:?}")
+                write!(
+                    f,
+                    "different bytecode supplied for existing code hash {hash:?}"
+                )
             }
             Self::StorageParentMismatch(address, key) => {
                 write!(
@@ -249,11 +252,7 @@ mod tests {
         let account = state.get_mut(&revm_address).unwrap();
         account.storage.insert(
             U256::ZERO,
-            EvmStorageSlot::new_changed(
-                U256::from(1_u8),
-                U256::from(0x42_u8),
-                TransactionId::ZERO,
-            ),
+            EvmStorageSlot::new_changed(U256::from(1_u8), U256::from(0x42_u8), TransactionId::ZERO),
         );
         assert!(matches!(
             extract_revm_state_delta(&parent, &state),
