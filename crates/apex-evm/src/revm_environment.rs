@@ -266,7 +266,8 @@ mod tests {
             Some([1; 32]),
         );
         assert_eq!(
-            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE)).unwrap_err(),
+            RevmExecutionEnvironment::try_from_context(&context, binding(SpecId::MERGE))
+                .unwrap_err(),
             RevmEnvironmentError::BaseFeeExceedsRevmU64
         );
     }
