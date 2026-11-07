@@ -170,9 +170,7 @@ impl EvmStateSnapshot {
     }
 
     /// Deterministically ordered storage slots keyed by (address, slot).
-    pub fn storage_slots(
-        &self,
-    ) -> impl Iterator<Item = (&(EvmAddress, U256Word), &U256Word)> {
+    pub fn storage_slots(&self) -> impl Iterator<Item = (&(EvmAddress, U256Word), &U256Word)> {
         self.storage.iter()
     }
 

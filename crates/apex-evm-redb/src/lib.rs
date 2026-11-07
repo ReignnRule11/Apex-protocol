@@ -8,12 +8,10 @@
 use std::{collections::BTreeMap, fmt, path::Path};
 
 use apex_evm::{
-    EvmAccount, EvmAddress, EvmCodeHash, EvmStateApplyError, EvmStateDelta,
-    EvmStateSnapshot, EvmStateStore, SnapshotLimits, U256Word,
+    EvmAccount, EvmAddress, EvmCodeHash, EvmStateApplyError, EvmStateDelta, EvmStateSnapshot,
+    EvmStateStore, SnapshotLimits, U256Word,
 };
-use redb::{
-    Database, ReadableDatabase, ReadableTable, TableDefinition,
-};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 
 const SCHEMA_VERSION: u64 = 1;
 const META_SCHEMA_KEY: u8 = 0;
@@ -58,7 +56,10 @@ impl fmt::Display for PersistentEvmStateError {
             Self::State(message) => write!(f, "invalid EVM state snapshot: {message}"),
             Self::Apply(error) => write!(f, "EVM state delta rejected: {error}"),
             Self::ReopenRequired => {
-                write!(f, "store requires close and reopen after an ambiguous commit error")
+                write!(
+                    f,
+                    "store requires close and reopen after an ambiguous commit error"
+                )
             }
         }
     }
@@ -98,7 +99,10 @@ impl RedbEvmStateStore {
         let write = db.begin_write().map_err(backend)?;
         let metadata = {
             let table = write.open_table(META).map_err(backend)?;
-            let schema = table.get(META_SCHEMA_KEY).map_err(backend)?.map(|v| v.value());
+            let schema = table
+                .get(META_SCHEMA_KEY)
+                .map_err(backend)?
+                .map(|v| v.value());
             let version = table
                 .get(META_CURRENT_VERSION_KEY)
                 .map_err(backend)?
@@ -124,7 +128,9 @@ impl RedbEvmStateStore {
             write_snapshot_records(&write, &initial)?;
             {
                 let mut table = write.open_table(META).map_err(backend)?;
-                table.insert(META_SCHEMA_KEY, SCHEMA_VERSION).map_err(backend)?;
+                table
+                    .insert(META_SCHEMA_KEY, SCHEMA_VERSION)
+                    .map_err(backend)?;
                 table
                     .insert(META_CURRENT_VERSION_KEY, initial.parent_state_version())
                     .map_err(backend)?;
@@ -150,10 +156,7 @@ impl RedbEvmStateStore {
     /// The in-memory state is advanced only after redb acknowledges the commit.
     /// If commit returns an error, the instance is latched and must be dropped
     /// and reopened to reconcile the durable current-version pointer.
-    pub fn apply(
-        &mut self,
-        delta: &EvmStateDelta,
-    ) -> Result<u64, PersistentEvmStateError> {
+    pub fn apply(&mut self, delta: &EvmStateDelta) -> Result<u64, PersistentEvmStateError> {
         self.ensure_ready()?;
         let mut candidate = self.state.clone();
         let next_version = candidate
@@ -210,7 +213,9 @@ fn write_snapshot_records(
             value[..8].copy_from_slice(&account.nonce.to_be_bytes());
             value[8..40].copy_from_slice(&account.balance.0);
             value[40..].copy_from_slice(&account.code_hash.0);
-            table.insert(key.as_slice(), value.as_slice()).map_err(backend)?;
+            table
+                .insert(key.as_slice(), value.as_slice())
+                .map_err(backend)?;
         }
     }
     {
@@ -219,7 +224,9 @@ fn write_snapshot_records(
             let mut key = [0_u8; CODE_KEY_LEN];
             key[..8].copy_from_slice(&version);
             key[8..].copy_from_slice(&hash.0);
-            table.insert(key.as_slice(), bytes.as_slice()).map_err(backend)?;
+            table
+                .insert(key.as_slice(), bytes.as_slice())
+                .map_err(backend)?;
         }
     }
     {
@@ -229,7 +236,9 @@ fn write_snapshot_records(
             key[..8].copy_from_slice(&version);
             key[8..28].copy_from_slice(&address.0);
             key[28..].copy_from_slice(&slot.0);
-            table.insert(key.as_slice(), value.0.as_slice()).map_err(backend)?;
+            table
+                .insert(key.as_slice(), value.0.as_slice())
+                .map_err(backend)?;
         }
     }
     {
@@ -238,7 +247,9 @@ fn write_snapshot_records(
             let mut key = [0_u8; BLOCK_HASH_KEY_LEN];
             key[..8].copy_from_slice(&version);
             key[8..].copy_from_slice(&number.to_be_bytes());
-            table.insert(key.as_slice(), hash.as_slice()).map_err(backend)?;
+            table
+                .insert(key.as_slice(), hash.as_slice())
+                .map_err(backend)?;
         }
     }
     Ok(())
@@ -293,9 +304,11 @@ fn load_current_snapshot(
             accounts.insert(
                 EvmAddress(address),
                 EvmAccount {
-                    nonce: u64::from_be_bytes(bytes[..8].try_into().map_err(|_| {
-                        PersistentEvmStateError::CorruptRecord("account")
-                    })?),
+                    nonce: u64::from_be_bytes(
+                        bytes[..8]
+                            .try_into()
+                            .map_err(|_| PersistentEvmStateError::CorruptRecord("account"))?,
+                    ),
                     balance: U256Word(balance),
                     code_hash: EvmCodeHash(code_hash),
                 },
@@ -363,9 +376,11 @@ fn load_current_snapshot(
             if bytes.len() != 32 {
                 return Err(PersistentEvmStateError::CorruptRecord("block-hash"));
             }
-            let number = u64::from_be_bytes(key[8..].try_into().map_err(|_| {
-                PersistentEvmStateError::CorruptKey("block-hash")
-            })?);
+            let number = u64::from_be_bytes(
+                key[8..]
+                    .try_into()
+                    .map_err(|_| PersistentEvmStateError::CorruptKey("block-hash"))?,
+            );
             let mut hash = [0_u8; 32];
             hash.copy_from_slice(bytes);
             block_hashes.insert(number, hash);
@@ -443,7 +458,12 @@ mod tests {
         assert_eq!(snapshot.block_hashes().count(), 1);
         let account = snapshot.accounts().next().unwrap().1;
         assert_eq!(account.balance, U256Word([0x81; 32]));
-        assert_eq!(snapshot.database_view().storage(address(1), U256Word::from_u64(5)), U256Word([0x55; 32]));
+        assert_eq!(
+            snapshot
+                .database_view()
+                .storage(address(1), U256Word::from_u64(5)),
+            U256Word([0x55; 32])
+        );
     }
 
     #[test]
@@ -456,16 +476,24 @@ mod tests {
         assert_eq!(store.apply(&delta), Ok(13));
         assert!(matches!(
             store.apply(&delta),
-            Err(PersistentEvmStateError::Apply(EvmStateApplyError::StaleParent { .. }))
+            Err(PersistentEvmStateError::Apply(
+                EvmStateApplyError::StaleParent { .. }
+            ))
         ));
         drop(store);
 
         let mut reopened =
             RedbEvmStateStore::open_or_initialize(&path, initial_snapshot(), LIMITS).unwrap();
         assert_eq!(reopened.snapshot().unwrap().parent_state_version(), 13);
-        assert_eq!(reopened.apply(&delta), Err(PersistentEvmStateError::Apply(
-            EvmStateApplyError::StaleParent { expected: 12, actual: 13 }
-        )));
+        assert_eq!(
+            reopened.apply(&delta),
+            Err(PersistentEvmStateError::Apply(
+                EvmStateApplyError::StaleParent {
+                    expected: 12,
+                    actual: 13
+                }
+            ))
+        );
     }
 
     #[test]
@@ -483,7 +511,9 @@ mod tests {
         });
         assert!(matches!(
             store.apply(&delta),
-            Err(PersistentEvmStateError::Apply(EvmStateApplyError::StorageBeforeMismatch(_, _)))
+            Err(PersistentEvmStateError::Apply(
+                EvmStateApplyError::StorageBeforeMismatch(_, _)
+            ))
         ));
         assert_eq!(store.snapshot().unwrap().parent_state_version(), 12);
         drop(store);
