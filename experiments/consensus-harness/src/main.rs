@@ -1,5 +1,5 @@
 use std::env;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{self, BufReader, Read, Write};
 use std::path::Path;
 use std::process::{self, ExitCode};
@@ -108,10 +108,11 @@ fn run_worker(id: &str, path: &Path) -> io::Result<()> {
                 let parsed = sequence.parse::<u64>();
                 match parsed {
                     Err(_) => "ERR_SEQUENCE".to_owned(),
-                    Ok(sequence) if !valid_hex(payload) => "ERR_PAYLOAD_ENCODING".to_owned(),
+                    Ok(_) if !valid_hex(payload) => "ERR_PAYLOAD_ENCODING".to_owned(),
                     Ok(_) if payload.len() > MAX_PAYLOAD_HEX_BYTES => {
                         "ERR_PAYLOAD_TOO_LARGE".to_owned()
                     }
+                    Ok(0) => "ERR_SEQUENCE".to_owned(),
                     Ok(sequence) => {
                         let payload = payload.to_ascii_lowercase();
                         if sequence <= records.len() as u64 {
