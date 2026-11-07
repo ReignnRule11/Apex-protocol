@@ -1,6 +1,6 @@
 # Phase 20G2A — Canonical Consensus Signing Preimage
 
-**Status:** Implementation submitted for exact-head CI.
+**Status:** Merged; post-merge main CI passed (run #42412315691).
 **Base main:** 63fe22b1064654b5b09113e5d0e5da33b58e1420
 **Scope:** APEX-owned preimage encoding only; no signing or verification.
 
