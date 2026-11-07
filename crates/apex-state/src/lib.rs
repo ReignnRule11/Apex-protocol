@@ -80,6 +80,8 @@ pub enum StateStoreError {
     CorruptMetadata,
     #[error("persisted account {0:?} has an invalid representation")]
     CorruptAccount(AccountId),
+    #[error("storage backend requires close and reopen before further access")]
+    ReopenRequired,
     #[error("storage backend error: {0}")]
     Backend(String),
 }

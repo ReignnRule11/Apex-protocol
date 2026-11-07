@@ -11,11 +11,14 @@ use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 use std::collections::BTreeMap;
 use std::path::Path;
 
-const SCHEMA_VERSION: u64 = 1;
+const LEGACY_SCHEMA_VERSION: u64 = 1;
+const SCHEMA_VERSION: u64 = 2;
+
 const META_SCHEMA_KEY: u8 = 0;
 const META_STATE_VERSION_KEY: u8 = 1;
 const META: TableDefinition<u8, u64> = TableDefinition::new("apex_metadata_v1");
-const ACCOUNTS: TableDefinition<u64, &[u8]> = TableDefinition::new("apex_accounts_v1");
+const LEGACY_ACCOUNTS: TableDefinition<u64, &[u8]> = TableDefinition::new("apex_accounts_v1");
+const ACCOUNTS: TableDefinition<u64, &[u8]> = TableDefinition::new("apex_accounts_v2");
 
 /// Persistent state adapter backed by a single redb database file.
 ///
@@ -24,6 +27,76 @@ const ACCOUNTS: TableDefinition<u64, &[u8]> = TableDefinition::new("apex_account
 /// multi-process writer modes are deliberately not enabled.
 pub struct RedbStateStore {
     db: Database,
+    lifecycle: StoreLifecycle,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StoreLifecycle {
+    Ready,
+    ReopenRequired,
+}
+
+/// Explicitly migrate schema 1 to schema 2 while the database is not open elsewhere.
+pub fn migrate_v1_to_v2(path: impl AsRef<Path>) -> Result<(), StateStoreError> {
+    let db = Database::create(path).map_err(backend)?;
+    let write = db.begin_write().map_err(backend)?;
+    let schema = {
+        let meta = write.open_table(META).map_err(backend)?;
+        let value = meta
+            .get(META_SCHEMA_KEY)
+            .map_err(backend)?
+            .ok_or(StateStoreError::Uninitialized)?
+            .value();
+        meta.get(META_STATE_VERSION_KEY)
+            .map_err(backend)?
+            .ok_or(StateStoreError::CorruptMetadata)?;
+        value
+    };
+    if schema == SCHEMA_VERSION {
+        write.commit().map_err(backend)?;
+        return Ok(());
+    }
+    if schema != LEGACY_SCHEMA_VERSION {
+        return Err(StateStoreError::UnsupportedSchema(schema));
+    }
+    let records = {
+        let table = write.open_table(LEGACY_ACCOUNTS).map_err(backend)?;
+        let mut records = Vec::new();
+        for entry in table.iter().map_err(backend)? {
+            let (key, value) = entry.map_err(backend)?;
+            let id = AccountId(key.value());
+            let bytes = value.value();
+            if bytes.len() != 24 {
+                return Err(StateStoreError::CorruptAccount(id));
+            }
+            let nonce = u64::from_le_bytes(
+                bytes[..8]
+                    .try_into()
+                    .map_err(|_| StateStoreError::CorruptAccount(id))?,
+            );
+            let balance = u128::from_le_bytes(
+                bytes[8..24]
+                    .try_into()
+                    .map_err(|_| StateStoreError::CorruptAccount(id))?,
+            );
+            records.push((id.0, encode_account_v2(AccountState { nonce, balance })));
+        }
+        records
+    };
+    {
+        let mut table = write.open_table(ACCOUNTS).map_err(backend)?;
+        for (id, bytes) in records {
+            table.insert(id, bytes.as_slice()).map_err(backend)?;
+        }
+    }
+    write.delete_table(LEGACY_ACCOUNTS).map_err(backend)?;
+    {
+        let mut meta = write.open_table(META).map_err(backend)?;
+        meta.insert(META_SCHEMA_KEY, SCHEMA_VERSION)
+            .map_err(backend)?;
+    }
+    write.commit().map_err(backend)?;
+    Ok(())
 }
 
 impl RedbStateStore {
@@ -80,7 +153,10 @@ impl RedbStateStore {
         }
 
         write.commit().map_err(backend)?;
-        Ok(Self { db })
+        Ok(Self {
+            db,
+            lifecycle: StoreLifecycle::Ready,
+        })
     }
 
     /// Run redb's integrity verification explicitly. Opening the database
@@ -93,6 +169,9 @@ impl RedbStateStore {
 
 impl StateStore for RedbStateStore {
     fn snapshot(&self) -> Result<VersionedStateSnapshot, StateStoreError> {
+        if self.lifecycle != StoreLifecycle::Ready {
+            return Err(StateStoreError::ReopenRequired);
+        }
         let read = self.db.begin_read().map_err(backend)?;
         let version = {
             let meta = read.open_table(META).map_err(backend)?;
@@ -129,6 +208,9 @@ impl StateStore for RedbStateStore {
         &mut self,
         plan: &VersionedBlockTransitionPlan,
     ) -> Result<StateVersion, StateStoreError> {
+        if self.lifecycle != StoreLifecycle::Ready {
+            return Err(StateStoreError::ReopenRequired);
+        }
         let write = self.db.begin_write().map_err(backend)?;
         let current_version = {
             let meta = write.open_table(META).map_err(backend)?;
@@ -193,20 +275,27 @@ impl StateStore for RedbStateStore {
 
         // redb defaults to Durability::Immediate: success is returned only
         // after the transaction reaches its documented durability boundary.
-        write.commit().map_err(backend)?;
+        if let Err(error) = write.commit() {
+            self.lifecycle = StoreLifecycle::ReopenRequired;
+            return Err(backend(error));
+        }
         Ok(next_version)
     }
 }
 
-fn encode_account(state: AccountState) -> [u8; 24] {
-    let mut bytes = [0_u8; 24];
+fn encode_account_v2(state: AccountState) -> [u8; 32] {
+    let mut bytes = [0_u8; 32];
     bytes[..8].copy_from_slice(&state.nonce.to_le_bytes());
-    bytes[8..].copy_from_slice(&state.balance.to_le_bytes());
+    bytes[8..24].copy_from_slice(&state.balance.to_le_bytes());
+    bytes[24..].copy_from_slice(&0_u64.to_le_bytes());
     bytes
+}
+fn encode_account(state: AccountState) -> [u8; 32] {
+    encode_account_v2(state)
 }
 
 fn decode_account(id: AccountId, bytes: &[u8]) -> Result<AccountState, StateStoreError> {
-    if bytes.len() != 24 {
+    if bytes.len() != 32 || bytes[24..] != [0_u8; 8] {
         return Err(StateStoreError::CorruptAccount(id));
     }
     let nonce = u64::from_le_bytes(
@@ -215,7 +304,7 @@ fn decode_account(id: AccountId, bytes: &[u8]) -> Result<AccountState, StateStor
             .map_err(|_| StateStoreError::CorruptAccount(id))?,
     );
     let balance = u128::from_le_bytes(
-        bytes[8..]
+        bytes[8..24]
             .try_into()
             .map_err(|_| StateStoreError::CorruptAccount(id))?,
     );
@@ -395,7 +484,7 @@ mod tests {
             store.apply(&plan(&store)).unwrap();
             store.check_integrity().unwrap();
             let snapshot = store.snapshot().unwrap();
-            let RedbStateStore { db } = store;
+            let RedbStateStore { db, .. } = store;
             db.close().unwrap();
             snapshot
         };
@@ -664,5 +753,62 @@ mod tests {
             })
         );
         assert_eq!(reopened.snapshot().unwrap(), persisted);
+    }
+
+    fn create_legacy_fixture(path: &Path, malformed: bool) {
+        let db = Database::create(path).unwrap();
+        let write = db.begin_write().unwrap();
+        {
+            let mut meta = write.open_table(META).unwrap();
+            meta.insert(META_SCHEMA_KEY, LEGACY_SCHEMA_VERSION).unwrap();
+            meta.insert(META_STATE_VERSION_KEY, 41).unwrap();
+        }
+        {
+            let mut accounts = write.open_table(LEGACY_ACCOUNTS).unwrap();
+            let mut bytes = vec![0_u8; if malformed { 23 } else { 24 }];
+            if !malformed {
+                bytes[..8].copy_from_slice(&7_u64.to_le_bytes());
+                bytes[8..].copy_from_slice(&900_u128.to_le_bytes());
+            }
+            accounts.insert(5, bytes.as_slice()).unwrap();
+        }
+        write.commit().unwrap();
+    }
+
+    #[test]
+    fn schema_one_migration_preserves_state_and_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.redb");
+        create_legacy_fixture(&path, false);
+        migrate_v1_to_v2(&path).unwrap();
+        migrate_v1_to_v2(&path).unwrap();
+        let store =
+            RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new()).unwrap();
+        let snapshot = store.snapshot().unwrap();
+        assert_eq!(snapshot.version(), StateVersion(41));
+        assert_eq!(
+            snapshot.account(AccountId(5)),
+            Some(AccountState {
+                nonce: 7,
+                balance: 900
+            })
+        );
+    }
+
+    #[test]
+    fn malformed_legacy_record_does_not_publish_schema_upgrade() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("malformed.redb");
+        create_legacy_fixture(&path, true);
+        assert!(matches!(
+            migrate_v1_to_v2(&path),
+            Err(StateStoreError::CorruptAccount(AccountId(5)))
+        ));
+        let db = Database::create(&path).unwrap();
+        let read = db.begin_read().unwrap();
+        let meta = read.open_table(META).unwrap();
+        assert_eq!(meta.get(META_SCHEMA_KEY).unwrap().unwrap().value(), 1);
+        let old = read.open_table(LEGACY_ACCOUNTS).unwrap();
+        assert_eq!(old.get(5).unwrap().unwrap().value().len(), 23);
     }
 }
