@@ -7,7 +7,7 @@
 use crate::revm_environment::RevmExecutionEnvironment;
 use crate::{EvmAddress, U256Word};
 use revm::{
-    context::{transaction::AccessListItem, TxEnv},
+    context::{TxEnv, transaction::AccessListItem},
     primitives::{Address, B256, Bytes, TxKind, U256},
 };
 use std::fmt;
