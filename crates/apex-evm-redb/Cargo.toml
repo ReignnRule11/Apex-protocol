@@ -1,0 +1,14 @@
+[package]
+name = "apex-evm-redb"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Persistent full-width EVM state prototype backed by redb"
+
+[dependencies]
+apex-evm = { path = "../apex-evm" }
+redb.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
