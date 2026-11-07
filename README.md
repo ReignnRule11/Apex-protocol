@@ -21,11 +21,13 @@
 
 **Phase 19C — full-width EVM state model (merged).** Adds 20-byte addresses, 256-bit words for balances/storage, bytecode references and bounded immutable snapshots. PR #23 and post-merge CI passed.
 
-**Phase 19D — revm database adapter (merged).** Implements revm 43.0.3 Database over the immutable snapshot, preserving full-width values and failing closed on missing or malformed code. It is read-only; no state-diff persistence or DatabaseCommit exists yet. PR #24 and post-merge CI passed.
+**Phase 19D — revm database adapter (merged).** Implements revm 43.0.3 Database over the immutable snapshot, preserving full-width values and failing closed on missing or malformed code. It is read-only. PR #24 and post-merge CI passed.
 
-**Phase 19E — atomic full-width EVM state deltas (submitted).** Adds before/after account, code and storage updates bound to a parent version, deterministic ordering checks and all-or-nothing in-memory snapshot replacement. It is not persistent, concurrent or crash-safe. See docs/protocol/phase-19e-atomic-evm-state-delta.md and ADR-0029.
+**Phase 19E — atomic full-width EVM state deltas (merged).** Adds parent-version-bound before/after account, code and storage updates with strict ordering checks and all-or-nothing in-memory snapshot replacement. PR #25 and post-merge CI passed.
 
-**Phase 19 — deterministic EVM execution (in progress).** Persistent full-width state, actual revm state-diff extraction, authenticated transactions, explicit fork/block context, fee settlement, receipts and complete state commitments remain unimplemented.
+**Phase 19F — persistent full-width EVM state prototype (submitted).** Adds a separate `apex-evm-redb` crate. It stores full-width account, code, storage and block-hash records under versioned keys; one redb transaction writes the new snapshot and advances the current-version pointer. Historical versions are retained. This is single-process and single-writer, with no garbage collection, canonical state encoding, state root or cross-subsystem consensus commit. CI and review are pending.
+
+**Phase 19 — deterministic EVM execution (in progress).** Actual revm state-diff extraction, explicit fork/block context, canonical transaction authentication, fee settlement, receipts and complete state commitments remain unimplemented.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -33,7 +35,7 @@
 
 **Phases 14–16 — account encoding and Merkle proofs (merged).** These are account-only research prototypes. The 38-byte account codec and SHA-256 Merkle root cover only AccountId(u64), nonce(u64) and balance(u128), not the complete EVM state model.
 
-The workspace also contains transaction admission/planning and a redb persistence prototype. These are not authenticated transaction processing, a production database selection or a functioning blockchain. The redb adapter persists only the legacy narrow account prototype; it does not back the Phase 19 EVM state model. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
+The workspace also contains transaction admission/planning and a redb persistence prototype for the historical narrow state model. That crate is separate from `apex-evm-redb`; neither adapter is a production database selection. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
 
 The workspace and CI are pinned to Rust 1.91.0, the minimum declared by the selected revm candidate graph. No EVM fork has been ratified.
 
@@ -51,13 +53,14 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
-    │   ├── apex-evm/                    # revm candidate, harness, state model, adapter + delta store
+    │   ├── apex-evm/                    # revm candidate, harness, full-width state and adapters
+    │   ├── apex-evm-redb/               # versioned full-width EVM persistence prototype
     │   ├── apex-state/                  # legacy AccountId/u128 state prototype
     │   ├── apex-state-redb/             # persistence prototype for legacy state only
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0029
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0030
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -74,7 +77,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
 2. Deterministic execution and canonical encoding.
 3. Separate local storage integrity from protocol state commitments.
 4. Explicit trust assumptions and adversarial testing.
-5. No custom consensus algorithm without compelling evidence and review.
+5. No custom consensus algorithm without compelling evidence or review.
 6. No mainnet, decentralization or security claims without independent validators, audits and operational evidence.
 
 ## Token and license status

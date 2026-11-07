@@ -159,6 +159,30 @@ impl EvmStateSnapshot {
         self.parent_state_version
     }
 
+    /// Deterministically ordered account records for persistence and auditing.
+    pub fn accounts(&self) -> impl Iterator<Item = (&EvmAddress, &EvmAccount)> {
+        self.accounts.iter()
+    }
+
+    /// Deterministically ordered code blobs keyed by their opaque code hash.
+    pub fn code_blobs(&self) -> impl Iterator<Item = (&EvmCodeHash, &Vec<u8>)> {
+        self.code.iter()
+    }
+
+    /// Deterministically ordered storage slots keyed by (address, slot).
+    pub fn storage_slots(&self) -> impl Iterator<Item = (&(EvmAddress, U256Word), &U256Word)> {
+        self.storage.iter()
+    }
+
+    /// Deterministically ordered historical block-hash entries.
+    pub fn block_hashes(&self) -> impl Iterator<Item = (&u64, &[u8; 32])> {
+        self.block_hashes.iter()
+    }
+
+    pub const fn limits(&self) -> SnapshotLimits {
+        self.limits
+    }
+
     pub fn database_view(&self) -> EvmDatabaseView<'_> {
         EvmDatabaseView { snapshot: self }
     }
