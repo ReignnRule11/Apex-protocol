@@ -37,7 +37,9 @@
 
 **Phase 20C — engine-neutral application boundary (merged; exact-head and post-merge CI passed).** Adds bounded proposal and proof envelopes, chain/version/height/parent linkage, an application validation callback, a separate engine-specific finality-verification interface, and a commit handoff that is reachable only after exact-identity verification. No production verifier, canonical codec, durable replay protection or cross-system atomic commit is implemented. See `docs/protocol/phase-20c-application-engine-boundary.md` and ADR-0041.
 
-**Phase 20D — durable consensus signer safety (implementation submitted).** Adds typed signing coordinates, exact-message reservations and a redb journal that commits before returning a reservation. It does not select a signature suite, hold keys, sign messages, prevent backup rollback or authorize validator operation. See `docs/protocol/phase-20d-durable-signer-safety.md` and ADR-0042.
+**Phase 20D — durable consensus signer safety (merged; post-merge CI passed).** Adds typed signing coordinates, exact-message reservations and a redb journal that commits before returning a reservation. It does not select a signature suite, hold keys, sign messages, prevent backup rollback or authorize validator operation. See `docs/protocol/phase-20d-durable-signer-safety.md` and ADR-0042.
+
+**Phase 20E — validator-set lifecycle primitives (implementation submitted).** Adds deterministic validator-set ordering, identity/power validation, checked aggregate power, strict greater-than-two-thirds quorum accounting over unique supplied signer identities, exact-height schedule selection, and a typed equivocation-claim envelope. It does not authenticate validator updates, verify signatures/certificates, slash validators, or establish finality. See `docs/protocol/phase-20e-validator-lifecycle.md` and ADR-0043.
 
 **Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
@@ -63,7 +65,8 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
-    │   │   └── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
+    │   │   ├── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
+    │   │   └── src/validator_set.rs        # Deterministic validator-set/lifecycle primitives
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
@@ -81,7 +84,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     ├── experiments/
     │   └── malachite-spike/          # Separate Cargo workspace; research only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0042
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0043
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/

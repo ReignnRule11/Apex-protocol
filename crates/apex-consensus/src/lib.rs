@@ -6,6 +6,7 @@
 //! selected engine's verification path has completed.
 
 pub mod application_boundary;
+pub mod validator_set;
 
 use apex_types::{ChainId, Hash32, Height};
 use std::collections::{BTreeMap, BTreeSet};
