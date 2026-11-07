@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 13 — storage lifecycle and schema migration (implementation submitted for review; CI pending).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors. See `docs/protocol/phase-13-storage-lifecycle-and-migration.md`.
+**Phase 13 — storage lifecycle and schema migration (PR checks green; awaiting merge).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors. See `docs/protocol/phase-13-storage-lifecycle-and-migration.md`.
 
 **Phase 12 — storage concurrency and failure-boundary engineering (merged; CI green).** The redb adapter now has concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation that verifies reopen/reconciliation prevents duplicate application. The injected faults are adapter-boundary simulations, not real disk-full or device-I/O fault injection. See docs/protocol/phase-12-concurrency-failure-engineering.md.
 
@@ -67,7 +67,10 @@ Apex-protocol/
 │   │   ├── ADR-0010-block-transition-planning.md
 │   │   ├── ADR-0011-versioned-state-application.md
 │   │   ├── ADR-0012-storage-and-commitment-boundaries.md
-│   │   └── ADR-0013-redb-state-adapter.md
+│   │   ├── ADR-0013-redb-state-adapter.md
+│   │   ├── ADR-0014-storage-reliability-validation.md
+│   │   ├── ADR-0015-concurrency-and-ambiguous-commit.md
+│   │   └── ADR-0016-storage-lifecycle-and-schema-migration.md
 │   ├── protocol/
 │   │   ├── bitcoin-anchoring.md
 │   │   ├── consensus-adapter-contract.md
@@ -81,6 +84,7 @@ Apex-protocol/
 │   │   ├── phase-10-redb-storage-spike.md
 │   │   ├── phase-11-storage-reliability.md
 │   │   ├── phase-12-concurrency-failure-engineering.md
+│   │   └── phase-13-storage-lifecycle-and-migration.md
 │   │   ├── protocol-spec-v0.1.md
 │   │   ├── state-commitments.md
 │   │   ├── storage-architecture.md
