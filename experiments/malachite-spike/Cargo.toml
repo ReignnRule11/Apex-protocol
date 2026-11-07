@@ -11,6 +11,7 @@ license = "UNLICENSED"
 
 [dependencies]
 eyre = "0.6"
+tokio = { version = "1", features = ["sync"] }
 
 [dependencies.malachitebft-app-channel]
 package = "arc-malachitebft-app-channel"
@@ -33,4 +34,3 @@ default-features = false
 [dev-dependencies]
 malachitebft-test = { package = "arc-malachitebft-test", git = "https://github.com/circlefin/malachite", rev = "a453b32155f4ba9f959724279b52f601bae92e09" }
 rand = { version = "0.8.5", features = ["std_rng"] }
-tokio = { version = "1", features = ["macros", "rt", "sync"] }

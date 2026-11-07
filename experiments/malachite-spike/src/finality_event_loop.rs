@@ -244,7 +244,7 @@ mod tests {
             let ok = self.commit_ok;
             Box::pin(async move { if ok { Ok(params()) } else { Err(()) } })
         }
-        fn restart_params<'a>(&'a mut self, _height: Height) -> GateFuture<'a, HeightParams<TestContext>> {
+        fn restart_params<'a>(&'a mut self, _height: TestHeight) -> GateFuture<'a, HeightParams<TestContext>> {
             self.events.push("restart");
             let ok = self.restart_ok;
             Box::pin(async move { if ok { Ok(params()) } else { Err(()) } })
