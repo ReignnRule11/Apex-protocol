@@ -12,3 +12,4 @@ authors = ["APEX Protocol Contributors"]
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+apex-types = { path = "crates/apex-types" }
