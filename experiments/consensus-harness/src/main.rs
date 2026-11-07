@@ -15,9 +15,7 @@ struct Record {
 }
 
 fn valid_hex(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() % 2 == 0
-        && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    !value.is_empty() && value.len() % 2 == 0 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn load_journal(path: &Path) -> io::Result<Vec<Record>> {
@@ -30,9 +28,9 @@ fn load_journal(path: &Path) -> io::Result<Vec<Record>> {
         let (sequence, payload_hex) = line.split_once('\t').ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidData, "malformed journal record")
         })?;
-        let sequence = sequence.parse::<u64>().map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "invalid journal sequence")
-        })?;
+        let sequence = sequence
+            .parse::<u64>()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid journal sequence"))?;
         if sequence != index as u64 + 1 || !valid_hex(payload_hex) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,

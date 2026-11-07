@@ -50,7 +50,11 @@ impl Worker {
             .unwrap();
         let input = child.stdin.take().unwrap();
         let output = BufReader::new(child.stdout.take().unwrap());
-        let mut worker = Self { child, input, output };
+        let mut worker = Self {
+            child,
+            input,
+            output,
+        };
         assert_eq!(worker.read_response(), format!("READY {id}"));
         worker
     }
@@ -90,7 +94,11 @@ fn replicated_scenario(root: &Path) -> Vec<Vec<u8>> {
     let mut process_ids: Vec<u32> = workers.iter().map(|worker| worker.child.id()).collect();
     process_ids.sort_unstable();
     process_ids.dedup();
-    assert_eq!(process_ids.len(), 4, "workers must be distinct OS processes");
+    assert_eq!(
+        process_ids.len(),
+        4,
+        "workers must be distinct OS processes"
+    );
 
     // Initial common prefix.
     for worker in &mut workers {
@@ -172,9 +180,18 @@ fn process_restart_recovers_journal_and_replacement_node_replays_history() {
     replacement.stop();
 
     let expected = fs::read(directory.path().join("node-0.log")).unwrap();
-    assert_eq!(fs::read(directory.path().join("node-1.log")).unwrap(), expected);
-    assert_eq!(fs::read(directory.path().join("node-2.log")).unwrap(), expected);
-    assert_eq!(fs::read(directory.path().join("node-4.log")).unwrap(), expected);
+    assert_eq!(
+        fs::read(directory.path().join("node-1.log")).unwrap(),
+        expected
+    );
+    assert_eq!(
+        fs::read(directory.path().join("node-2.log")).unwrap(),
+        expected
+    );
+    assert_eq!(
+        fs::read(directory.path().join("node-4.log")).unwrap(),
+        expected
+    );
 }
 
 #[test]
