@@ -61,13 +61,23 @@ PR #39 merged as `e7fd62b4646e3b022113f452175c1e00df2ad5ce`. The exact-head PR w
 
 The new `apex-signer-safety` and `apex-signer-redb` crates persist exact-message reservations under a complete signing coordinate. A first reservation is committed before success is returned; an exact retry is idempotent; conflicting bytes are rejected. No signature algorithm, canonical consensus codec, key format or engine signing adapter is selected. Backup rollback and multi-process signing remain blockers. See the Phase 20D record and ADR-0042.
 
+## Phase 20D durable signer safety (merged)
+
+PR #40 is merged at `8a672599ea2a96abe2404b58afc997c2a6e42544`; post-merge `main` CI run #42404106956 passed all three jobs (workspace checks, isolated Malachite API spike and pinned upstream unit suite). The durable reservation prototype and its limitations are recorded in the Phase 20D document and ADR-0042.
+
+## Phase 20E validator-set lifecycle primitives (implementation submitted)
+
+The new `apex-consensus::validator_set` module sorts validator entries by fixed-width opaque identity, rejects empty sets, all-zero identities, zero voting power and duplicate identities, and uses checked `u64` total-power arithmetic. Quorum accounting rejects duplicate/unknown supplied signer identities and requires strictly more than two-thirds of total power. A schedule applies each replacement set at its exact declared activation height and rejects zero/non-increasing activation heights. `EquivocationClaim` is only a typed envelope requiring two distinct caller-supplied digests; it does not prove either message was signed or authenticate the evidence.
+
+No canonical validator-set hash/codec, authenticated governance/update path, signature algorithm, commit-certificate verifier, slashing policy or production finality is implemented. Activation schedule data is a local deterministic model, not a protocol ratification.
+
 ## Ordered Phase 20 gates
 
 1. **20A — candidate revalidation:** exact upstream version/commit, license, MSRV and maturity recorded. Complete.
 2. **20B — isolated dependency/API spike:** complete for the pinned compile/API and upstream Rust unit-test scope. Legal compatibility, RustSec review, committed lockfile and upstream Maelstrom/Quint suites remain open.
 3. **20C — application boundary:** complete; PR #39 merged and post-merge CI passed. `apex-consensus::application_boundary` separates candidate validation, engine-specific finality verification and application commit. Its verifier is an interface contract only; no production verifier or durable replay/atomic commit protocol exists.
-4. **20D — signer safety:** durable reservation prototype submitted; signature suite/domain ratification, backup rollback protection, key custody and key rotation remain open.
-5. **20E — validator/finality semantics:** validator-set updates, activation/exit boundaries, certificate verification and equivocation evidence.
+4. **20D — signer safety:** merged durable reservation prototype; signature suite/domain ratification, backup rollback protection, key custody and key rotation remain open.
+5. **20E — validator-set lifecycle primitives:** deterministic set validation, checked voting power, quorum arithmetic, exact activation boundaries and typed equivocation claims. Authentication and certificate verification remain open.
 6. **20F — adversarial integration:** at least four independent processes; Byzantine behavior, conflicting proposals, partitions, delayed/dropped/reordered messages, restart/recovery, churn, deterministic replay, resource exhaustion and CI reproduction.
 7. **Independent assurance:** review pinned code/dependency graph, protocol assumptions, signer lifecycle and test evidence before public testnet.
 

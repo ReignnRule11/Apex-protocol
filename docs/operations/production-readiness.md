@@ -17,7 +17,7 @@ Critical systems not implemented or production-selected:
 - Complete deterministic EVM transaction pipeline, gas/fee settlement, receipts and full state commitment.
 - Authenticated block/genesis validation feeding the execution context and ratified APEX fork/gas/precompile semantics.
 - Full transaction-to-persistent-state integration and atomic consensus/signer/application commit.
-- Production BFT consensus, authenticated certificates, validator transitions and finality.
+- Production BFT consensus, authenticated certificates, authenticated validator transitions and finality.
 - Authenticated P2P networking, transaction pool, block production and sync.
 - RPC, genesis tooling, upgrades, operator runbooks, observability and independent audits.
 
@@ -53,9 +53,9 @@ In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressi
 
 **20C — APEX application/engine boundary (complete; PR #39 merged; post-merge main CI passed).** `apex-consensus::application_boundary` introduces engine-neutral proposal identity/linkage checks, bounded payload/proof envelopes, a deterministic application validation callback, an engine-specific finality-verifier contract and a commit handoff gated on successful verification of the exact validated identity. It does not implement a production certificate verifier, canonical block codec, full execution, durable replay protection or atomic consensus/application storage.
 
-**20D — durable signer safety (implementation submitted; CI pending).** Adds typed chain/protocol/height/round/step/signer coordinates, exact-message reservations and a redb journal that commits before returning. Conflicting bytes at one coordinate fail closed. No signature suite, key custody, signing implementation, backup rollback protection or validator activation is selected.
+**20D — durable signer safety (complete; PR #40 merged; post-merge main CI passed).** Adds typed chain/protocol/height/round/step/signer coordinates, exact-message reservations and a redb journal that commits before returning. Conflicting bytes at one coordinate fail closed. No signature suite, key custody, signing implementation or backup rollback protection is implemented.
 
-**20E — validator lifecycle and finality (planned).** Implement authenticated validator-set updates, commit-certificate verification, equivocation evidence and exact activation boundaries.
+**20E — validator-set lifecycle primitives (implementation submitted for CI).** Adds deterministic sorted validator sets, nonzero identity/power checks, duplicate rejection, checked total power, strict quorum arithmetic over unique supplied signer identities, exact activation-height schedule selection and an unverified equivocation-claim envelope. It does not authenticate validator-set updates, verify signatures or commit certificates, establish finality, or implement staking/slashing. See the Phase 20E record and ADR-0043.
 
 **20F — multi-process adversarial harness (planned).** At least four independent validator processes; partitions, delays, drops, reordering, equivocation, restarts, validator churn, deterministic replay, bounded-resource tests and CI reproduction.
 
