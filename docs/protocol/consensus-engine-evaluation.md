@@ -170,3 +170,8 @@ The isolated Malachite spike now has deterministic tests using the pinned upstre
 ## Phase 20G2C5 — idempotent finality commit contract (submitted)
 
 The gate now exposes a stable `FinalityCommitKey` derived from the verified APEX identity and distinguishes three storage outcomes. A proven `DefinitelyNotCommitted` result permits a same-height restart. An `Ambiguous` result may represent a committed transaction whose acknowledgement was lost; a `ConflictingFinality` result indicates a different identity at the same height. Both latter cases drop the Finalized reply and stall rather than risk replay or conceal a safety fault. Application implementations must atomically persist state and key and make same-key retries idempotent. Tests validate callback response policy only; no database adapter, crash recovery or live engine is implemented. G2 remains BLOCKED. See the Phase 20G2C5 record and ADR-0052.
+
+
+## Phase 20G2C6 — isolated durable finality journal prototype
+
+An isolated redb 4.5.0 experiment now persists the verified APEX identity and opaque application-state payload together with a per-chain tip record in a single write transaction. Exact key/payload retries are idempotent; conflicting identities, conflicting payloads, height gaps and parent mismatches fail closed. A write-transaction commit error is classified as ambiguous. Reopen/readback tests are intended to validate the basic persistence boundary. This is not a production adapter, does not run inside the finality callback, and does not coordinate application state with Malachite WAL or signer reservations. No crash/power-loss proof or multi-process safety claim is made.
