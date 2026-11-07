@@ -6,7 +6,7 @@
 //! canonical APEX block identity before a verified token can be constructed.
 
 use malachitebft_app_channel::app::types::core::{
-    CommitCertificate, Context, Round, ThresholdParams, ValueId,
+    CommitCertificate, Context, Height, Round, ThresholdParams, ValueId,
 };
 use malachitebft_signing::VerifierExt;
 
