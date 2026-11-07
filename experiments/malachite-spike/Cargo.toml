@@ -18,6 +18,12 @@ git = "https://github.com/circlefin/malachite"
 rev = "a453b32155f4ba9f959724279b52f601bae92e09"
 default-features = false
 
+[dependencies.malachitebft-engine]
+package = "arc-malachitebft-engine"
+git = "https://github.com/circlefin/malachite"
+rev = "a453b32155f4ba9f959724279b52f601bae92e09"
+default-features = false
+
 [dependencies.malachitebft-signing]
 package = "arc-malachitebft-signing"
 git = "https://github.com/circlefin/malachite"
