@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use redb::{Database, TableDefinition};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
 
 use crate::native_finality_bridge::{ApexBlockIdentity, FinalityCommitKey};
 
