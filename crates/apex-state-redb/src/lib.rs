@@ -477,10 +477,16 @@ mod tests {
                 .env("APEX_REDB_CRASH_CHILD_MODE", mode)
                 .output()
                 .unwrap();
-            assert!(!output.status.success(), "child process unexpectedly exited cleanly");
+            assert!(
+                !output.status.success(),
+                "child process unexpectedly exited cleanly"
+            );
             let marker = format!("APEX_REDB_CHILD_ABORT:{mode}");
             let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(stderr.contains(&marker), "child did not reach abort point: {stderr}");
+            assert!(
+                stderr.contains(&marker),
+                "child did not reach abort point: {stderr}"
+            );
             let recovered =
                 RedbStateStore::open_or_initialize(&path, StateVersion(0), &BTreeMap::new())
                     .unwrap();
