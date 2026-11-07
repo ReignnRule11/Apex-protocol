@@ -95,7 +95,6 @@ pub fn validate_proposal_header(
     Ok(())
 }
 
-
 /// Internal transaction fields for static admission; not signed or encoded.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TransactionAdmission {
@@ -266,60 +265,101 @@ mod tests {
     }
 
     fn admission_context() -> AdmissionContext {
-        AdmissionContext { chain_id: ChainId(7), protocol_version: 1, block_gas_limit: 30_000_000 }
+        AdmissionContext {
+            chain_id: ChainId(7),
+            protocol_version: 1,
+            block_gas_limit: 30_000_000,
+        }
     }
 
     fn admission_tx() -> TransactionAdmission {
         TransactionAdmission {
-            chain_id: ChainId(7), protocol_version: 1, nonce: 4, gas_limit: 21_000,
-            max_fee_per_gas: 100, max_priority_fee_per_gas: 2,
+            chain_id: ChainId(7),
+            protocol_version: 1,
+            nonce: 4,
+            gas_limit: 21_000,
+            max_fee_per_gas: 100,
+            max_priority_fee_per_gas: 2,
         }
     }
 
     #[test]
     fn admits_valid_envelope_and_returns_fee_upper_bound() {
-        assert_eq!(validate_transaction_admission(admission_context(), admission_tx()), Ok(2_100_000));
+        assert_eq!(
+            validate_transaction_admission(admission_context(), admission_tx()),
+            Ok(2_100_000)
+        );
     }
 
     #[test]
     fn rejects_wrong_chain() {
-        let mut tx = admission_tx(); tx.chain_id = ChainId(8);
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Err(TransactionAdmissionError::WrongChain));
+        let mut tx = admission_tx();
+        tx.chain_id = ChainId(8);
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Err(TransactionAdmissionError::WrongChain)
+        );
     }
 
     #[test]
     fn rejects_wrong_version() {
-        let mut tx = admission_tx(); tx.protocol_version = 2;
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Err(TransactionAdmissionError::WrongProtocolVersion));
+        let mut tx = admission_tx();
+        tx.protocol_version = 2;
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Err(TransactionAdmissionError::WrongProtocolVersion)
+        );
     }
 
     #[test]
     fn rejects_zero_gas() {
-        let mut tx = admission_tx(); tx.gas_limit = 0;
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Err(TransactionAdmissionError::ZeroGasLimit));
+        let mut tx = admission_tx();
+        tx.gas_limit = 0;
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Err(TransactionAdmissionError::ZeroGasLimit)
+        );
     }
 
     #[test]
     fn rejects_gas_above_block_limit() {
-        let mut tx = admission_tx(); tx.gas_limit = 30_000_001;
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Err(TransactionAdmissionError::GasLimitExceedsBlock));
+        let mut tx = admission_tx();
+        tx.gas_limit = 30_000_001;
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Err(TransactionAdmissionError::GasLimitExceedsBlock)
+        );
     }
 
     #[test]
     fn rejects_priority_fee_above_max_fee() {
-        let mut tx = admission_tx(); tx.max_priority_fee_per_gas = 101;
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Err(TransactionAdmissionError::PriorityFeeExceedsMaxFee));
+        let mut tx = admission_tx();
+        tx.max_priority_fee_per_gas = 101;
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Err(TransactionAdmissionError::PriorityFeeExceedsMaxFee)
+        );
     }
 
     #[test]
     fn rejects_fee_multiplication_overflow() {
-        let mut tx = admission_tx(); tx.gas_limit = u64::MAX; tx.max_fee_per_gas = u128::MAX;
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Err(TransactionAdmissionError::MaximumFeeOverflow));
+        let mut tx = admission_tx();
+        tx.gas_limit = u64::MAX;
+        tx.max_fee_per_gas = u128::MAX;
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Err(TransactionAdmissionError::MaximumFeeOverflow)
+        );
     }
 
     #[test]
     fn zero_fee_remains_permitted_until_policy_is_ratified() {
-        let mut tx = admission_tx(); tx.max_fee_per_gas = 0; tx.max_priority_fee_per_gas = 0;
-        assert_eq!(validate_transaction_admission(admission_context(), tx), Ok(0));
+        let mut tx = admission_tx();
+        tx.max_fee_per_gas = 0;
+        tx.max_priority_fee_per_gas = 0;
+        assert_eq!(
+            validate_transaction_admission(admission_context(), tx),
+            Ok(0)
+        );
     }
 }
