@@ -31,7 +31,10 @@ pub struct RedbStateStore {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum StoreLifecycle { Ready, ReopenRequired }
+enum StoreLifecycle {
+    Ready,
+    ReopenRequired,
+}
 
 /// Explicitly migrate schema 1 to schema 2 while the database is not open elsewhere.
 pub fn migrate_v1_to_v2(path: impl AsRef<Path>) -> Result<(), StateStoreError> {
@@ -39,14 +42,22 @@ pub fn migrate_v1_to_v2(path: impl AsRef<Path>) -> Result<(), StateStoreError> {
     let write = db.begin_write().map_err(backend)?;
     let schema = {
         let meta = write.open_table(META).map_err(backend)?;
-        let value = meta.get(META_SCHEMA_KEY).map_err(backend)?
-            .ok_or(StateStoreError::Uninitialized)?.value();
+        let value = meta
+            .get(META_SCHEMA_KEY)
+            .map_err(backend)?
+            .ok_or(StateStoreError::Uninitialized)?
+            .value();
         meta.get(META_STATE_VERSION_KEY).map_err(backend)?
             .ok_or(StateStoreError::CorruptMetadata)?;
         value
     };
-    if schema == SCHEMA_VERSION { write.commit().map_err(backend)?; return Ok(()); }
-    if schema != LEGACY_SCHEMA_VERSION { return Err(StateStoreError::UnsupportedSchema(schema)); }
+    if schema == SCHEMA_VERSION {
+        write.commit().map_err(backend)?;
+        return Ok(());
+    }
+    if schema != LEGACY_SCHEMA_VERSION {
+        return Err(StateStoreError::UnsupportedSchema(schema));
+    }
     let records = {
         let table = write.open_table(LEGACY_ACCOUNTS).map_err(backend)?;
         let mut records = Vec::new();
@@ -196,7 +207,9 @@ impl StateStore for RedbStateStore {
         &mut self,
         plan: &VersionedBlockTransitionPlan,
     ) -> Result<StateVersion, StateStoreError> {
-        if self.lifecycle != StoreLifecycle::Ready { return Err(StateStoreError::ReopenRequired); }
+        if self.lifecycle != StoreLifecycle::Ready {
+            return Err(StateStoreError::ReopenRequired);
+        }
         let write = self.db.begin_write().map_err(backend)?;
         let current_version = {
             let meta = write.open_table(META).map_err(backend)?;
