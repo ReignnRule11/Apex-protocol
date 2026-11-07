@@ -57,12 +57,9 @@ fn merkle_root(leaves: &[Hash32]) -> Hash32 {
 
 /// Computes the prototype root for a fixed logical account map.
 /// Accounts are ordered by numeric AccountId (BTreeMap order). The commitment
-/// binds schema version, caller-supplied state version, account count and tree root.
+/// binds schema version, account count and tree root. The root is independent of block height, StateVersion, database layout and insertion order.
 /// StateVersion is not a block height or a consensus-finality assertion.
-pub fn account_state_root_v1(
-    state_version: u64,
-    accounts: &BTreeMap<AccountId, AccountState>,
-) -> Hash32 {
+pub fn account_state_root_v1(accounts: &BTreeMap<AccountId, AccountState>) -> Hash32 {
     let leaves: Vec<Hash32> = accounts
         .iter()
         .map(|(id, state)| account_leaf_hash(*id, *state))
@@ -71,7 +68,6 @@ pub fn account_state_root_v1(
     sha256(&[
         ROOT_DOMAIN,
         &1_u16.to_be_bytes(),
-        &state_version.to_be_bytes(),
         &(leaves.len() as u64).to_be_bytes(),
         &tree_root.0,
     ])
@@ -88,7 +84,7 @@ mod tests {
     #[test]
     fn empty_state_has_stable_nonzero_root() {
         let empty = BTreeMap::new();
-        let a = account_state_root_v1(0, &empty);
+        let a = account_state_root_v1(&empty);
         let b = account_state_root_v1(0, &empty);
         assert_eq!(a, b);
         assert_ne!(a, Hash32([0; 32]));
@@ -106,15 +102,14 @@ mod tests {
             (AccountId(9), account(2, 900)),
             (AccountId(1), account(0, 100)),
         ]);
-        assert_eq!(account_state_root_v1(4, &a), account_state_root_v1(4, &b));
+        assert_eq!(account_state_root_v1(&a), account_state_root_v1(&b));
     }
 
     #[test]
-    fn account_or_version_change_changes_root() {
+    fn account_change_changes_root() {
         let base = BTreeMap::from([(AccountId(1), account(0, 100))]);
         let changed = BTreeMap::from([(AccountId(1), account(0, 101))]);
-        assert_ne!(account_state_root_v1(4, &base), account_state_root_v1(4, &changed));
-        assert_ne!(account_state_root_v1(4, &base), account_state_root_v1(5, &base));
+        assert_ne!(account_state_root_v1(&base), account_state_root_v1(&changed));
     }
 
     #[test]
@@ -124,8 +119,26 @@ mod tests {
             (AccountId(1), account(0, 0)),
             (AccountId(2), account(0, 0)),
         ]);
-        assert_ne!(account_state_root_v1(0, &BTreeMap::new()), account_state_root_v1(0, &one));
-        assert_ne!(account_state_root_v1(0, &one), account_state_root_v1(0, &two));
+        assert_ne!(account_state_root_v1(&BTreeMap::new()), account_state_root_v1(&one));
+        assert_ne!(account_state_root_v1(0, &one), account_state_root_v1(&two));
+    }
+
+    #[test]
+    fn three_account_cross_implementation_vector() {
+        let accounts = BTreeMap::from([
+            (AccountId(9), account(2, 900)),
+            (AccountId(1), account(0, 100)),
+            (AccountId(5), account(7, 500)),
+        ]);
+        assert_eq!(
+            account_state_root_v1(&accounts).0,
+            [
+                0x33, 0xbb, 0x55, 0xbd, 0xf5, 0x37, 0x81, 0x1e,
+                0x0d, 0xe7, 0x51, 0xad, 0x95, 0x38, 0xea, 0xa1,
+                0x8d, 0xb0, 0x02, 0x12, 0x9a, 0xb1, 0x3a, 0xb9,
+                0x3a, 0x2c, 0xdf, 0xfb, 0x28, 0xda, 0xf2, 0xa0,
+            ]
+        );
     }
 
     #[test]
