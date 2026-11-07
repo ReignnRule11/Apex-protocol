@@ -6,6 +6,7 @@
 //! selected engine's verification path has completed.
 
 use apex_types::{ChainId, Hash32, Height};
+use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 /// Voting power represented as an unsigned integer.
@@ -162,6 +163,14 @@ pub enum TransactionAdmissionError {
     NonceOverflow,
     #[error("recipient balance overflows u128 after value transfer")]
     RecipientBalanceOverflow,
+    #[error("transaction identifier is duplicated within the block")]
+    DuplicateTransactionId,
+    #[error("cumulative block gas limit arithmetic overflows u64")]
+    CumulativeBlockGasOverflow,
+    #[error("cumulative transaction gas limit exceeds the block gas limit")]
+    CumulativeBlockGasLimitExceeded,
+    #[error("aggregate maximum-fee escrow overflows u128")]
+    AggregateMaximumFeeOverflow,
 }
 
 /// Checks static envelope fields and returns a maximum-fee upper bound.
@@ -274,6 +283,109 @@ pub fn plan_transaction_transition<S: AdmissionState>(
             after: recipient_after,
         }),
         maximum_fee_escrow: maximum_fee,
+    })
+}
+
+
+
+/// Temporary caller-supplied transaction identity used only for duplicate
+/// detection inside one candidate block. This is not a transaction hash,
+/// signature, replay-protection primitive, or canonical protocol identifier.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct TransactionId(pub u64);
+
+/// One ordered transaction entry in a candidate block.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BlockTransaction {
+    pub id: TransactionId,
+    pub admission: TransactionAdmission,
+}
+
+/// A complete pure account-state plan for one ordered candidate block.
+/// Account updates are sorted by AccountId, independent of map iteration
+/// behavior. Transaction execution order remains the caller-provided order.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BlockTransitionPlan {
+    pub account_updates: Vec<PlannedAccountUpdate>,
+    pub transaction_count: usize,
+    pub total_gas_limit: u64,
+    pub total_maximum_fee_escrow: u128,
+}
+
+struct OverlayState<'a, S> {
+    parent: &'a S,
+    current: &'a BTreeMap<AccountId, AccountState>,
+}
+
+impl<S: AdmissionState> AdmissionState for OverlayState<'_, S> {
+    fn account(&self, id: AccountId) -> Option<AccountState> {
+        self.current.get(&id).copied().or_else(|| self.parent.account(id))
+    }
+}
+
+/// Plans all transactions in caller-supplied order against an in-memory
+/// overlay. A later transaction observes all earlier planned nonce, balance
+/// and recipient changes. Any error returns no plan and never mutates parent
+/// state. This is planning only: no signature checks, execution, persistence,
+/// canonical transaction IDs, receipts, state roots, or fee settlement.
+pub fn plan_block_transition<S: AdmissionState>(
+    context: AdmissionContext,
+    transactions: &[BlockTransaction],
+    parent_state: &S,
+) -> Result<BlockTransitionPlan, TransactionAdmissionError> {
+    let mut seen_ids = BTreeSet::new();
+    let mut current = BTreeMap::new();
+    let mut original = BTreeMap::new();
+    let mut total_gas_limit = 0_u64;
+    let mut total_maximum_fee_escrow = 0_u128;
+
+    for block_transaction in transactions {
+        if !seen_ids.insert(block_transaction.id) {
+            return Err(TransactionAdmissionError::DuplicateTransactionId);
+        }
+
+        total_gas_limit = total_gas_limit
+            .checked_add(block_transaction.admission.gas_limit)
+            .ok_or(TransactionAdmissionError::CumulativeBlockGasOverflow)?;
+        if total_gas_limit > context.block_gas_limit {
+            return Err(TransactionAdmissionError::CumulativeBlockGasLimitExceeded);
+        }
+
+        let overlay = OverlayState {
+            parent: parent_state,
+            current: &current,
+        };
+        let transaction_plan =
+            plan_transaction_transition(context, block_transaction.admission, &overlay)?;
+
+        total_maximum_fee_escrow = total_maximum_fee_escrow
+            .checked_add(transaction_plan.maximum_fee_escrow)
+            .ok_or(TransactionAdmissionError::AggregateMaximumFeeOverflow)?;
+
+        let sender = transaction_plan.sender;
+        original.entry(sender.account).or_insert(sender.before);
+        current.insert(sender.account, sender.after);
+
+        if let Some(recipient) = transaction_plan.recipient {
+            original.entry(recipient.account).or_insert(recipient.before);
+            current.insert(recipient.account, recipient.after);
+        }
+    }
+
+    let account_updates = current
+        .iter()
+        .map(|(account, after)| PlannedAccountUpdate {
+            account: *account,
+            before: original[account],
+            after: *after,
+        })
+        .collect();
+
+    Ok(BlockTransitionPlan {
+        account_updates,
+        transaction_count: transactions.len(),
+        total_gas_limit,
+        total_maximum_fee_escrow,
     })
 }
 
@@ -665,6 +777,123 @@ mod tests {
             plan_transaction_transition(admission_context(), admission_tx(), &state),
             Err(TransactionAdmissionError::RecipientBalanceOverflow)
         );
+    }
+
+
+
+    struct MapState(BTreeMap<AccountId, AccountState>);
+
+    impl AdmissionState for MapState {
+        fn account(&self, id: AccountId) -> Option<AccountState> {
+            self.0.get(&id).copied()
+        }
+    }
+
+    fn block_state() -> MapState {
+        MapState(BTreeMap::from([
+            (AccountId(1), AccountState { nonce: 0, balance: 10_000_000 }),
+            (AccountId(2), AccountState { nonce: 0, balance: 1_000 }),
+            (AccountId(3), AccountState { nonce: 0, balance: 2_000 }),
+        ]))
+    }
+
+    fn block_tx(id: u64, sender: u64, recipient: u64, nonce: u64, value: u128) -> BlockTransaction {
+        BlockTransaction {
+            id: TransactionId(id),
+            admission: TransactionAdmission {
+                chain_id: ChainId(7),
+                protocol_version: 1,
+                sender: AccountId(sender),
+                recipient: AccountId(recipient),
+                nonce,
+                value,
+                gas_limit: 21_000,
+                max_fee_per_gas: 1,
+                max_priority_fee_per_gas: 0,
+            },
+        }
+    }
+
+    #[test]
+    fn block_plan_applies_sequential_nonces_and_merges_recipient_credits() {
+        let state = block_state();
+        let transactions = [
+            block_tx(1, 1, 2, 0, 100),
+            block_tx(2, 1, 2, 1, 200),
+            block_tx(3, 1, 3, 2, 300),
+        ];
+        let plan = plan_block_transition(admission_context(), &transactions, &state).unwrap();
+
+        assert_eq!(plan.transaction_count, 3);
+        assert_eq!(plan.total_gas_limit, 63_000);
+        assert_eq!(plan.total_maximum_fee_escrow, 63_000);
+        assert_eq!(plan.account_updates.len(), 3);
+        assert_eq!(plan.account_updates[0].account, AccountId(1));
+        assert_eq!(plan.account_updates[0].before.nonce, 0);
+        assert_eq!(plan.account_updates[0].after.nonce, 3);
+        assert_eq!(plan.account_updates[0].after.balance, 9_996_400);
+        assert_eq!(plan.account_updates[1].before.balance, 1_000);
+        assert_eq!(plan.account_updates[1].after.balance, 1_300);
+        assert_eq!(plan.account_updates[2].before.balance, 2_000);
+        assert_eq!(plan.account_updates[2].after.balance, 2_300);
+        assert_eq!(state.account(AccountId(1)).unwrap().nonce, 0);
+        assert_eq!(state.account(AccountId(2)).unwrap().balance, 1_000);
+    }
+
+    #[test]
+    fn block_plan_rejects_duplicate_opaque_transaction_ids() {
+        let state = block_state();
+        let transactions = [
+            block_tx(9, 1, 2, 0, 100),
+            block_tx(9, 1, 3, 1, 100),
+        ];
+        assert_eq!(
+            plan_block_transition(admission_context(), &transactions, &state),
+            Err(TransactionAdmissionError::DuplicateTransactionId)
+        );
+    }
+
+    #[test]
+    fn block_plan_enforces_cumulative_gas_limit() {
+        let state = block_state();
+        let mut context = admission_context();
+        context.block_gas_limit = 30_000;
+        let transactions = [
+            block_tx(1, 1, 2, 0, 100),
+            block_tx(2, 1, 3, 1, 100),
+        ];
+        assert_eq!(
+            plan_block_transition(context, &transactions, &state),
+            Err(TransactionAdmissionError::CumulativeBlockGasLimitExceeded)
+        );
+    }
+
+    #[test]
+    fn block_plan_failure_on_late_transaction_returns_no_plan_and_preserves_parent() {
+        let state = block_state();
+        let transactions = [
+            block_tx(1, 1, 2, 0, 100),
+            block_tx(2, 1, 3, 99, 100),
+        ];
+        assert_eq!(
+            plan_block_transition(admission_context(), &transactions, &state),
+            Err(TransactionAdmissionError::NonceMismatch)
+        );
+        assert_eq!(state.account(AccountId(1)).unwrap().nonce, 0);
+        assert_eq!(state.account(AccountId(2)).unwrap().balance, 1_000);
+        assert_eq!(state.account(AccountId(3)).unwrap().balance, 2_000);
+    }
+
+    #[test]
+    fn block_plan_is_deterministic_for_identical_ordered_inputs() {
+        let state = block_state();
+        let transactions = [
+            block_tx(4, 1, 2, 0, 123),
+            block_tx(5, 1, 3, 1, 456),
+        ];
+        let first = plan_block_transition(admission_context(), &transactions, &state).unwrap();
+        let second = plan_block_transition(admission_context(), &transactions, &state).unwrap();
+        assert_eq!(first, second);
     }
 
     #[test]
