@@ -43,10 +43,23 @@ Merged draft specification v0.2, state-domain model and unresolved decision regi
 In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Chain ID and type-2 envelope proposals are not ratified; no production signature verification is implemented.
 
 ### Phase 19 — Deterministic execution and fee accounting
-In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressively add the harness, full-width state model, Database/state-diff adapters, in-memory/persistent state prototypes, success gating, explicit block context and a bounded revm environment mapping. Phase 19M constructs the EVM engine; Phase 19N maps an already-authenticated type-2 transaction into TxEnv but does not implement authentication or execute a transaction. Phase 19L is not a full execution pipeline: the chain-ID/base-fee u64 boundary, fork semantics, blob inputs, authenticated transactions, fee settlement, receipts and complete commitments remain unresolved. See Phase 19 plan, phase records 19K/19L/19M/19N and ADR-0035/0036/0037/0038.
+In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressively add the harness, full-width state model, Database/state-diff adapters, in-memory/persistent state prototypes, success gating, explicit block context and a bounded revm environment mapping. Phase 19M constructs the EVM engine; Phase 19N maps caller-supplied, already-authenticated type-2 fields into TxEnv but does not implement authentication or execute a transaction. Phase 19L is not a full execution pipeline: the chain-ID/base-fee u64 boundary, fork semantics, blob inputs, authenticated transactions, fee settlement, receipts and complete commitments remain unresolved. See Phase 19 plan, phase records 19K/19L/19M/19N and ADR-0035/0036/0037/0038.
 
 ### Phase 20 — Consensus engine integration
-Select pinned BFT revision; implement authenticated proposals/votes/certificates, validator changes, evidence, durable anti-double-sign and multi-node Byzantine/recovery tests.
+
+**20A — candidate revalidation (in progress).** Malachite v0.8.2 is pinned for research at upstream commit `a453b32155f4ba9f959724279b52f601bae92e09` (tag `v0.8.2`, Apache-2.0). Its Rust 1.88 MSRV is compatible with APEX Rust 1.91.0. Upstream labels it alpha and not externally audited. No dependency is added and no production engine is selected.
+
+**20B — isolated dependency/API spike.** Review exact crate selection and the resolved dependency graph; compile a separate adapter crate; reproduce upstream tests and map application, engine, networking, persistence and shutdown interfaces.
+
+**20C — APEX application/engine boundary.** Bind chain identity, protocol version, proposal validation, finalized decisions and deterministic application callbacks. Do not accept proposals until complete application validation exists.
+
+**20D — signer and durable anti-double-sign.** Select a dedicated consensus signature suite and key domain; implement durable signing coordinates, crash-safe persistence, restore protection and key rotation before any validator key is enabled.
+
+**20E — validator lifecycle and finality.** Implement authenticated validator-set updates, commit-certificate verification, equivocation evidence and exact activation boundaries.
+
+**20F — multi-process adversarial harness.** At least four independent validator processes; partitions, delays, drops, reordering, equivocation, restarts, validator churn, deterministic replay, bounded-resource tests and CI reproduction.
+
+Production adoption remains blocked until the complete suite, recovery/signing safety and independent review pass.
 
 ### Phase 21 — P2P networking and node services
 Implement versioned libp2p, peer identity, discovery, gossip/sync, quotas, DoS controls, mempool and block pipeline.

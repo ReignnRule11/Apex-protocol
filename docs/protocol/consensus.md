@@ -1,24 +1,24 @@
 # Consensus Design Notes
 
-**Status:** engine candidate selected for research evaluation; no consensus engine is integrated or production-selected.
+**Status:** Malachite v0.8.2 pinned as a research candidate in Phase 20A; no consensus engine is integrated or production-selected.
 
-APEX intends to integrate a mature BFT proof-of-stake protocol rather than invent one. Malachite is the preferred Rust-native candidate for an integration spike; CometBFT remains the reference/fallback comparator. See the engine evaluation, ADR-0004, integration spike and adapter contract.
+APEX intends to integrate a mature BFT proof-of-stake protocol rather than invent one. Malachite is the preferred Rust-native candidate for an isolated research spike; CometBFT remains the reference/fallback comparator.
 
 ## Implemented preflight boundary
 
-The `apex-consensus` crate checks chain ID, protocol version, sequential height and parent hash. These are structural checks only; they do not authenticate proposers, verify certificates or establish finality.
+The apex-consensus crate checks chain ID, protocol version, sequential height and parent hash. These are structural checks only; they do not authenticate proposers, verify certificates or establish finality.
 
 ## Transaction and block planning
 
 The crate also provides static transaction-admission checks, state-aware nonce and affordability checks, and pure transaction/block transition planning. The block planner preserves caller order, observes earlier planned nonce/balance changes, merges recipient writes, rejects duplicate temporary IDs, enforces cumulative declared gas and returns no plan on any invalid transaction. Sender identity and temporary IDs remain unauthenticated.
 
-## Versioned application-state boundary (Phase 8)
+## Versioned application-state boundary
 
-The separate `apex-state` crate binds candidate block plans to a versioned parent snapshot and defines an atomic compare-and-swap application contract. Its in-memory reference adapter checks every before-state and version precondition before any write, rejects stale/replayed plans and increments the version only after all checks pass. It is process-local and non-durable; production storage must implement a serializable atomic transaction. See transaction-admission.md.
+The separate apex-state crate binds candidate block plans to a versioned parent snapshot and defines an atomic compare-and-swap application contract. Its in-memory reference adapter checks every before-state and version precondition before any write, rejects stale/replayed plans and increments the version only after all checks pass. It is process-local and non-durable; production storage must implement a serializable atomic transaction.
 
 ## Candidate constraints
 
-The APEX workspace declares Rust 1.90.0. The exact redb 4.5.0 dependency requires Rust 1.90; see the workspace manifest and ADR-0013. The upstream Malachite workspace currently declares Rust 1.88 and version 0.8.2. Do not add the dependency until the exact crate set, license, dependency graph and API are reviewed against APEX's Rust 1.90.0 toolchain and security requirements. Upstream describes Malachite as alpha and not externally audited; neither active development nor another project's use is an APEX assurance case.
+APEX declares Rust 1.91.0. Malachite v0.8.2 declares Rust 1.88, so the current toolchain is compatible. Phase 20A pins the research baseline at upstream commit a453b32155f4ba9f959724279b52f601bae92e09 under Apache-2.0. No dependency is added: upstream labels Malachite alpha and not externally audited, and the exact integration crate set, feature flags, resolved dependency graph, API and signer/recovery design still require review.
 
 ## Required protocol behavior
 
