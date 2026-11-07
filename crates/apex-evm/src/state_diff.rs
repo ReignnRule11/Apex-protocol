@@ -190,7 +190,6 @@ pub fn extract_revm_state_delta(
     })
 }
 
-
 /// Extract a state delta only from a revm transaction result marked successful.
 ///
 /// This wrapper binds the execution outcome and state in one revm result value.
@@ -296,7 +295,6 @@ mod tests {
         ));
     }
 
-
     #[test]
     fn success_gated_result_extracts_state() {
         let (parent, state) = parent_and_state();
@@ -330,7 +328,6 @@ mod tests {
             Err(RevmStateDiffError::ExecutionReverted)
         );
     }
-
 
     #[test]
     fn halted_result_cannot_produce_a_state_delta() {
