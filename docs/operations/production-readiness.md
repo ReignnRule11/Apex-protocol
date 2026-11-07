@@ -40,7 +40,7 @@ Merged draft specification v0.2, state-domain model and unresolved decision regi
 In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Review the secp256k1/EVM transaction-authentication proposal; settle chain-ID representation and canonical envelope before implementing verification. Consensus signature selection remains dependent on the selected BFT engine. No production signature code is claimed.
 
 ### Phase 19 — Deterministic execution and fee accounting
-Pin EVM engine/fork; implement account/code/storage, execution, gas, receipts, fees, issuance/burn and supply conservation; differential-test and replay across architectures.
+In progress: evaluate revm as preferred candidate, prove toolchain/MSRV compatibility, ratify a named fork, then implement an APEX-owned adapter, complete state access, gas/receipts/fee settlement and cross-client differential tests. No engine or fork is pinned yet.
 
 ### Phase 20 — Consensus engine integration
 Select pinned BFT revision; implement authenticated proposals/votes/certificates, validator changes, evidence, durable anti-double-sign and multi-node Byzantine/recovery tests.

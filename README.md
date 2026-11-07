@@ -15,6 +15,8 @@
 
 ## Current engineering status
 
+**Phase 19 — Deterministic EVM execution (engine evaluation).** Revm is the preferred candidate for a compile/conformance spike; no engine dependency, release or fork is pinned. Osaka/Fusaka-era behavior is a candidate baseline, while Glamsterdam remains excluded pending finalization and ratification. See docs/protocol/phase-19-deterministic-execution.md and ADR-0024.
+
 **Phase 18 — Cryptographic identity and transaction-authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive, keeps transaction/consensus/P2P key roles separate, and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, RLP decoder or signature verifier is implemented. See docs/protocol/phase-18-cryptographic-identity.md and ADR-0022/0023.
 
 **Phase 17 — Protocol completeness baseline (merged; draft).** Adds Protocol Specification v0.2, a complete state-domain model, transaction/block/consensus contracts, monetary invariants, genesis/upgrade requirements and an explicit unresolved decision register. G0 remains blocked; this is not a ratified production protocol. See `docs/protocol/protocol-spec-v0.2.md` and `docs/protocol/phase-17-protocol-completeness.md`.
