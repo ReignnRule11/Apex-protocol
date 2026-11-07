@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 12 — storage concurrency and failure-boundary engineering (in review).** The redb adapter now has concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation that verifies reopen/reconciliation prevents duplicate application. The injected faults are adapter-boundary simulations, not real disk-full or device-I/O fault injection. See docs/protocol/phase-12-concurrency-failure-engineering.md.
+**Phase 12 — storage concurrency and failure-boundary engineering (merged; CI green).** The redb adapter now has concurrent-reader snapshot tests, serialized competing-writer tests, pre-apply fault injection, and a lost-commit-acknowledgement simulation that verifies reopen/reconciliation prevents duplicate application. The injected faults are adapter-boundary simulations, not real disk-full or device-I/O fault injection. See docs/protocol/phase-12-concurrency-failure-engineering.md.
 
 The exact redb 4.5.0 release declares Rust 1.90, so the workspace MSRV and CI toolchain are explicitly raised from 1.85 to 1.90.0. redb is pinned exactly and isolated in its own adapter crate. The Phase 10 PR's format, Clippy and workspace tests passed on the pinned toolchain. This is a contained evaluation, not production approval; multi-process modes are not enabled.
 
