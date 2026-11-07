@@ -27,3 +27,5 @@ thiserror = "2"
 apex-types = { path = "crates/apex-types" }
 redb = "=4.5.0"
 sha2 = "=0.10.9"
+sha2-11 = { package = "sha2", version = "=0.11.0" }
+ed25519-dalek = { version = "=3.0.0", default-features = false, features = ["fast", "zeroize"] }

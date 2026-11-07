@@ -43,9 +43,9 @@
 
 **Phase 20F — multi-process adversarial harness (merged; post-merge main CI passed).** Adds an isolated, std-only process harness with four independent OS worker processes and append-only per-process journals. Deterministic tests inject partition, dropped/delayed/reordered delivery, conflicting writes, process restart, replacement-node replay, deterministic replay and payload bounds. This is a replicated-log fault-injection fixture, not a BFT engine, authenticated network, validator implementation or finality test. See `docs/protocol/phase-20f-multiprocess-adversarial-harness.md` and ADR-0044.
 
-**Phase 20G1 — pinned Malachite EngineBuilder adapter (implementation submitted for exact-head CI).** Extends the isolated Malachite v0.8.2 research workspace with a typed adapter that calls the real upstream `EngineBuilder` and requires the upstream WAL, network, consensus, sync and request actors/codecs. It is compiled against the exact pinned commit and remains outside the production Cargo workspace. This phase does not instantiate an engine, start validators, open sockets, create signing keys, run the APEX application loop, validate APEX certificates, or commit finalized application state. Those are subsequent integration gates. See `docs/protocol/phase-20g1-malachite-engine-builder-adapter.md` and ADR-0045.
+**Phase 20G1 — pinned Malachite EngineBuilder adapter (merged; post-merge CI passed).** Extends the isolated Malachite v0.8.2 research workspace with a typed adapter that calls the real upstream `EngineBuilder` and requires the upstream WAL, network, consensus, sync and request actors/codecs. It is compiled against the exact pinned commit and remains outside the production Cargo workspace. This phase does not instantiate an engine, start validators, open sockets, create signing keys, run the APEX application loop, validate APEX certificates, or commit finalized application state. Those are subsequent integration gates. See `docs/protocol/phase-20g1-malachite-engine-builder-adapter.md` and ADR-0045.
 
-**Phase 20G2A — canonical consensus signing preimage (implementation submitted).** Adds a fixed-width, big-endian, domain-separated signing preimage binding chain ID, protocol version, height, round, step, signer identity, validator-set hash and block hash. Nil votes are permitted for prevote/precommit; nil proposals are rejected. This constructs bytes only: no signature algorithm, public-key binding, signature verification, certificate validation or ratified wire profile is provided. See docs/protocol/phase-20g2a-canonical-consensus-message.md and ADR-0046.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 20G2A — canonical consensus signing preimage (merged; post-merge CI passed).** Adds a fixed-width, big-endian, domain-separated signing preimage binding chain ID, protocol version, height, round, step, signer identity, validator-set hash and block hash. Nil votes are permitted for prevote/precommit; nil proposals are rejected. This constructs bytes only: no signature algorithm, public-key binding, signature verification, certificate validation or ratified wire profile is provided. See docs/protocol/phase-20g2a-canonical-consensus-message.md and ADR-0046.\n\n**Phase 20G2B — authenticated consensus signatures and commit certificates (implementation submitted).** Adds an isolated Ed25519 verifier pinned to ed25519-dalek 3.0.0, derives validator IDs from public keys, hashes authenticated validator sets canonically, and verifies precommit certificates against the scheduled set with strict signature checks and greater-than-two-thirds voting power. The verifier binds the certificate to an expected chain, protocol version, height, round and block hash. It does not authenticate governance updates, decode a wire format, integrate Malachite or commit application state. Experimental only; no production keys. See phase-20g2b-authenticated-commit-certificates.md and ADR-0047.\n\n**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -53,7 +53,7 @@
 
 **Phases 14–16 — account encoding and Merkle proofs (merged).** These are account-only research prototypes. The 38-byte account codec and SHA-256 Merkle root cover only AccountId(u64), nonce(u64) and balance(u128), not the complete EVM state model.
 
-The workspace also contains transaction admission/planning and a separate redb persistence prototype for the historical narrow state model. Neither database adapter is a production selection. There is no integrated BFT engine, validator networking, APEX commit-certificate verification, block production or finality.
+The workspace also contains transaction admission/planning and a separate redb persistence prototype for the historical narrow state model. Neither database adapter is a production selection. There is no integrated BFT engine, validator networking, application-gated finality, block production or production finality. Certificate verification exists only as an isolated experimental primitive.
 
 ## Production release status
 
@@ -69,8 +69,11 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
-    │   │   ├── src/consensus_message.rs     # Experimental domain-separated signing preimage\n    │   │   ├── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
-    │   │   └── src/validator_set.rs        # Deterministic validator-set/lifecycle primitives
+    │   │   ├── src/consensus_message.rs     # Experimental domain-separated signing preimage
+    │   │   ├── src/certificate.rs           # Experimental Ed25519 commit-certificate verifier
+    │   │   ├── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
+    │   │   ├── src/validator_set.rs         # Deterministic validator-set/lifecycle primitives
+    │   │   └── src/lib.rs
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
@@ -89,7 +92,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── malachite-spike/          # Pinned Malachite API + typed EngineBuilder adapter
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0045
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0047
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/

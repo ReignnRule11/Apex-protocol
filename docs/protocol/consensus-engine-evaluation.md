@@ -109,3 +109,26 @@ This is an API integration boundary, not a running engine. No engine actors are 
 
 The next step is a real, isolated multi-validator runtime using APEX-owned application validation and signer reservations, with independently provisioned test identities, process-level network fault injection, restart/recovery tests and certificate-to-application commit assertions. Only after that evidence should dependency promotion or production workspace integration be considered.
 \n\n## Phase 20G2A — canonical consensus signing preimage\n\nThe apex-consensus::consensus_message module defines a fixed-width big-endian signing preimage with a dedicated APEX-CONSENSUS-MSG-V1 domain tag and encoding version. It binds chain ID, protocol version, height, round, consensus step, signer identity, validator-set hash and block hash. A zero block hash is accepted for nil prevote/precommit messages but rejected for proposals. Tests cover fixed width, domain separation, step/block binding, nil semantics and zero-context rejection.\n\nThis is not a signature implementation or certificate verifier. The profile is experimental and not ratified; no cryptographic suite or public-key identity mapping is selected. A real signature backend and strict certificate verifier are required before a Malachite runtime can rely on these bytes.\n
+
+## Phase 20G2B — authenticated consensus signatures and commit certificates
+
+The APEX consensus crate now pins ed25519-dalek 3.0.0 exactly (default features disabled; fast and zeroize enabled) and SHA-256 0.11.0 under a separate workspace alias, preserving existing SHA-256 0.10.9 consumers. Validator IDs are derived from a domain-separated hash of an algorithm-tagged canonical Ed25519 public key. An authenticated validator set requires a one-to-one mapping from the existing voting-power set to valid public keys and computes a canonical hash over sorted validator IDs, powers and public keys. An exact-height authenticated schedule selects the active set.
+
+The experimental precommit certificate verifier reconstructs each signer's Phase 20G2A preimage, verifies signatures with Ed25519 strict verification, rejects invalid/weak keys, unknown or duplicate signers, mismatched chain/protocol/height/set context and nil blocks, and requires strictly greater than two-thirds of the scheduled voting power. Tests use deterministic test-only private keys and verify real signatures, quorum failure, altered context, tampering, duplicate and unknown signers, and schedule activation.
+
+This closes the earlier gap where signer identities and quorum inputs were caller-supplied without cryptographic authentication. It does not authenticate the source or governance authorization of validator-set schedules, provide canonical wire decoding or resource limits before object construction, connect to the Malachite runtime, integrate durable signer reservations or gate application commits. The verifier is a primitive, not evidence of integrated BFT safety/liveness or APEX finality. No production key may be used.
+
+### Updated ordered Phase 20 gates
+
+7. **20G2A — canonical signing preimage:** merged; post-merge main CI passed.
+8. **20G2B — authenticated certificate primitive:** implementation submitted; exact-head CI pending.
+9. **20G2C — actual isolated Malachite runtime:** integrate authenticated APEX messages, durable signer reservations, certificate verification and application commit gating; then test multiple independent processes, restart/recovery and adversarial network conditions.
+
+
+## Phase 20G2B — authenticated consensus signatures and commit certificates
+
+The APEX consensus crate now pins ed25519-dalek 3.0.0 exactly (default features disabled; fast and zeroize enabled) and SHA-256 0.11.0 under a separate workspace alias, preserving existing SHA-256 0.10.9 consumers. Validator IDs are derived from a domain-separated hash of an algorithm-tagged canonical Ed25519 public key. An authenticated validator set requires a one-to-one mapping from the existing voting-power set to valid public keys and computes a canonical hash over sorted validator IDs, powers and public keys. An exact-height authenticated schedule selects the active set.
+
+The experimental precommit certificate verifier reconstructs each signer's Phase 20G2A preimage, verifies signatures with Ed25519 strict verification, rejects invalid/weak keys, unknown or duplicate signers, mismatched expected chain/protocol/height/round/block/set context and nil blocks, and requires strictly greater than two-thirds of the scheduled voting power. Tests use deterministic test-only private keys and verify real signatures, quorum failure, altered context, tampering, duplicate and unknown signers, and schedule activation.
+
+This closes the earlier gap where signer identities and quorum inputs were caller-supplied without cryptographic authentication. It does not authenticate the source or governance authorization of validator-set schedules, provide canonical wire decoding or resource limits before object construction, connect to the Malachite runtime, integrate durable signer reservations or gate application commits. The verifier is a primitive, not evidence of integrated BFT safety/liveness or APEX finality. No production key may be used.
