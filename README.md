@@ -59,6 +59,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
+    │   │   └── src/application_boundary.rs  # Engine-neutral proposal/finality handoff
     │   ├── apex-evm/
     │   │   ├── execution_context.rs
     │   │   ├── revm_environment.rs
@@ -74,7 +75,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     ├── experiments/
     │   └── malachite-spike/          # Separate Cargo workspace; research only
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0040
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0041
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
