@@ -15,27 +15,19 @@
 
 ## Current engineering status
 
-**Phase 19A — revm compatibility spike (merged).** Exact revm 43.0.3 is pinned with default features disabled and std enabled explicitly. Rust 1.90.0 incompatibility was reproduced; workspace metadata, toolchain and CI were aligned to Rust 1.91.0. PR #21 and post-merge CI passed.
+**Phase 19A–19B — revm compatibility and harness (merged).** revm 43.0.3 is pinned with default features disabled and std enabled explicitly under Rust 1.91.0. The test-only harness deploys and calls a contract in an in-memory database and verifies a storage value.
 
-**Phase 19B — minimal EVM execution harness (merged).** A test-only fixture deploys a contract into revm's in-memory database, commits creation, calls it and verifies a storage value. PR #22 and post-merge CI passed.
+**Phase 19C–19E — full-width EVM state adapters (merged).** Adds 20-byte addresses, 256-bit balance/storage words, immutable bounded snapshots, a read-only revm Database adapter, deterministic state-diff extraction and atomic in-memory delta application.
 
-**Phase 19C — full-width EVM state model (merged).** Adds 20-byte addresses, 256-bit words for balances/storage, bytecode references and bounded immutable snapshots. PR #23 and post-merge CI passed.
+**Phase 19F–19H — persistent EVM state prototype and selected recovery tests (merged).** Adds a separate `apex-evm-redb` crate with versioned account/code/storage/block-hash records and atomic current-version publication. Controlled tests cover selected reopen corruption and commit-ambiguity cases. This remains a single-process/single-writer prototype, not production durability.
 
-**Phase 19D — revm database adapter (merged).** Implements revm 43.0.3 Database over the immutable snapshot, preserving full-width values and failing closed on missing or malformed code. It is read-only. PR #24 and post-merge CI passed.
+**Phase 19I–19J — state-diff and outcome gating (merged).** revm state changes are translated to deterministic parent-version-bound deltas; revert and halt outcomes are rejected by the success-gated extraction API. This is not a complete authenticated transaction pipeline.
 
-**Phase 19E — atomic full-width EVM state deltas (merged).** Adds parent-version-bound before/after account, code and storage updates with strict ordering checks and all-or-nothing in-memory snapshot replacement. PR #25 and post-merge CI passed.
+**Phase 19K — explicit APEX block context (merged).** Adds immutable block inputs and a validated fork activation schedule. It does not authenticate source blocks or ratify a fork.
 
-**Phase 19F — persistent full-width EVM state prototype (merged).** PR #26 adds a separate `apex-evm-redb` crate. It stores full-width account, code, storage and block-hash records under versioned keys; one redb transaction writes the new snapshot and advances the current-version pointer. Historical versions are retained. PR CI #42388264492 and post-merge CI #42388315877 passed. This remains a single-process/single-writer prototype, with no garbage collection, canonical state encoding, state root or cross-subsystem consensus commit.
+**Phase 19L — explicit revm environment mapping (in progress).** Requires an explicit matching APEX ForkId/revm SpecId binding; maps block context into revm 43.0.3 CfgEnv/BlockEnv; rejects chain-ID/base-fee values that would be truncated and unsupported fork profiles. The first adapter supports only post-Merge/pre-Cancun profiles and uses revm's mainnet gas table provisionally, not as ratified APEX gas policy.
 
-**Phase 19G — persistent-state corruption and recovery validation (merged).** PR #28 merged at `c653b073e446620b5f6ede38c7d41c7bde2c72dd`; PR CI #42389694673 and post-merge CI #42389851008 passed. Adds controlled reopen-corruption tests for incomplete metadata, unsupported schema versions and malformed current-version account records.
-
-**Phase 19H — commit ambiguity and orphaned-version recovery tests (merged).** PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`; PR CI #42390234287 and post-merge CI #42390288716 passed. Adds test-only pre-commit failure, lost-acknowledgement-after-commit and orphaned-future-version tests. These validate reopen reconciliation semantics but do not simulate OS crash, power loss or device I/O faults.
-
-**Phase 19I — revm state-diff extraction (merged).** PR #31 merged at `1682c0d81502c4d5905f9f97c466af8e71383519`; PR CI #42391544055 and post-merge CI #42391594192 passed. The adapter converts revm `EvmState` into deterministic, parent-version-bound APEX account/code/storage deltas, validates bytecode hashes and storage originals, and rejects fork-sensitive account deletion. Adds `crates/apex-evm/src/state_diff.rs`, which converts revm `EvmState` into deterministic APEX account/code/storage deltas bound to the exact parent `StateVersion`. It checks supplied bytecode hashes and collisions, validates revm original storage values against the parent, and leaves publication to the existing atomic apply boundary. Selfdestruct/account deletion fails closed until fork-specific semantics are ratified. Tests exercise constructed revm state values; they are not official execution fixtures or a complete transaction-to-state integration. The caller must pass only successful execution state; the API does not yet accept a success-gated transaction result type.
-
-**Phase 19J — success-gated revm outcomes (PR #32; CI #42391906701 passed, review pending).** Adds `extract_successful_revm_result_delta` over revm's paired result/state value. Only `ExecutionResult::Success` is eligible for extraction; `Revert` and `Halt` are rejected before state translation. This does not authenticate the transaction or settle fees.
-
-**Phase 19 — remaining work.** Explicit validated block context, fork selection/activation, canonical transaction authentication, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
+**Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
 **Phase 18 — cryptographic identity and transaction authentication (in progress).** Adds ChainId256 as a 32-byte big-endian in-memory primitive and proposes EIP-2718 type 0x02 (EIP-1559) as the initial transaction profile. No numeric chain ID, canonical RLP decoder or signature verifier is implemented.
 
@@ -43,15 +35,13 @@
 
 **Phases 14–16 — account encoding and Merkle proofs (merged).** These are account-only research prototypes. The 38-byte account codec and SHA-256 Merkle root cover only AccountId(u64), nonce(u64) and balance(u128), not the complete EVM state model.
 
-The workspace also contains transaction admission/planning and a redb persistence prototype for the historical narrow state model. That crate is separate from `apex-evm-redb`; neither adapter is a production database selection. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
-
-The workspace and CI are pinned to Rust 1.91.0, the minimum declared by the selected revm candidate graph. No EVM fork has been ratified.
+The workspace also contains transaction admission/planning and a separate redb persistence prototype for the historical narrow state model. Neither database adapter is a production selection. There is no production BFT engine, validator networking, commit-certificate verification, block production or finality.
 
 ## Production release status
 
 **NO-GO — not production-ready.**
 
-The production-readiness register defines G0–G7 and Phases 17–26: docs/operations/production-readiness.md. A green CI run validates only the code in that run; it is not protocol assurance or a security audit.
+The production-readiness register defines G0–G7 and Phases 17–26: `docs/operations/production-readiness.md`. A green CI run validates only the code in that run; it is not protocol assurance or a security audit.
 
 ## Repository structure
 
@@ -61,14 +51,18 @@ The production-readiness register defines G0–G7 and Phases 17–26: docs/opera
     │   ├── apex-codec/
     │   ├── apex-commitments/
     │   ├── apex-consensus/
-    │   ├── apex-evm/                    # revm candidate, harness, full-width state, state-diff adapter and adapters
-    │   ├── apex-evm-redb/               # versioned full-width EVM persistence prototype
-    │   ├── apex-state/                  # legacy AccountId/u128 state prototype
-    │   ├── apex-state-redb/             # persistence prototype for legacy state only
+    │   ├── apex-evm/
+    │   │   ├── execution_context.rs
+    │   │   ├── revm_environment.rs
+    │   │   ├── state_diff.rs
+    │   │   └── lib.rs
+    │   ├── apex-evm-redb/
+    │   ├── apex-state/
+    │   ├── apex-state-redb/
     │   ├── apex-node/                   # Placeholder CLI; not a running node
-    │   └── apex-types/                  # ChainId256 primitive; legacy ChainId is prototype-only
+    │   └── apex-types/
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0035
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0036
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/

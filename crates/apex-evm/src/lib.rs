@@ -4,6 +4,7 @@
 //! not yet wired to revm's Database trait or a persistent protocol state backend.
 
 pub mod execution_context;
+pub mod revm_environment;
 pub mod state_diff;
 
 use std::collections::BTreeMap;

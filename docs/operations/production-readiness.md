@@ -8,28 +8,28 @@ This document is the authoritative engineering release register. A green CI run 
 
 APEX remains a research-stage Layer-1. Phases 0–17 provide Rust infrastructure and bounded account/storage prototypes plus a protocol v0.2 completeness draft; they do not constitute a functioning blockchain. Phase 18 adds a 256-bit chain-ID value type and proposes a type-2 EIP-1559 transaction profile; no numeric chain ID, canonical transaction decoder or signature verification is implemented.
 
-Phase 19A pins revm 43.0.3 and Rust 1.91.0. Phase 19B contains a passing minimal test-only execution harness. Phase 19C adds a full-width immutable EVM state model. Phase 19D implements the revm Database read adapter. Phase 19E adds atomic in-memory full-width delta application. Phase 19F merges a separate full-width redb persistence prototype with versioned records and atomic current-version publication (PR #26; post-merge CI #42388315877 passed). Phase 19G adds controlled reopen-corruption tests (PR #28; PR CI #42389694673 and post-merge CI #42389851008 passed). Phase 19H (PR #29) adds test-only commit-boundary failure injection and orphaned-version recovery tests; PR CI #42390234287 and post-merge main CI #42390288716 passed. These remain adapter-level tests, not real OS/device fault simulations. The redb adapter is not a production storage selection and has no state-root/consensus commit integration.
+Phase 19A pins revm 43.0.3 and Rust 1.91.0. Phase 19B contains a minimal test-only execution harness. Phases 19C–19E add a full-width EVM state model, revm Database read adapter and atomic in-memory delta application. Phase 19F adds a separate full-width redb persistence prototype. Phases 19G–19H add selected reopen-corruption and commit-ambiguity tests, not real OS/device fault simulations. Phase 19I adds revm state-diff extraction; 19J gates extraction on successful execution outcomes; 19K adds the explicit APEX block-context model; 19L adds a bounded, explicit mapping into revm 43.0.3 configuration and block fields. The Phase 19L adapter rejects unsupported fork profiles and any 256-bit chain ID/base fee that would be truncated to revm's u64 fields. Its Ethereum mainnet gas table is provisional, not ratified APEX policy.
 
 Critical systems not implemented or production-selected:
 - Ratified full protocol specification and complete state model.
 - Production chain identity/allocation and canonical transaction/block/receipt codecs.
 - Authenticated transaction envelopes, chain-bound signatures, canonical transaction IDs and replay protection.
-- Deterministic EVM execution, gas, receipts, fee settlement and full state commitment.
-- Full transaction-to-application integration. Phases 19I–19J add state-diff extraction and success-gated outcome handling; Phase 19K adds an explicit context/schedule data model. These do not establish end-to-end execution correctness or a revm environment adapter.
+- Complete deterministic EVM transaction pipeline, gas/fee settlement, receipts and full state commitment.
+- Authenticated block/genesis validation feeding the execution context and ratified APEX fork/gas/precompile semantics.
+- Full transaction-to-persistent-state integration and atomic consensus/signer/application commit.
 - Production BFT consensus, authenticated certificates, validator transitions and finality.
 - Authenticated P2P networking, transaction pool, block production and sync.
-- Atomic coordination of consensus, signer anti-double-sign state, block metadata and application state.
-- RPC, genesis tooling, upgrades, observability, operator runbooks and independent audits.
+- RPC, genesis tooling, upgrades, operator runbooks, observability and independent audits.
 
 ## 2. Release gates
 
 | Gate | Required evidence | Current status |
 |---|---|---|
-| G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 chain-ID/envelope proposals pending ratification |
-| G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED — execution harness, immutable full-width model, revm Database adapter, in-memory delta application and a persistent storage prototype exist; no authenticated execution pipeline, fee settlement, receipts or complete root |
+| G0 — Protocol freeze | Ratified protocol versioning, full state model, signing domains, canonical transaction/block formats, numerical monetary/validator parameters, upgrade rules and cross-language vectors | BLOCKED — v0.2 draft; Phase 18 chain-ID/envelope and Phase 19 fork/gas mappings remain proposals |
+| G1 — Deterministic application | Authenticated transactions, canonical IDs, complete execution, gas/fees/receipts, deterministic replay and full state commitment | BLOCKED — staged revm adapters exist; no authenticated full transaction pipeline, fee settlement, receipts or complete root |
 | G2 — Consensus correctness | Pinned engine, authenticated votes/certificates, validator transitions, anti-double-sign, restart recovery and safety/liveness evidence | BLOCKED |
 | G3 — Network correctness | Versioned P2P, bounded parsing, DoS controls, partitions/recovery and multi-node integration | BLOCKED |
-| G4 — Durable operation | Atomic cross-subsystem commits, crash/power-loss testing, migrations, backup/restore, state sync and rollback | BLOCKED — Phase 19F is a single-process storage prototype, not end-to-end durable operation |
+| G4 — Durable operation | Atomic cross-subsystem commits, crash/power-loss testing, migrations, backup/restore, state sync and rollback | BLOCKED — storage adapters remain prototypes |
 | G5 — Security assurance | Threat model closure, fuzzing, property tests, fault injection, dependency review, independent audits and remediation | BLOCKED |
 | G6 — Public testnet | Reproducible binaries, public genesis, independent validators, observability, incident drills and sustained soak evidence | NOT STARTED |
 | G7 — Mainnet authorization | All prior gates, economic/legal/governance review, independent sign-off and explicit go/no-go | NOT STARTED |
@@ -40,10 +40,10 @@ Critical systems not implemented or production-selected:
 Merged draft specification v0.2, state-domain model and unresolved decision register. G0 remains blocked until ratification and evidence.
 
 ### Phase 18 — Cryptographic identity and transaction authentication
-In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Review the secp256k1/EVM transaction-authentication proposal; settle chain-ID representation and canonical envelope before implementing verification. Consensus signature selection remains dependent on the selected BFT engine. No production signature code is claimed.
+In progress. Separate EVM transaction, consensus signer and P2P peer identity roles. Chain ID and type-2 envelope proposals are not ratified; no production signature verification is implemented.
 
 ### Phase 19 — Deterministic execution and fee accounting
-In progress. revm 43.0.3 is pinned under Rust 1.91.0. The execution harness, full-width state model, revm Database adapter, atomic in-memory state-delta prototype and versioned full-width redb persistence prototype are merged in staged phases. Phases 19G–19H add selected corruption, commit-ambiguity and orphaned-version recovery tests; they do not prove real power-loss durability. Phase 19I adds the revm state-diff adapter (merged; post-merge CI #42391594192 passed). Phase 19J adds success-gated result/state extraction (merged; PR CI #42391999271 and post-merge CI #42392059115 passed). Phase 19K adds a validated APEX-owned execution context and configurable fork activation schedule (PR #33; CI pending). It does not yet map that context into revm or ratify a fork. Remaining work includes fork semantics/activation ratification, revm environment construction, canonical type-2 authentication, exact fee settlement, receipts, full commitments, official fixtures and differential tests. See Phase 19A–19K and ADR-0024–0035.
+In progress. revm 43.0.3 is pinned under Rust 1.91.0. Phases 19A–19L progressively add the harness, full-width state model, Database/state-diff adapters, in-memory/persistent state prototypes, success gating, explicit block context and a bounded revm environment mapping. Phase 19L is not a full execution pipeline: the chain-ID/base-fee u64 boundary, fork semantics, blob inputs, authenticated transactions, fee settlement, receipts and complete commitments remain unresolved. See Phase 19 plan, phase records 19K/19L and ADR-0035/0036.
 
 ### Phase 20 — Consensus engine integration
 Select pinned BFT revision; implement authenticated proposals/votes/certificates, validator changes, evidence, durable anti-double-sign and multi-node Byzantine/recovery tests.
@@ -78,4 +78,4 @@ Require all previous gates, legal/license clearance, economic disclosures, gover
 
 ## 5. Current decision
 
-**NO-GO.** Protocol v0.2 is a review draft and Phase 18 contains proposals. G0 remains BLOCKED. No numeric chain ID, transaction codec, BFT signature algorithm or production key lifecycle is ratified by this work.
+**NO-GO.** Protocol v0.2 is a review draft and Phase 18/19 contain proposals and adapters, not a ratified production protocol. No numeric chain ID, transaction codec, BFT signature algorithm, APEX EVM fork/gas policy or production key lifecycle is ratified.
