@@ -66,7 +66,7 @@ The pinned Malachite v0.8.2 API audit is recorded in `docs/protocol/phase-20g2c1
 
 ## Phase 20G2C8 — cross-subsystem recovery protocol design (proposed for review)
 
-Defines a fail-closed recovery authority model across the Malachite consensus WAL, signer reservation journal, APEX finality journal and materialized application state. Specifies commit ordering, a startup recovery lock, replay/reconciliation rules, a decision matrix and validation requirements. This is a design-only phase: it does not assume the pinned Malachite WAL exposes the required inspection/replay evidence, does not integrate stores or enable validators, and does not establish cross-database atomicity or anti-rollback protection. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c8-cross-subsystem-recovery-protocol.md` and ADR-0055.
+Defines a proposed fail-closed recovery authority model across the Malachite consensus WAL, signer reservation journal, APEX finality journal and materialized application state. It refines ADR-0052's callback contract, which remains active until explicitly superseded by a reviewed integration decision. Specifies commit ordering, a startup recovery lock, replay/reconciliation rules, a decision matrix and validation requirements. This is a design-only phase: it does not assume the pinned Malachite WAL exposes the required inspection/replay evidence, does not integrate stores or enable validators, and does not establish cross-database atomicity or anti-rollback protection. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c8-cross-subsystem-recovery-protocol.md` and ADR-0055.
 
 ## Production release status
 

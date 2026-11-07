@@ -18,6 +18,8 @@ The protocol must prevent signing or consensus advancement until durable evidenc
 
 ## Authority model
 
+This is a proposed refinement of the earlier `FinalityApplication::commit_finalized` contract in ADR-0052, which requires application state and the commit key to be persisted atomically. ADR-0052 remains the active callback contract until a reviewed integration decision explicitly supersedes it. This phase proposes making the finality journal authoritative and the application database a rebuildable projection; no implementation may silently assume that this change has already been adopted.
+
 | Domain | Authority | Permitted recovery behavior |
 |---|---|---|
 | Consensus WAL | Evidence of engine-persisted consensus protocol state and replay position; not an application-state authority | Replay only through a version-pinned, inspectable adapter. A missing, unreadable or incompatible WAL is a startup blocker. |
