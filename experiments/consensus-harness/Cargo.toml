@@ -1,0 +1,10 @@
+[workspace]
+members = ["."]
+resolver = "2"
+
+[package]
+name = "apex-consensus-harness"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91.0"
+publish = false

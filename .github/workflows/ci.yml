@@ -103,3 +103,24 @@ jobs:
             --exclude arc-malachitebft-test \
             --exclude arc-malachitebft-test-mbt \
             --exclude arc-malachitebft-discovery-test
+
+  consensus-process-harness:
+    name: Four-process adversarial harness
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experiments/consensus-harness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.91.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: experiments/consensus-harness -> target
+      - name: Format isolated harness
+        run: cargo fmt --all -- --check
+      - name: Clippy isolated harness
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run multi-process fault-injection tests
+        run: cargo test --workspace --all-targets

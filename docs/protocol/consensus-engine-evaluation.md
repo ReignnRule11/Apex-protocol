@@ -57,7 +57,7 @@ The isolated dependency is deliberately limited to the channel application facad
 
 PR #39 merged as `e7fd62b4646e3b022113f452175c1e00df2ad5ce`. The exact-head PR workflow and post-merge `main` workflow passed. The engine-neutral boundary checks proposal linkage, delegates deterministic validation, requires exact-identity finality verification and gates application commit. It remains an orchestration interface, not a production verifier or atomic commit protocol.
 
-## Phase 20D durable signer safety (implementation submitted)
+## Phase 20D durable signer safety (merged)
 
 The new `apex-signer-safety` and `apex-signer-redb` crates persist exact-message reservations under a complete signing coordinate. A first reservation is committed before success is returned; an exact retry is idempotent; conflicting bytes are rejected. No signature algorithm, canonical consensus codec, key format or engine signing adapter is selected. Backup rollback and multi-process signing remain blockers. See the Phase 20D record and ADR-0042.
 
@@ -65,11 +65,17 @@ The new `apex-signer-safety` and `apex-signer-redb` crates persist exact-message
 
 PR #40 is merged at `8a672599ea2a96abe2404b58afc997c2a6e42544`; post-merge `main` CI run #42404106956 passed all three jobs (workspace checks, isolated Malachite API spike and pinned upstream unit suite). The durable reservation prototype and its limitations are recorded in the Phase 20D document and ADR-0042.
 
-## Phase 20E validator-set lifecycle primitives (implementation submitted)
+## Phase 20E validator-set lifecycle primitives (merged; PR #41 and post-merge CI passed)
 
 The new `apex-consensus::validator_set` module sorts validator entries by fixed-width opaque identity, rejects empty sets, all-zero identities, zero voting power and duplicate identities, and uses checked `u64` total-power arithmetic. Quorum accounting rejects duplicate/unknown supplied signer identities and requires strictly more than two-thirds of total power. A schedule applies each replacement set at its exact declared activation height and rejects zero/non-increasing activation heights. `EquivocationClaim` is only a typed envelope requiring two distinct caller-supplied digests; it does not prove either message was signed or authenticate the evidence.
 
 No canonical validator-set hash/codec, authenticated governance/update path, signature algorithm, commit-certificate verifier, slashing policy or production finality is implemented. Activation schedule data is a local deterministic model, not a protocol ratification.
+
+## Phase 20F multi-process adversarial harness (baseline implementation submitted)
+
+The isolated workspace at `experiments/consensus-harness` launches four independent OS worker processes. Each process owns a separate append-only journal and exposes a bounded line command interface. The integration tests inject deterministic delivery schedules: a partitioned worker misses messages; reordered and delayed records are rejected until gaps are filled; dropped delivery is repaired on replay; conflicting content at an accepted sequence is rejected; a process restart reloads its journal; a replacement process catches up by replay; and repeated runs produce byte-identical journals. The worker rejects oversized payloads and caps journal record count.
+
+This is intentionally a process/fault-injection fixture for the harness protocol, not a consensus implementation. It does not run Malachite, authenticate votes, sign messages, validate commit certificates, implement quorum agreement, use network sockets, model Byzantine message forgery, or establish BFT safety/liveness. A process-local journal is not a production WAL, and test replay is not authenticated state sync. CI runs isolated formatting, Clippy and integration tests. See `docs/protocol/phase-20f-multiprocess-adversarial-harness.md` and ADR-0044.
 
 ## Ordered Phase 20 gates
 
