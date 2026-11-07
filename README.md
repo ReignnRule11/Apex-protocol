@@ -39,7 +39,9 @@
 
 **Phase 20D — durable consensus signer safety (merged; post-merge CI passed).** Adds typed signing coordinates, exact-message reservations and a redb journal that commits before returning a reservation. It does not select a signature suite, hold keys, sign messages, prevent backup rollback or authorize validator operation. See `docs/protocol/phase-20d-durable-signer-safety.md` and ADR-0042.
 
-**Phase 20E — validator-set lifecycle primitives (implementation submitted).** Adds deterministic validator-set ordering, identity/power validation, checked aggregate power, strict greater-than-two-thirds quorum accounting over unique supplied signer identities, exact-height schedule selection, and a typed equivocation-claim envelope. It does not authenticate validator updates, verify signatures/certificates, slash validators, or establish finality. See `docs/protocol/phase-20e-validator-lifecycle.md` and ADR-0043.
+**Phase 20E — validator-set lifecycle primitives (merged; post-merge CI passed).** Adds deterministic validator-set ordering, identity/power validation, checked aggregate power, strict greater-than-two-thirds quorum accounting over unique supplied signer identities, exact-height schedule selection, and a typed equivocation-claim envelope. It does not authenticate validator updates, verify signatures/certificates, slash validators, or establish finality. See `docs/protocol/phase-20e-validator-lifecycle.md` and ADR-0043.
+
+**Phase 20F — multi-process adversarial harness (implementation submitted).** Adds an isolated, std-only process harness with four independent OS worker processes and append-only per-process journals. Deterministic tests inject partition, dropped/delayed/reordered delivery, conflicting writes, process restart, replacement-node replay, deterministic replay and payload bounds. This is a replicated-log fault-injection fixture, not a BFT engine, authenticated network, validator implementation or finality test. See `docs/protocol/phase-20f-multiprocess-adversarial-harness.md` and ADR-0044.
 
 **Phase 19 — remaining work.** Ratified fork/gas/precompile semantics, full-width chain ID/base-fee compatibility, blob context, authenticated type-2 transactions, fee settlement, receipts, complete state commitments, official execution fixtures and differential testing remain outstanding.
 
@@ -82,9 +84,10 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   ├── apex-node/                   # Placeholder CLI; not a running node
     │   └── apex-types/
     ├── experiments/
-    │   └── malachite-spike/          # Separate Cargo workspace; research only
+    │   ├── malachite-spike/          # Separate Cargo workspace; research only
+    │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0043
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0044
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
