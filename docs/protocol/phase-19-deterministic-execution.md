@@ -41,8 +41,8 @@ The adapter uses redb's default exclusive file lock and Immediate durability. It
 ## Phase 19G — persistent-state corruption and recovery validation (merged)
 PR #28 merged at `c653b073e446620b5f6ede38c7d41c7bde2c72dd`. PR CI #42389694673 and post-merge main CI #42389851008 passed Format, Clippy and the full workspace tests. It adds controlled reopen-corruption tests for incomplete metadata, unsupported schema versions and malformed current-version account records. These are not actual crash/power-loss or I/O fault simulations. See `phase-19g-storage-corruption-recovery.md` and ADR-0031.
 
-## Phase 19H — commit ambiguity and orphaned-version recovery tests
-Adds test-only fault injection at the durable commit boundary. It covers a pre-commit failure (transaction dropped, old version retained), a committed transaction whose acknowledgement is simulated as lost (store latches; reopen discovers the advanced version; replay is rejected), and orphaned future-version records (not selected without the metadata pointer). These tests validate the adapter's reconciliation contract; they do not simulate OS/device faults or prove redb's power-loss behavior. See `phase-19h-commit-recovery.md` and ADR-0032.
+## Phase 19H — commit ambiguity and orphaned-version recovery tests (merged)
+PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`. PR CI #42390234287 and post-merge main CI #42390288716 passed Format, Clippy and the full workspace tests. It adds test-only fault injection at the durable commit boundary: a pre-commit failure (transaction dropped, old version retained), a committed transaction whose acknowledgement is simulated as lost (store latches; reopen discovers the advanced version; replay is rejected), and orphaned future-version records (not selected without the metadata pointer). These tests validate the adapter's reconciliation contract; they do not simulate OS/device faults or prove redb's power-loss behavior. See `phase-19h-commit-recovery.md` and ADR-0032.
 
 ## Required next work
 

@@ -29,7 +29,7 @@
 
 **Phase 19G — persistent-state corruption and recovery validation (merged).** PR #28 merged at `c653b073e446620b5f6ede38c7d41c7bde2c72dd`; PR CI #42389694673 and post-merge CI #42389851008 passed. Adds controlled reopen-corruption tests for incomplete metadata, unsupported schema versions and malformed current-version account records.
 
-**Phase 19H — commit ambiguity and orphaned-version recovery tests (implementation submitted).** Adds test-only pre-commit failure, lost-acknowledgement-after-commit and orphaned-future-version tests. These validate reopen reconciliation semantics but do not simulate OS crash, power loss or device I/O faults.
+**Phase 19H — commit ambiguity and orphaned-version recovery tests (merged).** PR #29 merged at `5062fafeab885ec0b603bd8f9784d3d80e6ea129`; PR CI #42390234287 and post-merge CI #42390288716 passed. Adds test-only pre-commit failure, lost-acknowledgement-after-commit and orphaned-future-version tests. These validate reopen reconciliation semantics but do not simulate OS crash, power loss or device I/O faults.
 
 **Phase 19 — deterministic EVM execution (in progress).** Actual revm state-diff extraction, explicit fork/block context, canonical transaction authentication, fee settlement, receipts and complete state commitments remain unimplemented.
 
