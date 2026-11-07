@@ -292,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_wrong_chain() {
+    fn rejects_transaction_wrong_chain() {
         let mut tx = admission_tx();
         tx.chain_id = ChainId(8);
         assert_eq!(
