@@ -52,7 +52,10 @@ Apex-protocol/
 │   │       ├── ADR-0004-consensus-engine.md
 │   │       ├── ADR-0005-canonical-encoding.md
 │   │       ├── ADR-0006-cryptographic-domains.md
-│   │       └── ADR-0007-transaction-admission.md
+│   │       ├── ADR-0007-transaction-admission.md
+│   │       ├── ADR-0008-state-aware-admission.md
+│   │       ├── ADR-0009-transition-planning.md
+│   │       └── ADR-0010-block-transition-planning.md
 │   ├── protocol/
 │   │   ├── bitcoin-anchoring.md
 │   │   ├── consensus-adapter-contract.md
