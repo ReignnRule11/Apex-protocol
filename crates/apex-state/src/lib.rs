@@ -62,7 +62,10 @@ pub fn plan_versioned_block_transition(
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
 pub enum StateStoreError {
     #[error("plan parent version is stale: expected {expected:?}, current {actual:?}")]
-    StaleVersion {\n        expected: StateVersion,\n        actual: StateVersion,\n    },
+    StaleVersion {
+        expected: StateVersion,
+        actual: StateVersion,
+    },
     #[error("planned before-state does not match account {0:?}")]
     BeforeStateMismatch(AccountId),
     #[error("account updates must be strictly increasing and unique by AccountId")]
@@ -76,7 +79,10 @@ pub enum StateStoreError {
 /// account update and the next version atomically, or publish nothing.
 pub trait StateStore {
     fn snapshot(&self) -> VersionedStateSnapshot;
-    fn apply(\n        &mut self,\n        plan: &VersionedBlockTransitionPlan,\n    ) -> Result<StateVersion, StateStoreError>;
+    fn apply(
+        &mut self,
+        plan: &VersionedBlockTransitionPlan,
+    ) -> Result<StateVersion, StateStoreError>;
 }
 
 /// Process-local reference adapter. Not durable, crash-safe, or multi-process.
@@ -97,7 +103,10 @@ impl StateStore for InMemoryStateStore {
         VersionedStateSnapshot::new(self.version, self.accounts.clone())
     }
 
-    fn apply(\n        &mut self,\n        plan: &VersionedBlockTransitionPlan,\n    ) -> Result<StateVersion, StateStoreError> {
+    fn apply(
+        &mut self,
+        plan: &VersionedBlockTransitionPlan,
+    ) -> Result<StateVersion, StateStoreError> {
         if plan.parent_version != self.version {
             return Err(StateStoreError::StaleVersion {
                 expected: plan.parent_version,
@@ -106,7 +115,10 @@ impl StateStore for InMemoryStateStore {
         }
 
         let next_version = StateVersion(
-            self.version\n                .0\n                .checked_add(1)\n                .ok_or(StateStoreError::VersionOverflow)?,
+            self.version
+                .0
+                .checked_add(1)
+                .ok_or(StateStoreError::VersionOverflow)?,
         );
 
         let mut previous = None;
@@ -115,7 +127,10 @@ impl StateStore for InMemoryStateStore {
                 return Err(StateStoreError::DuplicateOrUnorderedAccountUpdate);
             }
             previous = Some(update.account);
-            let current = self\n                .accounts\n                .get(&update.account)\n                .copied()
+            let current = self
+                .accounts
+                .get(&update.account)
+                .copied()
                 .ok_or(StateStoreError::BeforeStateMismatch(update.account))?;
             if current != update.before {
                 return Err(StateStoreError::BeforeStateMismatch(update.account));
@@ -167,7 +182,11 @@ mod tests {
     }
 
     fn context() -> AdmissionContext {
-        AdmissionContext {\n            chain_id: ChainId(7),\n            protocol_version: 1,\n            block_gas_limit: 100_000,\n        }
+        AdmissionContext {
+            chain_id: ChainId(7),
+            protocol_version: 1,
+            block_gas_limit: 100_000,
+        }
     }
 
     fn txs() -> [BlockTransaction; 2] {
@@ -207,7 +226,13 @@ mod tests {
         let mut s = store();
         assert_eq!(s.apply(&planned(&s)), Ok(StateVersion(13)));
         let after = s.snapshot();
-        assert_eq!(\n            after.account(AccountId(1)).unwrap(),\n            AccountState {\n                nonce: 2,\n                balance: 957_700\n            }\n        );
+        assert_eq!(
+            after.account(AccountId(1)).unwrap(),
+            AccountState {
+                nonce: 2,
+                balance: 957_700
+            }
+        );
         assert_eq!(after.account(AccountId(2)).unwrap().balance, 600);
         assert_eq!(after.account(AccountId(3)).unwrap().balance, 900);
     }
@@ -234,7 +259,10 @@ mod tests {
         let mut p = planned(&s);
         p.transition.account_updates[1].before.balance += 1;
         let before = s.snapshot();
-        assert_eq!(\n            s.apply(&p),\n            Err(StateStoreError::BeforeStateMismatch(AccountId(2)))\n        );
+        assert_eq!(
+            s.apply(&p),
+            Err(StateStoreError::BeforeStateMismatch(AccountId(2)))
+        );
         assert_eq!(s.snapshot(), before);
     }
 
@@ -244,7 +272,10 @@ mod tests {
         let mut p = planned(&s);
         p.transition.account_updates.swap(0, 1);
         let before = s.snapshot();
-        assert_eq!(\n            s.apply(&p),\n            Err(StateStoreError::DuplicateOrUnorderedAccountUpdate)\n        );
+        assert_eq!(
+            s.apply(&p),
+            Err(StateStoreError::DuplicateOrUnorderedAccountUpdate)
+        );
         assert_eq!(s.snapshot(), before);
     }
 
