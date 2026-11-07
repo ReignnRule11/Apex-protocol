@@ -118,6 +118,7 @@ pub struct TransactionAdmission {
     pub chain_id: ChainId,
     pub protocol_version: u32,
     pub sender: AccountId,
+    pub recipient: AccountId,
     pub nonce: u64,
     pub value: u128,
     pub gas_limit: u64,
@@ -155,6 +156,12 @@ pub enum TransactionAdmissionError {
     RequiredBalanceOverflow,
     #[error("sender balance is below value plus maximum fee upper bound")]
     InsufficientBalance,
+    #[error("recipient account does not exist in the supplied parent state")]
+    UnknownRecipient,
+    #[error("sender nonce cannot be incremented")]
+    NonceOverflow,
+    #[error("recipient balance overflows u128 after value transfer")]
+    RecipientBalanceOverflow,
 }
 
 /// Checks static envelope fields and returns a maximum-fee upper bound.
@@ -182,6 +189,89 @@ pub fn validate_transaction_admission(
     u128::from(transaction.gas_limit)
         .checked_mul(transaction.max_fee_per_gas)
         .ok_or(TransactionAdmissionError::MaximumFeeOverflow)
+}
+
+/// Complete account values proposed by a pure transaction transition plan.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PlannedAccountUpdate {
+    pub account: AccountId,
+    pub before: AccountState,
+    pub after: AccountState,
+}
+
+/// A validated, deterministic plan. It is not persisted or committed by this crate.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StateTransitionPlan {
+    pub sender: PlannedAccountUpdate,
+    pub recipient: Option<PlannedAccountUpdate>,
+    pub maximum_fee_escrow: u128,
+}
+
+/// Builds a pure transfer/nonce transition plan against one parent-state view.
+///
+/// The sender is debited by value plus the maximum-fee upper bound (escrow).
+/// The recipient receives value. Actual fee settlement/refund is deliberately
+/// deferred. The caller must atomically persist all updates or persist none.
+pub fn plan_transaction_transition<S: AdmissionState>(
+    context: AdmissionContext,
+    transaction: TransactionAdmission,
+    state: &S,
+) -> Result<StateTransitionPlan, TransactionAdmissionError> {
+    let maximum_fee =
+        validate_transaction_against_state(context, transaction, state)?;
+    let sender_before = state
+        .account(transaction.sender)
+        .ok_or(TransactionAdmissionError::UnknownSender)?;
+    let next_nonce = sender_before
+        .nonce
+        .checked_add(1)
+        .ok_or(TransactionAdmissionError::NonceOverflow)?;
+    let sender_debit = transaction
+        .value
+        .checked_add(maximum_fee)
+        .ok_or(TransactionAdmissionError::RequiredBalanceOverflow)?;
+    let sender_after = AccountState {
+        nonce: next_nonce,
+        balance: sender_before.balance - sender_debit,
+    };
+
+    if transaction.sender == transaction.recipient {
+        return Ok(StateTransitionPlan {
+            sender: PlannedAccountUpdate {
+                account: transaction.sender,
+                before: sender_before,
+                after: sender_after,
+            },
+            recipient: None,
+            maximum_fee_escrow: maximum_fee,
+        });
+    }
+
+    let recipient_before = state
+        .account(transaction.recipient)
+        .ok_or(TransactionAdmissionError::UnknownRecipient)?;
+    let recipient_balance = recipient_before
+        .balance
+        .checked_add(transaction.value)
+        .ok_or(TransactionAdmissionError::RecipientBalanceOverflow)?;
+    let recipient_after = AccountState {
+        nonce: recipient_before.nonce,
+        balance: recipient_balance,
+    };
+
+    Ok(StateTransitionPlan {
+        sender: PlannedAccountUpdate {
+            account: transaction.sender,
+            before: sender_before,
+            after: sender_after,
+        },
+        recipient: Some(PlannedAccountUpdate {
+            account: transaction.recipient,
+            before: recipient_before,
+            after: recipient_after,
+        }),
+        maximum_fee_escrow: maximum_fee,
+    })
 }
 
 /// Performs state-aware admission against a caller-selected parent-state view.
@@ -333,6 +423,7 @@ mod tests {
             chain_id: ChainId(7),
             protocol_version: 1,
             sender: AccountId(1),
+            recipient: AccountId(2),
             nonce: 4,
             value: 500,
             gas_limit: 21_000,
@@ -413,24 +504,29 @@ mod tests {
     }
 
     struct TestState {
-        account: Option<AccountState>,
+        sender: Option<AccountState>,
+        recipient: Option<AccountState>,
     }
 
     impl AdmissionState for TestState {
         fn account(&self, id: AccountId) -> Option<AccountState> {
-            if id == AccountId(1) {
-                self.account
-            } else {
-                None
+            match id {
+                AccountId(1) => self.sender,
+                AccountId(2) => self.recipient,
+                _ => None,
             }
         }
     }
 
     fn funded_state() -> TestState {
         TestState {
-            account: Some(AccountState {
+            sender: Some(AccountState {
                 nonce: 4,
                 balance: 2_100_500,
+            }),
+            recipient: Some(AccountState {
+                nonce: 0,
+                balance: 1_000,
             }),
         }
     }
@@ -449,7 +545,7 @@ mod tests {
 
     #[test]
     fn stateful_admission_rejects_unknown_sender() {
-        let state = TestState { account: None };
+        let state = TestState { sender: None, recipient: None };
         assert_eq!(
             validate_transaction_against_state(admission_context(), admission_tx(), &state),
             Err(TransactionAdmissionError::UnknownSender)
@@ -459,7 +555,7 @@ mod tests {
     #[test]
     fn stateful_admission_rejects_nonce_mismatch() {
         let state = TestState {
-            account: Some(AccountState {
+            sender: Some(AccountState {
                 nonce: 5,
                 balance: u128::MAX,
             }),
@@ -497,6 +593,56 @@ mod tests {
         assert_eq!(
             validate_transaction_against_state(admission_context(), tx, &state),
             Err(TransactionAdmissionError::RequiredBalanceOverflow)
+        );
+    }
+
+    #[test]
+    fn transition_plan_debits_sender_advances_nonce_and_credits_recipient() {
+        let state = funded_state();
+        let plan = plan_transaction_transition(admission_context(), admission_tx(), &state)
+            .unwrap();
+        assert_eq!(plan.maximum_fee_escrow, 2_100_000);
+        assert_eq!(plan.sender.before.nonce, 4);
+        assert_eq!(plan.sender.after.nonce, 5);
+        assert_eq!(plan.sender.after.balance, 0);
+        let recipient = plan.recipient.unwrap();
+        assert_eq!(recipient.before.balance, 1_000);
+        assert_eq!(recipient.after.balance, 1_500);
+        // Planning is pure: the supplied parent view remains unchanged.
+        assert_eq!(state.sender.unwrap().nonce, 4);
+        assert_eq!(state.recipient.unwrap().balance, 1_000);
+    }
+
+    #[test]
+    fn transition_plan_rejects_missing_recipient_without_mutating_parent() {
+        let mut state = funded_state();
+        state.recipient = None;
+        assert_eq!(
+            plan_transaction_transition(admission_context(), admission_tx(), &state),
+            Err(TransactionAdmissionError::UnknownRecipient)
+        );
+        assert_eq!(state.sender.unwrap().nonce, 4);
+    }
+
+    #[test]
+    fn transition_plan_handles_self_transfer_without_double_update() {
+        let state = funded_state();
+        let mut tx = admission_tx();
+        tx.recipient = tx.sender;
+        tx.value = 100;
+        let plan = plan_transaction_transition(admission_context(), tx, &state).unwrap();
+        assert!(plan.recipient.is_none());
+        assert_eq!(plan.sender.after.nonce, 5);
+        assert_eq!(plan.sender.after.balance, 400);
+    }
+
+    #[test]
+    fn transition_plan_rejects_recipient_balance_overflow() {
+        let mut state = funded_state();
+        state.recipient = Some(AccountState { nonce: 0, balance: u128::MAX });
+        assert_eq!(
+            plan_transaction_transition(admission_context(), admission_tx(), &state),
+            Err(TransactionAdmissionError::RecipientBalanceOverflow)
         );
     }
 
