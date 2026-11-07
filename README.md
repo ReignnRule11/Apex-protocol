@@ -15,7 +15,7 @@
 
 ## Current engineering status
 
-**Phase 14 — canonical account encoding and state commitment prototype (implementation submitted for review; CI pending).** The new 38-byte account codec and SHA-256 Merkle commitment are limited to the current AccountId/nonce/balance model; this is not the complete protocol state root. See docs/protocol/phase-14-canonical-encoding-and-state-commitments.md.
+**Phase 14 — canonical account encoding and state commitment prototype (merged; implementation CI passed).** The new 38-byte account codec and SHA-256 Merkle commitment are limited to the current AccountId/nonce/balance model; this is not the complete protocol state root. See docs/protocol/phase-14-canonical-encoding-and-state-commitments.md.
 
 **Phase 13 — storage lifecycle and schema migration (merged; post-merge CI green).** Schema 2 migrates 24-byte account records to 32-byte records in one redb transaction, preserves StateVersion, rejects malformed legacy records, and latches the adapter after commit errors. See `docs/protocol/phase-13-storage-lifecycle-and-migration.md`.
 
