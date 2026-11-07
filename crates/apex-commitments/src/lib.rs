@@ -103,6 +103,8 @@ pub enum ProofError {
     CountOutOfRange,
     InvalidShape,
     RootMismatch,
+    InvalidNonMembership,
+    CountMismatch,
 }
 
 fn collect_proof(leaves: &[Hash32], index: usize, out: &mut Vec<ProofSibling>) {
@@ -202,6 +204,117 @@ pub fn verify_account_membership_proof_v1(
         return Err(ProofError::RootMismatch);
     }
     Ok(())
+}
+
+
+/// Authenticated absence proof for an AccountId in the numerically ordered account set.
+/// Neighbor inclusion proofs bind the predecessor/successor to the same root and count.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum AccountNonMembershipProof {
+    Empty {
+        query: AccountId,
+    },
+    BeforeFirst {
+        query: AccountId,
+        successor: AccountMembershipProof,
+    },
+    AfterLast {
+        query: AccountId,
+        predecessor: AccountMembershipProof,
+    },
+    Between {
+        query: AccountId,
+        predecessor: AccountMembershipProof,
+        successor: AccountMembershipProof,
+    },
+}
+
+/// Builds an ordered-neighbor non-membership proof. Returns None if the account exists.
+pub fn account_non_membership_proof_v1(
+    accounts: &BTreeMap<AccountId, AccountState>,
+    query: AccountId,
+) -> Option<AccountNonMembershipProof> {
+    if accounts.contains_key(&query) {
+        return None;
+    }
+    if accounts.is_empty() {
+        return Some(AccountNonMembershipProof::Empty { query });
+    }
+    let predecessor = accounts
+        .range(..query)
+        .next_back()
+        .and_then(|(id, _)| account_membership_proof_v1(accounts, *id));
+    let successor = accounts
+        .range((std::ops::Bound::Excluded(query), std::ops::Bound::Unbounded))
+        .next()
+        .and_then(|(id, _)| account_membership_proof_v1(accounts, *id));
+    match (predecessor, successor) {
+        (None, Some(successor)) => Some(AccountNonMembershipProof::BeforeFirst {
+            query,
+            successor,
+        }),
+        (Some(predecessor), None) => Some(AccountNonMembershipProof::AfterLast {
+            query,
+            predecessor,
+        }),
+        (Some(predecessor), Some(successor)) => Some(AccountNonMembershipProof::Between {
+            query,
+            predecessor,
+            successor,
+        }),
+        (None, None) => None,
+    }
+}
+
+/// Verifies absence using authenticated adjacent neighbors in the ordered account set.
+/// The expected root must itself come from a trusted consensus/finality context.
+pub fn verify_account_non_membership_proof_v1(
+    proof: &AccountNonMembershipProof,
+    expected_root: Hash32,
+) -> Result<(), ProofError> {
+    match proof {
+        AccountNonMembershipProof::Empty { .. } => {
+            if account_state_root_v1(&BTreeMap::new()) == expected_root {
+                Ok(())
+            } else {
+                Err(ProofError::RootMismatch)
+            }
+        }
+        AccountNonMembershipProof::BeforeFirst { query, successor } => {
+            verify_account_membership_proof_v1(successor, expected_root)?;
+            if successor.leaf_index != 0 || successor.account.account_id <= query.0 {
+                return Err(ProofError::InvalidNonMembership);
+            }
+            Ok(())
+        }
+        AccountNonMembershipProof::AfterLast { query, predecessor } => {
+            verify_account_membership_proof_v1(predecessor, expected_root)?;
+            if predecessor.leaf_index.checked_add(1) != Some(predecessor.leaf_count)
+                || predecessor.account.account_id >= query.0
+            {
+                return Err(ProofError::InvalidNonMembership);
+            }
+            Ok(())
+        }
+        AccountNonMembershipProof::Between {
+            query,
+            predecessor,
+            successor,
+        } => {
+            verify_account_membership_proof_v1(predecessor, expected_root)?;
+            verify_account_membership_proof_v1(successor, expected_root)?;
+            if predecessor.leaf_count != successor.leaf_count {
+                return Err(ProofError::CountMismatch);
+            }
+            if predecessor.leaf_index.checked_add(1) != Some(successor.leaf_index)
+                || predecessor.account.account_id >= query.0
+                || successor.account.account_id <= query.0
+            {
+                return Err(ProofError::InvalidNonMembership);
+            }
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -328,4 +441,123 @@ mod tests {
             Err(ProofError::EmptyTree)
         );
     }
+    #[test]
+    fn non_membership_proofs_verify_empty_and_all_order_boundaries() {
+        let empty = BTreeMap::new();
+        let empty_root = account_state_root_v1(&empty);
+        let empty_proof = account_non_membership_proof_v1(&empty, AccountId(7)).unwrap();
+        assert_eq!(verify_account_non_membership_proof_v1(&empty_proof, empty_root), Ok(()));
+
+        let accounts = BTreeMap::from([
+            (AccountId(10), account(0, 100)),
+            (AccountId(20), account(1, 200)),
+            (AccountId(30), account(2, 300)),
+        ]);
+        let root = account_state_root_v1(&accounts);
+
+        let before = account_non_membership_proof_v1(&accounts, AccountId(5)).unwrap();
+        assert!(matches!(before, AccountNonMembershipProof::BeforeFirst { .. }));
+        assert_eq!(verify_account_non_membership_proof_v1(&before, root), Ok(()));
+
+        let between = account_non_membership_proof_v1(&accounts, AccountId(15)).unwrap();
+        assert!(matches!(between, AccountNonMembershipProof::Between { .. }));
+        assert_eq!(verify_account_non_membership_proof_v1(&between, root), Ok(()));
+
+        let after = account_non_membership_proof_v1(&accounts, AccountId(40)).unwrap();
+        assert!(matches!(after, AccountNonMembershipProof::AfterLast { .. }));
+        assert_eq!(verify_account_non_membership_proof_v1(&after, root), Ok(()));
+    }
+
+    #[test]
+    fn non_membership_generation_refuses_existing_account() {
+        let accounts = BTreeMap::from([(AccountId(10), account(0, 100))]);
+        assert!(account_non_membership_proof_v1(&accounts, AccountId(10)).is_none());
+    }
+
+    #[test]
+    fn non_membership_verifier_rejects_non_adjacent_or_reordered_neighbors() {
+        let accounts = BTreeMap::from([
+            (AccountId(10), account(0, 100)),
+            (AccountId(20), account(1, 200)),
+            (AccountId(30), account(2, 300)),
+        ]);
+        let root = account_state_root_v1(&accounts);
+        let p10 = account_membership_proof_v1(&accounts, AccountId(10)).unwrap();
+        let p30 = account_membership_proof_v1(&accounts, AccountId(30)).unwrap();
+
+        let gap = AccountNonMembershipProof::Between {
+            query: AccountId(15),
+            predecessor: p10.clone(),
+            successor: p30.clone(),
+        };
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&gap, root),
+            Err(ProofError::InvalidNonMembership)
+        );
+
+        let reversed = AccountNonMembershipProof::Between {
+            query: AccountId(25),
+            predecessor: p30,
+            successor: p10,
+        };
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&reversed, root),
+            Err(ProofError::InvalidNonMembership)
+        );
+    }
+
+    #[test]
+    fn non_membership_verifier_rejects_wrong_query_and_wrong_root() {
+        let accounts = BTreeMap::from([
+            (AccountId(10), account(0, 100)),
+            (AccountId(20), account(1, 200)),
+        ]);
+        let root = account_state_root_v1(&accounts);
+        let proof = account_non_membership_proof_v1(&accounts, AccountId(15)).unwrap();
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&proof, Hash32([0; 32])),
+            Err(ProofError::RootMismatch)
+        );
+        let tampered_query = match proof {
+            AccountNonMembershipProof::Between { predecessor, successor, .. } =>
+                AccountNonMembershipProof::Between {
+                    query: AccountId(10),
+                    predecessor,
+                    successor,
+                },
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&tampered_query, root),
+            Err(ProofError::InvalidNonMembership)
+        );
+    }
+
+    #[test]
+    fn non_membership_verifier_rejects_mismatched_neighbor_counts() {
+        let accounts_a = BTreeMap::from([
+            (AccountId(10), account(0, 100)),
+            (AccountId(20), account(1, 200)),
+            (AccountId(30), account(2, 300)),
+        ]);
+        let accounts_b = BTreeMap::from([
+            (AccountId(10), account(0, 100)),
+            (AccountId(20), account(1, 200)),
+            (AccountId(30), account(2, 300)),
+            (AccountId(40), account(3, 400)),
+        ]);
+        let root = account_state_root_v1(&accounts_a);
+        let predecessor = account_membership_proof_v1(&accounts_a, AccountId(10)).unwrap();
+        let successor = account_membership_proof_v1(&accounts_b, AccountId(20)).unwrap();
+        let proof = AccountNonMembershipProof::Between {
+            query: AccountId(15),
+            predecessor,
+            successor,
+        };
+        assert_eq!(
+            verify_account_non_membership_proof_v1(&proof, root),
+            Err(ProofError::RootMismatch)
+        );
+    }
+
 }
