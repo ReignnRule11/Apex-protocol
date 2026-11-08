@@ -355,7 +355,7 @@ impl LifecycleLedger {
         &self,
         verifier: &impl ProtocolTransitionVerifier,
     ) -> Result<[u8; 32], LifecycleError> {
-        use sha2::{Digest, Sha256};
+        use sha2_11::{Digest, Sha256};
 
         self.audit(verifier)?;
         let mut hash = Sha256::new();
@@ -378,14 +378,14 @@ impl LifecycleLedger {
     }
 }
 
-fn encode_scope(hash: &mut impl sha2::Digest, scope: LifecycleScope) {
+fn encode_scope(hash: &mut impl sha2_11::Digest, scope: LifecycleScope) {
     hash.update(scope.chain_id);
     hash.update(scope.protocol_version.to_be_bytes());
     hash.update(scope.operator_id);
     hash.update(scope.validator_id);
 }
 
-fn encode_state(hash: &mut impl sha2::Digest, state: LifecycleState) {
+fn encode_state(hash: &mut impl sha2_11::Digest, state: LifecycleState) {
     hash.update([match state.application {
         ApplicationStatus::Unregistered => 0,
         ApplicationStatus::Submitted => 1,
@@ -439,7 +439,7 @@ fn encode_state(hash: &mut impl sha2::Digest, state: LifecycleState) {
     hash.update(state.revision.to_be_bytes());
 }
 
-fn encode_event(hash: &mut impl sha2::Digest, event: &LifecycleEvent) {
+fn encode_event(hash: &mut impl sha2_11::Digest, event: &LifecycleEvent) {
     match event {
         LifecycleEvent::Submit {
             evidence_revision,
