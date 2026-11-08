@@ -216,12 +216,8 @@ pub struct LifecycleRecord {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApplyOutcome {
-    Applied {
-        revision: u64,
-    },
-    Duplicate {
-        original_revision: u64,
-    },
+    Applied { revision: u64 },
+    Duplicate { original_revision: u64 },
 }
 
 /// In-memory reference ledger; not durable, distributed or authenticated.
@@ -238,10 +234,7 @@ impl LifecycleLedger {
     }
 
     pub fn history(&self, scope: LifecycleScope) -> &[LifecycleRecord] {
-        self.history
-            .get(&scope)
-            .map(Vec::as_slice)
-            .unwrap_or(&[])
+        self.history.get(&scope).map(Vec::as_slice).unwrap_or(&[])
     }
 
     pub fn apply(
@@ -286,10 +279,7 @@ impl LifecycleLedger {
             resulting_state: next,
         };
         self.states.insert(envelope.scope, next);
-        self.history
-            .entry(envelope.scope)
-            .or_default()
-            .push(record);
+        self.history.entry(envelope.scope).or_default().push(record);
         self.requests.insert(envelope.request_id, envelope);
 
         Ok(ApplyOutcome::Applied {
@@ -518,10 +508,7 @@ fn verify_membership_transition(
 }
 
 fn validate_scope(scope: LifecycleScope) -> Result<(), LifecycleError> {
-    if is_zero(&scope.chain_id)
-        || is_zero(&scope.operator_id)
-        || is_zero(&scope.validator_id)
-    {
+    if is_zero(&scope.chain_id) || is_zero(&scope.operator_id) || is_zero(&scope.validator_id) {
         return Err(LifecycleError::InvalidScope);
     }
     if scope.protocol_version == 0 {
@@ -591,11 +578,7 @@ mod tests {
         }
     }
 
-    fn envelope(
-        request: u8,
-        revision: u64,
-        event: LifecycleEvent,
-    ) -> TransitionEnvelope {
+    fn envelope(request: u8, revision: u64, event: LifecycleEvent) -> TransitionEnvelope {
         TransitionEnvelope {
             request_id: [request; 32],
             scope: scope(),
@@ -822,7 +805,7 @@ mod tests {
             },
         )
         .unwrap();
-        apply( &mut ledger, 2, LifecycleEvent::StartReview).unwrap();
+        apply(&mut ledger, 2, LifecycleEvent::StartReview).unwrap();
         apply(&mut ledger, 3, LifecycleEvent::RequireRemediation).unwrap();
 
         let result = apply(
