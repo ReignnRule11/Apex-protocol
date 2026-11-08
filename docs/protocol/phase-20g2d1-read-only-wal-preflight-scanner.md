@@ -1,6 +1,6 @@
 # Phase 20G2D1 — strict read-only Malachite WAL preflight scanner
 
-**Status:** Implementation submitted for review; isolated research workspace only.  
+**Status:** Merged; isolated research workspace only.  
 **Base main:** `4ae3d22b352c7e12042b9564a452d43339050acd`.  
 **Pinned upstream:** Malachite v0.8.2, commit `a453b32155f4ba9f959724279b52f601bae92e09`.
 
