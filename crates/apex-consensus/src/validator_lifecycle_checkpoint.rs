@@ -191,17 +191,28 @@ mod tests {
     struct AcceptVerifier;
     impl ProtocolTransitionVerifier for AcceptVerifier {
         fn verify_committed_transition(
-            &self, _: crate::validator_lifecycle::LifecycleScope,
-            _: [u8; 32], _: u64, _: &[u8],
-        ) -> Result<(), ProtocolProofError> { Ok(()) }
+            &self,
+            _: crate::validator_lifecycle::LifecycleScope,
+            _: [u8; 32],
+            _: u64,
+            _: &[u8],
+        ) -> Result<(), ProtocolProofError> {
+            Ok(())
+        }
     }
 
     struct AcceptAuthenticator;
     impl LifecycleCheckpointAuthenticator for AcceptAuthenticator {
-        fn authenticate(&self, _: &[u8], signature: &[u8])
-            -> Result<(), CheckpointAuthenticationError> {
-            if signature == b"valid-signature" { Ok(()) }
-            else { Err(CheckpointAuthenticationError::Invalid) }
+        fn authenticate(
+            &self,
+            _: &[u8],
+            signature: &[u8],
+        ) -> Result<(), CheckpointAuthenticationError> {
+            if signature == b"valid-signature" {
+                Ok(())
+            } else {
+                Err(CheckpointAuthenticationError::Invalid)
+            }
         }
     }
 
@@ -209,32 +220,44 @@ mod tests {
     struct MemoryStore(Mutex<BTreeMap<[u8; 32], LifecycleCheckpointAnchor>>);
 
     impl MonotonicLifecycleCheckpointStore for MemoryStore {
-        fn load(&self, network_id: [u8; 32])
-            -> Result<Option<LifecycleCheckpointAnchor>, CheckpointStoreError> {
+        fn load(
+            &self,
+            network_id: [u8; 32],
+        ) -> Result<Option<LifecycleCheckpointAnchor>, CheckpointStoreError> {
             Ok(self.0.lock().unwrap().get(&network_id).copied())
         }
 
         fn compare_and_advance(
-            &self, network_id: [u8; 32],
+            &self,
+            network_id: [u8; 32],
             expected: Option<LifecycleCheckpointAnchor>,
             next: LifecycleCheckpointAnchor,
         ) -> Result<bool, CheckpointStoreError> {
             let mut heads = self.0.lock().unwrap();
-            if heads.get(&network_id).copied() != expected { return Ok(false); }
+            if heads.get(&network_id).copied() != expected {
+                return Ok(false);
+            }
             let valid = match expected {
                 None => next.sequence == 1,
                 Some(anchor) => anchor.sequence.checked_add(1) == Some(next.sequence),
             };
-            if !valid { return Err(CheckpointStoreError::InvalidAdvance); }
+            if !valid {
+                return Err(CheckpointStoreError::InvalidAdvance);
+            }
             heads.insert(network_id, next);
             Ok(true)
         }
     }
 
-    fn checkpoint(sequence: u64, previous: [u8; 32], commitment: [u8; 32])
-        -> AuthenticatedLifecycleCheckpoint {
+    fn checkpoint(
+        sequence: u64,
+        previous: [u8; 32],
+        commitment: [u8; 32],
+    ) -> AuthenticatedLifecycleCheckpoint {
         AuthenticatedLifecycleCheckpoint {
-            network_id: [7; 32], sequence, commitment,
+            network_id: [7; 32],
+            sequence,
+            commitment,
             previous_checkpoint_hash: previous,
             signature: b"valid-signature".to_vec(),
         }
@@ -247,8 +270,13 @@ mod tests {
         let checkpoint = checkpoint(1, [0; 32], commitment);
         let store = MemoryStore::default();
         let accepted = accept_lifecycle_checkpoint(
-            &ledger, &checkpoint, &AcceptAuthenticator, &store, &AcceptVerifier,
-        ).unwrap();
+            &ledger,
+            &checkpoint,
+            &AcceptAuthenticator,
+            &store,
+            &AcceptVerifier,
+        )
+        .unwrap();
         assert_eq!(accepted.sequence, 1);
         assert_eq!(store.load([7; 32]).unwrap(), Some(accepted));
     }
@@ -259,8 +287,11 @@ mod tests {
         let checkpoint = checkpoint(1, [0; 32], [9; 32]);
         assert_eq!(
             accept_lifecycle_checkpoint(
-                &ledger, &checkpoint, &AcceptAuthenticator,
-                &MemoryStore::default(), &AcceptVerifier,
+                &ledger,
+                &checkpoint,
+                &AcceptAuthenticator,
+                &MemoryStore::default(),
+                &AcceptVerifier,
             ),
             Err(LifecycleCheckpointAcceptanceError::CommitmentMismatch)
         );
@@ -270,8 +301,11 @@ mod tests {
     fn rejects_invalid_authentication_before_advancing_store() {
         struct Reject;
         impl LifecycleCheckpointAuthenticator for Reject {
-            fn authenticate(&self, _: &[u8], _: &[u8])
-                -> Result<(), CheckpointAuthenticationError> {
+            fn authenticate(
+                &self,
+                _: &[u8],
+                _: &[u8],
+            ) -> Result<(), CheckpointAuthenticationError> {
                 Err(CheckpointAuthenticationError::Invalid)
             }
         }
@@ -280,8 +314,11 @@ mod tests {
         let store = MemoryStore::default();
         assert_eq!(
             accept_lifecycle_checkpoint(
-                &ledger, &checkpoint(1, [0; 32], commitment),
-                &Reject, &store, &AcceptVerifier,
+                &ledger,
+                &checkpoint(1, [0; 32], commitment),
+                &Reject,
+                &store,
+                &AcceptVerifier,
             ),
             Err(LifecycleCheckpointAcceptanceError::Authentication(
                 CheckpointAuthenticationError::Invalid
@@ -296,8 +333,11 @@ mod tests {
         let commitment = ledger.commitment(&AcceptVerifier).unwrap();
         assert_eq!(
             accept_lifecycle_checkpoint(
-                &ledger, &checkpoint(2, [0; 32], commitment),
-                &AcceptAuthenticator, &MemoryStore::default(), &AcceptVerifier,
+                &ledger,
+                &checkpoint(2, [0; 32], commitment),
+                &AcceptAuthenticator,
+                &MemoryStore::default(),
+                &AcceptVerifier,
             ),
             Err(LifecycleCheckpointAcceptanceError::NonMonotonicSequence)
         );
@@ -310,12 +350,21 @@ mod tests {
         let store = MemoryStore::default();
         let first = checkpoint(1, [0; 32], commitment);
         let anchor = accept_lifecycle_checkpoint(
-            &ledger, &first, &AcceptAuthenticator, &store, &AcceptVerifier,
-        ).unwrap();
+            &ledger,
+            &first,
+            &AcceptAuthenticator,
+            &store,
+            &AcceptVerifier,
+        )
+        .unwrap();
         let second = checkpoint(2, [8; 32], commitment);
         assert_eq!(
             accept_lifecycle_checkpoint(
-                &ledger, &second, &AcceptAuthenticator, &store, &AcceptVerifier,
+                &ledger,
+                &second,
+                &AcceptAuthenticator,
+                &store,
+                &AcceptVerifier,
             ),
             Err(LifecycleCheckpointAcceptanceError::PreviousCheckpointMismatch)
         );
@@ -334,7 +383,11 @@ mod tests {
         let stale = checkpoint(1, [0; 32], commitment);
         assert_eq!(
             accept_lifecycle_checkpoint(
-                &ledger, &stale, &AcceptAuthenticator, &store, &AcceptVerifier,
+                &ledger,
+                &stale,
+                &AcceptAuthenticator,
+                &store,
+                &AcceptVerifier,
             ),
             Err(LifecycleCheckpointAcceptanceError::NonMonotonicSequence)
         );
