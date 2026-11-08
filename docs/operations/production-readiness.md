@@ -188,3 +188,12 @@ Current signer and finality APIs do not provide complete, non-mutating recovery 
 ### Phase 20G2D5 — redb read-only recovery access audit (submitted)
 
 The exact pinned redb 4.5.0 exposes `ReadOnlyDatabase::open` and `Builder::open_read_only`; upstream documents that read-only open does not modify the file and rejects a database requiring recovery rather than repairing it. This is a candidate evidence-reader boundary, not yet an APEX recovery exporter. Default `ExclusiveWriter` locking prevents a concurrent read-only handle alongside a writer on supported lock platforms; APEX has not selected alternate concurrency modes. The next implementation spike must test exact signer/finality schemas, bounded deterministic enumeration, source-file hash invariance, corrupt/recovery-required rejection and platform lock behavior. No application-state commitment or authenticated anti-rollback evidence is supplied. **G2/G4 remain BLOCKED; release remains NO-GO.** See Phase 20G2D5 and ADR-0061.
+
+
+## Current verified recovery implementation status — Phase 20G2D6 submitted
+
+Phase 20G2D5 is merged at `9e2fbd74914b2ef92059fa50bcdee9377c8bc2bd`; post-merge main CI run #42457426702 passed all four jobs.
+
+Phase 20G2D6 adds an isolated redb 4.5.0 read-only inspection spike for existing signer and finality fixtures. It is diagnostic-only, bounded, checks key/identity and finality continuity/tips, and hashes source bytes before/after inspection. The current finality schema has no explicit version marker. The spike does not create an authenticated recovery manifest, canonical application-state commitment, anti-rollback anchor, cross-store reconciliation, or startup authorization. Exact-head CI is required before this phase can be considered passed.
+
+G2 and G4 remain BLOCKED. Production release remains NO-GO.
