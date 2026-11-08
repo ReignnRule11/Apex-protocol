@@ -70,7 +70,7 @@ Defines a proposed fail-closed recovery authority model across the Malachite con
 
 
 
-## Phase 20G2C9 — pinned Malachite WAL recovery capability audit (proposed for review)
+## Phase 20G2C9 — pinned Malachite WAL recovery capability audit (merged; post-merge main CI passed)
 
 Audits the exact pinned Malachite v0.8.2 source. Default WAL open/fetch/startup paths can truncate incomplete or unreadable records and reset the log for restart, non-validator or height-mismatch cases. The WAL persists engine replay inputs, not a complete APEX finality ledger; append and sync are separate; the signer is called before WAL append. APEX requires immutable preflight, a strict read-only scanner, explicit reset authorization and a signer-wrapper proof before integration. No runtime code is changed. See `docs/protocol/phase-20g2c9-malachite-wal-recovery-audit.md` and ADR-0056. G2/G4 remain BLOCKED; release remains NO-GO.
 
@@ -161,3 +161,8 @@ Adds a redb 4.5.0 journal prototype only to the isolated Malachite spike. It ato
 ## Phase 20G2C7 — finality journal process-termination recovery tests (merged; post-merge main CI passed)
 
 Adds isolated child-process tests that terminate abruptly after journal/tip rows are staged but before commit, and immediately after commit returns but before acknowledgement. A fresh process must observe no partial record/tip in the first case, and the complete record/tip plus idempotent retry in the second. These are controlled userspace process-exit tests only—not power-loss, kernel-crash, storage-device or filesystem durability proof. The journal remains isolated and disconnected from Malachite WAL and signer reservations. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c7-finality-journal-process-recovery.md` and ADR-0054.
+
+
+## Phase 20G2D1 — strict read-only Malachite WAL preflight scanner (implementation submitted)
+
+Adds an APEX-owned scanner in the isolated Malachite spike. It parses the pinned v1 WAL header and entry framing from an immutable byte slice, hashes the complete supplied snapshot with SHA-256, enforces the 1 GiB entry bound, and verifies CRC32 for uncompressed records. Partial headers/payloads, unsupported versions, oversized entries and CRC mismatches are reported without mutation. Compressed records are framed but explicitly unverified because their CRC covers decompressed bytes; no compressed integrity claim is made. The scanner never opens a file, locks, truncates, repairs or syncs storage. CI now formats and lints the isolated spike in addition to compile/tests. It is not a file acquisition or authenticated recovery solution, does not decode consensus entries, and does not authorize reset or validator startup. G2/G4 remain BLOCKED; release remains NO-GO. See the Phase 20G2D1 record and ADR-0057.
