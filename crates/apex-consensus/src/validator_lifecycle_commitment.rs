@@ -4,9 +4,7 @@
 //! expected digest. The expected value's provenance and anti-rollback
 //! properties remain the caller's responsibility.
 
-use crate::validator_lifecycle::{
-    LifecycleError, LifecycleLedger, ProtocolTransitionVerifier,
-};
+use crate::validator_lifecycle::{LifecycleError, LifecycleLedger, ProtocolTransitionVerifier};
 use thiserror::Error;
 
 /// Result of checking a lifecycle ledger against an expected commitment.
