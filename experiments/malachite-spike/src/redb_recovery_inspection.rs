@@ -150,3 +150,101 @@ pub fn inspect_finality(path: impl AsRef<Path>, max_source_bytes: u64, max_recor
     drop(tips); drop(journal); drop(txn); drop(db);
     finish_report(path, "finality", before, count, bytes, false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use redb::{Database, TableDefinition};
+    use tempfile::NamedTempFile;
+
+    const TEST_META: TableDefinition<u8, u64> = TableDefinition::new("apex_signer_meta_v1");
+    const TEST_RES: TableDefinition<&[u8], &[u8]> = TableDefinition::new("apex_signing_reservations_v1");
+    const TEST_JOURNAL: TableDefinition<&[u8], &[u8]> = TableDefinition::new("apex_finality_journal_v1");
+    const TEST_TIPS: TableDefinition<&[u8], &[u8]> = TableDefinition::new("apex_finality_tips_v1");
+
+    fn signer_fixture(path: &Path, valid: bool) {
+        let db = Database::create(path).unwrap();
+        let tx = db.begin_write().unwrap();
+        {
+            let mut meta = tx.open_table(TEST_META).unwrap();
+            meta.insert(0, SIGNER_SCHEMA).unwrap();
+        }
+        {
+            let mut rows = tx.open_table(TEST_RES).unwrap();
+            let mut key = [0u8; SIGNER_KEY_LEN];
+            key[31] = 7; key[35] = 1; key[43] = 1; key[48] = 2; key[80] = 9;
+            if !valid { key[48] = 9; }
+            rows.insert(key.as_slice(), b"canonical-vote".as_slice()).unwrap();
+        }
+        tx.commit().unwrap();
+    }
+
+    fn finality_fixture(path: &Path, valid: bool) {
+        let db = Database::create(path).unwrap();
+        let tx = db.begin_write().unwrap();
+        {
+            let mut journal = tx.open_table(TEST_JOURNAL).unwrap();
+            let mut key = Vec::new();
+            key.extend_from_slice(&[1; 32]); key.extend_from_slice(&1u32.to_be_bytes());
+            key.extend_from_slice(&1u64.to_be_bytes());
+            let mut value = Vec::new();
+            value.extend_from_slice(&[1; 32]); value.extend_from_slice(&1u32.to_be_bytes());
+            value.extend_from_slice(&1u64.to_be_bytes());
+            value.extend_from_slice(&[0; 32]); value.extend_from_slice(&[2; 32]);
+            value.extend_from_slice(b"state");
+            if !valid { value[44] = 1; }
+            journal.insert(key.as_slice(), value.as_slice()).unwrap();
+        }
+        {
+            let mut tips = tx.open_table(TEST_TIPS).unwrap();
+            let mut key = Vec::new(); key.extend_from_slice(&[1; 32]); key.extend_from_slice(&1u32.to_be_bytes());
+            let mut value = Vec::new();
+            value.extend_from_slice(&[1; 32]); value.extend_from_slice(&1u32.to_be_bytes());
+            value.extend_from_slice(&1u64.to_be_bytes());
+            value.extend_from_slice(&[0; 32]); value.extend_from_slice(&[2; 32]);
+            tips.insert(key.as_slice(), value.as_slice()).unwrap();
+        }
+        tx.commit().unwrap();
+    }
+
+    #[test]
+    fn signer_inspection_is_bounded_and_source_bytes_are_unchanged() {
+        let file = NamedTempFile::new().unwrap();
+        signer_fixture(file.path(), true);
+        let before = fs::read(file.path()).unwrap();
+        let report = inspect_signer(file.path(), 1_000_000, 10, 1_000).unwrap();
+        assert_eq!(report.records, 1);
+        assert!(report.schema_explicitly_versioned);
+        assert_eq!(fs::read(file.path()).unwrap(), before);
+        assert_eq!(inspect_signer(file.path(), 1_000_000, 0, 1_000), Err(InspectionError::RecordLimit));
+    }
+
+    #[test]
+    fn signer_unknown_step_is_rejected_without_repair() {
+        let file = NamedTempFile::new().unwrap();
+        signer_fixture(file.path(), false);
+        let before = fs::read(file.path()).unwrap();
+        assert_eq!(inspect_signer(file.path(), 1_000_000, 10, 1_000), Err(InspectionError::InvalidSignerRecord));
+        assert_eq!(fs::read(file.path()).unwrap(), before);
+    }
+
+    #[test]
+    fn finality_inspection_checks_tip_and_does_not_mutate_source() {
+        let file = NamedTempFile::new().unwrap();
+        finality_fixture(file.path(), true);
+        let before = fs::read(file.path()).unwrap();
+        let report = inspect_finality(file.path(), 1_000_000, 10, 1_000, 100).unwrap();
+        assert_eq!(report.records, 1);
+        assert!(!report.schema_explicitly_versioned);
+        assert_eq!(fs::read(file.path()).unwrap(), before);
+    }
+
+    #[test]
+    fn finality_parent_or_identity_corruption_is_rejected() {
+        let file = NamedTempFile::new().unwrap();
+        finality_fixture(file.path(), false);
+        let before = fs::read(file.path()).unwrap();
+        assert_eq!(inspect_finality(file.path(), 1_000_000, 10, 1_000, 100), Err(InspectionError::InvalidFinalityRecord));
+        assert_eq!(fs::read(file.path()).unwrap(), before);
+    }
+}
