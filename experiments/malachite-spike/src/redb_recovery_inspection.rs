@@ -212,6 +212,7 @@ pub fn inspect_finality(
         block.copy_from_slice(&identity[76..108]);
         let expected = match chains.get(&chain) {
             None if height == 1 && parent == [0; 32] => 1,
+            None if height == 1 => return Err(InspectionError::ParentMismatch),
             None => return Err(InspectionError::FinalityGap),
             Some((last_height, last_block))
                 if last_height.checked_add(1) == Some(height) && parent == *last_block =>
@@ -395,7 +396,7 @@ mod tests {
         let before = fs::read(file.path()).unwrap();
         assert_eq!(
             inspect_finality(file.path(), 16_777_216, 10, 1_000, 100),
-            Err(InspectionError::InvalidFinalityRecord)
+            Err(InspectionError::ParentMismatch)
         );
         assert_eq!(fs::read(file.path()).unwrap(), before);
     }
