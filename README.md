@@ -186,3 +186,8 @@ Audits whether the current signer, finality and application-state stores can sup
 ## Phase 20G2D5 — redb read-only recovery access audit (submitted for review)
 
 The workspace pins redb `=4.5.0`, whose `ReadOnlyDatabase::open` / `Builder::open_read_only` API provides a supported non-mutating read path and rejects files requiring recovery instead of repairing them. This narrows the Phase 20G2D4 finding: APEX's current signer/finality convenience-open paths still perform writes and must not be used on sole evidence copies, but a library-level read-only primitive exists. Its behavior against APEX's exact schemas, complete row enumeration, source-byte invariance, corruption rejection and platform locking has not yet been tested. No runtime/store API changes or production approval. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2d5-redb-read-only-recovery-access-audit.md` and ADR-0061.
+
+
+## Phase 20G2D6 — exact-version redb read-only inspection spike (implementation submitted)
+
+Adds an isolated `redb_recovery_inspection` module to `experiments/malachite-spike`. It exercises the exact redb 4.5.0 read-only API against APEX-compatible signer and finality fixtures, validates bounded table traversal and record identity/linkage, checks stored finality tips, and compares source-file length/SHA-256 before and after inspection. The finality schema has no explicit version marker and is reported as such. The report digest is diagnostic only; it is not authenticated recovery evidence, a canonical application-state root, or an anti-rollback anchor. The module remains outside the production workspace. See Phase 20G2D6 and ADR-0062. G2/G4 remain BLOCKED; release remains NO-GO.
