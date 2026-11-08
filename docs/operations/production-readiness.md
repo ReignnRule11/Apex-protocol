@@ -178,3 +178,8 @@ The isolated Malachite spike adds a bounded read-only file acquisition primitive
 ### Phase 20G2D3 — authenticated recovery manifest design (proposed for review)
 
 Specifies a canonical, versioned recovery-manifest contract binding the preserved WAL snapshot and scanner evidence to chain/configuration identity, exact engine revision, signer/finality/application checkpoints, recovery generation and previous-manifest digest. It requires a separately governed recovery-attestation identity and a monotonic trust anchor independent of the recovery data directory. Hashes do not authenticate provenance; signatures do not prevent replay. Verification is necessary evidence for reconciliation, not a startup authorization token. No serialization/crypto suite, key custody/threshold, trust-root distribution, anti-rollback technology, manifest codec, WAL actor or reset/startup implementation is approved. The pinned WAL/store APIs must prove they can supply the required evidence before implementation. **G2 and G4 remain BLOCKED; release remains NO-GO.** See Phase 20G2D3 and ADR-0059.
+
+
+### Phase 20G2D4 — recovery evidence export capability audit (submitted)
+
+Current signer and finality APIs do not provide complete, non-mutating recovery exports. Their convenience open paths initialize tables through write transactions; the application projection lacks a proven canonical export tied to finality. The next gate requires bounded read-only enumeration, schema/chain binding, complete journal validation and a canonical application commitment. Audit/specification only; no runtime change. **G2/G4 remain BLOCKED; release remains NO-GO.** See Phase 20G2D4 and ADR-0060.
