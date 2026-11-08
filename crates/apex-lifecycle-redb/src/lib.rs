@@ -213,6 +213,193 @@ pub fn verify_external_rollback_witness(
     Ok(())
 }
 
+/// Fail-closed startup verification for every configured network.
+///
+/// Unlike the low-level equality check, startup requires both stores to contain
+/// an initialized head. An uninitialized network must be bootstrapped through a
+/// separately authorized procedure; startup never silently treats an empty
+/// local database and empty witness as trusted genesis.
+#[derive(Debug, Error, Clone, Copy, Eq, PartialEq)]
+pub enum LifecycleStartupError {
+    #[error("at least one network must be configured for lifecycle startup verification")]
+    EmptyNetworkSet,
+    #[error("configured network ID must not be zero")]
+    InvalidNetwork,
+    #[error("configured network ID appears more than once")]
+    DuplicateNetwork,
+    #[error("local lifecycle head is unavailable")]
+    LocalUnavailable { network_id: [u8; 32] },
+    #[error("independent rollback witness is unavailable")]
+    WitnessUnavailable { network_id: [u8; 32] },
+    #[error("network has no initialized local and independently witnessed checkpoint")]
+    UninitializedNetwork { network_id: [u8; 32] },
+    #[error("local lifecycle head differs from the independent witness")]
+    HeadMismatch { network_id: [u8; 32] },
+}
+
+/// Verify all configured network heads before enabling node services.
+///
+/// Callers must invoke this gate before starting consensus, signing, networking,
+/// or any service that can act on lifecycle state. It performs no recovery,
+/// initialization, or mutation. The witness implementation must live in a
+/// separately protected trust domain; this function cannot establish that
+/// property by itself.
+pub fn verify_lifecycle_startup(
+    local: &impl MonotonicLifecycleCheckpointStore,
+    witness: &impl ExternalLifecycleRollbackWitness,
+    network_ids: &[[u8; 32]],
+) -> Result<(), LifecycleStartupError> {
+    use std::collections::BTreeSet;
+
+    if network_ids.is_empty() {
+        return Err(LifecycleStartupError::EmptyNetworkSet);
+    }
+
+    let mut seen = BTreeSet::new();
+    for network_id in network_ids {
+        if *network_id == [0; 32] {
+            return Err(LifecycleStartupError::InvalidNetwork);
+        }
+        if !seen.insert(*network_id) {
+            return Err(LifecycleStartupError::DuplicateNetwork);
+        }
+
+        let local_head = local
+            .load(*network_id)
+            .map_err(|_| LifecycleStartupError::LocalUnavailable {
+                network_id: *network_id,
+            })?;
+        let trusted_head = witness.trusted_head(*network_id).map_err(|_| {
+            LifecycleStartupError::WitnessUnavailable {
+                network_id: *network_id,
+            }
+        })?;
+
+        let (Some(local_head), Some(trusted_head)) = (local_head, trusted_head) else {
+            return Err(LifecycleStartupError::UninitializedNetwork {
+                network_id: *network_id,
+            });
+        };
+        if local_head != trusted_head {
+            return Err(LifecycleStartupError::HeadMismatch {
+                network_id: *network_id,
+            });
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+    use std::sync::Mutex;
+
+    #[derive(Default)]
+    struct Witness {
+        heads: Mutex<BTreeMap<[u8; 32], LifecycleCheckpointAnchor>>,
+        unavailable: bool,
+    }
+
+    impl ExternalLifecycleRollbackWitness for Witness {
+        fn trusted_head(
+            &self,
+            network_id: [u8; 32],
+        ) -> Result<Option<LifecycleCheckpointAnchor>, RollbackWitnessError> {
+            if self.unavailable {
+                return Err(RollbackWitnessError::Unavailable);
+            }
+            Ok(self.heads.lock().unwrap().get(&network_id).copied())
+        }
+    }
+
+    fn anchor(sequence: u64, byte: u8) -> LifecycleCheckpointAnchor {
+        LifecycleCheckpointAnchor {
+            sequence,
+            checkpoint_hash: [byte; 32],
+        }
+    }
+
+    #[test]
+    fn startup_requires_at_least_one_network() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
+        assert_eq!(
+            verify_lifecycle_startup(&local, &Witness::default(), &[]),
+            Err(LifecycleStartupError::EmptyNetworkSet)
+        );
+    }
+
+    #[test]
+    fn startup_rejects_zero_and_duplicate_network_ids() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
+        let witness = Witness::default();
+        assert_eq!(
+            verify_lifecycle_startup(&local, &witness, &[[0; 32]]),
+            Err(LifecycleStartupError::InvalidNetwork)
+        );
+        assert_eq!(
+            verify_lifecycle_startup(&local, &witness, &[[1; 32], [1; 32]]),
+            Err(LifecycleStartupError::DuplicateNetwork)
+        );
+    }
+
+    #[test]
+    fn startup_accepts_only_matching_initialized_heads_for_every_network() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
+        let witness = Witness::default();
+        for (network, head) in [([1; 32], anchor(4, 4)), ([2; 32], anchor(9, 9))] {
+            assert!(local.compare_and_advance(network, None, head).unwrap());
+            witness.heads.lock().unwrap().insert(network, head);
+        }
+        assert_eq!(
+            verify_lifecycle_startup(&local, &witness, &[[1; 32], [2; 32]]),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn startup_fails_closed_on_head_mismatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
+        let network = [3; 32];
+        assert!(local.compare_and_advance(network, None, anchor(2, 2)).unwrap());
+        let witness = Witness::default();
+        witness.heads.lock().unwrap().insert(network, anchor(3, 3));
+        assert_eq!(
+            verify_lifecycle_startup(&local, &witness, &[network]),
+            Err(LifecycleStartupError::HeadMismatch { network_id: network })
+        );
+    }
+
+    #[test]
+    fn startup_fails_closed_when_witness_is_unavailable() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
+        let network = [4; 32];
+        let head = anchor(1, 1);
+        assert!(local.compare_and_advance(network, None, head).unwrap());
+        let witness = Witness { heads: Mutex::new(BTreeMap::from([(network, head)])), unavailable: true };
+        assert_eq!(
+            verify_lifecycle_startup(&local, &witness, &[network]),
+            Err(LifecycleStartupError::WitnessUnavailable { network_id: network })
+        );
+    }
+
+    #[test]
+    fn startup_rejects_empty_local_and_witness_as_uninitialized() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
+        let network = [5; 32];
+        assert_eq!(
+            verify_lifecycle_startup(&local, &Witness::default(), &[network]),
+            Err(LifecycleStartupError::UninitializedNetwork { network_id: network })
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
