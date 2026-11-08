@@ -142,7 +142,7 @@ where
             }
             GateDispatch::Handled
         }
-        other => GateDispatch::Unhandled(other),
+        other => GateDispatch::Unhandled(Box::new(other)),
     }
 }
 
@@ -180,7 +180,7 @@ where
 {
     while let Some(message) = receiver.recv().await {
         if let GateDispatch::Unhandled(other) = handle_finality_message(message, app).await {
-            handle_other(other).await.map_err(|_| ChannelsClosed)?;
+            handle_other(*other).await.map_err(|_| ChannelsClosed)?;
         }
     }
     Err(ChannelsClosed)
