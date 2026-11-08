@@ -347,7 +347,6 @@ impl LifecycleLedger {
     }
 }
 
-
 /// Computes a deterministic, domain-separated SHA-256 commitment to the
 /// audited lifecycle history. This is a local reference commitment, not a
 /// canonical wire encoding, authenticated checkpoint, or anti-rollback anchor.
@@ -442,7 +441,10 @@ fn encode_state(hash: &mut impl sha2::Digest, state: LifecycleState) {
 
 fn encode_event(hash: &mut impl sha2::Digest, event: &LifecycleEvent) {
     match event {
-        LifecycleEvent::Submit { evidence_revision, policy_revision } => {
+        LifecycleEvent::Submit {
+            evidence_revision,
+            policy_revision,
+        } => {
             hash.update([0]);
             hash.update(evidence_revision.to_be_bytes());
             hash.update(policy_revision.to_be_bytes());
@@ -453,7 +455,10 @@ fn encode_event(hash: &mut impl sha2::Digest, event: &LifecycleEvent) {
             hash.update([3]);
             hash.update(evidence_revision.to_be_bytes());
         }
-        LifecycleEvent::AssessEligibility { result, policy_revision } => {
+        LifecycleEvent::AssessEligibility {
+            result,
+            policy_revision,
+        } => {
             hash.update([4]);
             hash.update([match result {
                 EligibilityStatus::Unknown => 0,
@@ -462,12 +467,18 @@ fn encode_event(hash: &mut impl sha2::Digest, event: &LifecycleEvent) {
             }]);
             hash.update(policy_revision.to_be_bytes());
         }
-        LifecycleEvent::Approve { decision_id, policy_revision } => {
+        LifecycleEvent::Approve {
+            decision_id,
+            policy_revision,
+        } => {
             hash.update([5]);
             hash.update(decision_id);
             hash.update(policy_revision.to_be_bytes());
         }
-        LifecycleEvent::Deny { decision_id, policy_revision } => {
+        LifecycleEvent::Deny {
+            decision_id,
+            policy_revision,
+        } => {
             hash.update([6]);
             hash.update(decision_id);
             hash.update(policy_revision.to_be_bytes());
@@ -481,7 +492,11 @@ fn encode_event(hash: &mut impl sha2::Digest, event: &LifecycleEvent) {
             hash.update([9]);
             hash.update(transition_id);
         }
-        LifecycleEvent::ConfirmActivation { transition_id, committed_height, proof } => {
+        LifecycleEvent::ConfirmActivation {
+            transition_id,
+            committed_height,
+            proof,
+        } => {
             hash.update([10]);
             hash.update(transition_id);
             hash.update(committed_height.to_be_bytes());
@@ -492,7 +507,11 @@ fn encode_event(hash: &mut impl sha2::Digest, event: &LifecycleEvent) {
             hash.update([11]);
             hash.update(transition_id);
         }
-        LifecycleEvent::ConfirmExit { transition_id, committed_height, proof } => {
+        LifecycleEvent::ConfirmExit {
+            transition_id,
+            committed_height,
+            proof,
+        } => {
             hash.update([12]);
             hash.update(transition_id);
             hash.update(committed_height.to_be_bytes());
@@ -1322,7 +1341,6 @@ mod audit_tests {
     }
 }
 
-
 #[cfg(test)]
 mod commitment_tests {
     use super::*;
@@ -1330,20 +1348,41 @@ mod commitment_tests {
     struct AcceptVerifier;
     impl ProtocolTransitionVerifier for AcceptVerifier {
         fn verify_committed_transition(
-            &self, _: LifecycleScope, _: ProtocolTransitionId, _: u64, _: &[u8],
-        ) -> Result<(), ProtocolProofError> { Ok(()) }
+            &self,
+            _: LifecycleScope,
+            _: ProtocolTransitionId,
+            _: u64,
+            _: &[u8],
+        ) -> Result<(), ProtocolProofError> {
+            Ok(())
+        }
     }
 
     fn scope() -> LifecycleScope {
-        LifecycleScope { chain_id: [1;32], protocol_version: 1, operator_id: [2;32], validator_id: [3;32] }
+        LifecycleScope {
+            chain_id: [1; 32],
+            protocol_version: 1,
+            operator_id: [2; 32],
+            validator_id: [3; 32],
+        }
     }
 
     fn submitted_ledger() -> LifecycleLedger {
         let mut ledger = LifecycleLedger::default();
-        ledger.apply(TransitionEnvelope {
-            request_id: [1;32], scope: scope(), expected_revision: 0,
-            event: LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 },
-        }, &AcceptVerifier).unwrap();
+        ledger
+            .apply(
+                TransitionEnvelope {
+                    request_id: [1; 32],
+                    scope: scope(),
+                    expected_revision: 0,
+                    event: LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                },
+                &AcceptVerifier,
+            )
+            .unwrap();
         ledger
     }
 
@@ -1351,24 +1390,40 @@ mod commitment_tests {
     fn commitment_is_stable_for_identical_audited_ledgers() {
         let first = submitted_ledger();
         let second = submitted_ledger();
-        assert_eq!(first.commitment(&AcceptVerifier), second.commitment(&AcceptVerifier));
+        assert_eq!(
+            first.commitment(&AcceptVerifier),
+            second.commitment(&AcceptVerifier)
+        );
     }
 
     #[test]
     fn commitment_changes_when_a_valid_history_changes() {
         let first = submitted_ledger();
         let mut second = submitted_ledger();
-        second.apply(TransitionEnvelope {
-            request_id: [2;32], scope: scope(), expected_revision: 1,
-            event: LifecycleEvent::StartReview,
-        }, &AcceptVerifier).unwrap();
-        assert_ne!(first.commitment(&AcceptVerifier), second.commitment(&AcceptVerifier));
+        second
+            .apply(
+                TransitionEnvelope {
+                    request_id: [2; 32],
+                    scope: scope(),
+                    expected_revision: 1,
+                    event: LifecycleEvent::StartReview,
+                },
+                &AcceptVerifier,
+            )
+            .unwrap();
+        assert_ne!(
+            first.commitment(&AcceptVerifier),
+            second.commitment(&AcceptVerifier)
+        );
     }
 
     #[test]
     fn commitment_fails_closed_when_ledger_audit_fails() {
         let mut ledger = submitted_ledger();
         ledger.requests.clear();
-        assert_eq!(ledger.commitment(&AcceptVerifier), Err(LifecycleError::RequestIndexInvariant));
+        assert_eq!(
+            ledger.commitment(&AcceptVerifier),
+            Err(LifecycleError::RequestIndexInvariant)
+        );
     }
 }
