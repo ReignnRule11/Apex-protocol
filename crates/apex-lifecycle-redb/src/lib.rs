@@ -242,7 +242,7 @@ mod tests {
             assert_eq!(store.load(network).unwrap(), Some(anchor(1, 1)));
         }
         {
-            let store = RedbLifecycleCheckpointStore::open(&path).unwrap();
+            let mut store = RedbLifecycleCheckpointStore::open(&path).unwrap();
             assert_eq!(store.load(network).unwrap(), Some(anchor(1, 1)));
             assert!(
                 store
