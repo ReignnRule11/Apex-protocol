@@ -51,11 +51,20 @@ fn digest(bytes: &[u8]) -> [u8; 32] {
 }
 
 fn source_snapshot(path: &Path, max_source_bytes: u64) -> Result<(u64, [u8; 32]), InspectionError> {
-    let bytes = fs::read(path).map_err(|_| InspectionError::Io)?;
-    if bytes.len() as u64 > max_source_bytes {
+    // Check the advertised size before allocating the file contents. Recheck
+    // after the read because the file may have changed between metadata and read.
+    let advertised_len = fs::metadata(path)
+        .map_err(|_| InspectionError::Io)?
+        .len();
+    if advertised_len > max_source_bytes {
         return Err(InspectionError::SourceTooLarge);
     }
-    Ok((bytes.len() as u64, digest(&bytes)))
+    let bytes = fs::read(path).map_err(|_| InspectionError::Io)?;
+    let actual_len = u64::try_from(bytes.len()).map_err(|_| InspectionError::SourceTooLarge)?;
+    if actual_len > max_source_bytes {
+        return Err(InspectionError::SourceTooLarge);
+    }
+    Ok((actual_len, digest(&bytes)))
 }
 
 fn finish_report(
@@ -207,11 +216,11 @@ pub fn inspect_finality(
             None if height == 1 && parent == [0; 32] => 1,
             None => return Err(InspectionError::FinalityGap),
             Some((last_height, last_block))
-                if height == last_height + 1 && parent == *last_block =>
+                if last_height.checked_add(1) == Some(height) && parent == *last_block =>
             {
                 height
             }
-            Some((last_height, _)) if height != last_height + 1 => {
+            Some((last_height, _)) if last_height.checked_add(1) != Some(height) => {
                 return Err(InspectionError::FinalityGap);
             }
             Some(_) => return Err(InspectionError::ParentMismatch),
@@ -252,7 +261,10 @@ pub fn inspect_finality(
         {
             return Err(InspectionError::TipMismatch);
         }
-        seen_tips += 1;
+        seen_tips = seen_tips.checked_add(1).ok_or(InspectionError::RecordLimit)?;
+        if seen_tips as u64 > max_records {
+            return Err(InspectionError::RecordLimit);
+        }
     }
     if seen_tips != chains.len() {
         return Err(InspectionError::MissingTip);
@@ -343,7 +355,7 @@ mod tests {
         let file = NamedTempFile::new().unwrap();
         signer_fixture(file.path(), true);
         let before = fs::read(file.path()).unwrap();
-        let report = inspect_signer(file.path(), 1_000_000, 10, 1_000).unwrap();
+        let report = inspect_signer(file.path(), 16_777_216, 10, 1_000).unwrap();
         assert_eq!(report.records, 1);
         assert!(report.schema_explicitly_versioned);
         assert_eq!(fs::read(file.path()).unwrap(), before);
