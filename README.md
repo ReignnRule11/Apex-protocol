@@ -68,6 +68,12 @@ The pinned Malachite v0.8.2 API audit is recorded in `docs/protocol/phase-20g2c1
 
 Defines a proposed fail-closed recovery authority model across the Malachite consensus WAL, signer reservation journal, APEX finality journal and materialized application state. It refines ADR-0052's callback contract, which remains active until explicitly superseded by a reviewed integration decision. Specifies commit ordering, a startup recovery lock, replay/reconciliation rules, a decision matrix and validation requirements. This is a design-only phase: it does not assume the pinned Malachite WAL exposes the required inspection/replay evidence, does not integrate stores or enable validators, and does not establish cross-database atomicity or anti-rollback protection. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2c8-cross-subsystem-recovery-protocol.md` and ADR-0055.
 
+
+
+## Phase 20G2C9 — pinned Malachite WAL recovery capability audit (proposed for review)
+
+Audits the exact pinned Malachite v0.8.2 source. Default WAL open/fetch/startup paths can truncate incomplete or unreadable records and reset the log for restart, non-validator or height-mismatch cases. The WAL persists engine replay inputs, not a complete APEX finality ledger; append and sync are separate; the signer is called before WAL append. APEX requires immutable preflight, a strict read-only scanner, explicit reset authorization and a signer-wrapper proof before integration. No runtime code is changed. See `docs/protocol/phase-20g2c9-malachite-wal-recovery-audit.md` and ADR-0056. G2/G4 remain BLOCKED; release remains NO-GO.
+
 ## Production release status
 
 **NO-GO — not production-ready.**
@@ -106,7 +112,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   │   └── src/finality_journal.rs # Durable journal and process-recovery tests
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0055
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0056
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
