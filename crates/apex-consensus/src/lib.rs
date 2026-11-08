@@ -10,6 +10,7 @@ pub mod certificate;
 pub mod consensus_message;
 pub mod validator_lifecycle;
 pub mod validator_lifecycle_commitment;
+pub mod validator_lifecycle_checkpoint;
 pub mod validator_set;
 
 use apex_types::{ChainId, Hash32, Height};
