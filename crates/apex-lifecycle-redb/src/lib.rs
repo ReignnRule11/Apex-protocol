@@ -80,7 +80,7 @@ impl RedbLifecycleCheckpointStore {
     }
 
     /// Verify redb's structural integrity. This does not prove anti-rollback.
-    pub fn check_integrity(&self) -> Result<(), CheckpointStoreError> {
+    pub fn check_integrity(&mut self) -> Result<(), CheckpointStoreError> {
         self.db
             .check_integrity()
             .map_err(|_| CheckpointStoreError::Unavailable)?;
@@ -106,7 +106,7 @@ impl MonotonicLifecycleCheckpointStore for RedbLifecycleCheckpointStore {
         else {
             return Ok(None);
         };
-        decode_anchor(value.value())
+        Ok(Some(decode_anchor(value.value())?))
     }
 
     fn compare_and_advance(
@@ -157,7 +157,7 @@ fn encode_anchor(anchor: LifecycleCheckpointAnchor) -> [u8; 40] {
     bytes
 }
 
-fn decode_anchor(bytes: &[u8]) -> Result<Option<LifecycleCheckpointAnchor>, CheckpointStoreError> {
+fn decode_anchor(bytes: &[u8]) -> Result<LifecycleCheckpointAnchor, CheckpointStoreError> {
     if bytes.len() != 40 {
         return Err(CheckpointStoreError::Unavailable);
     }
@@ -172,10 +172,10 @@ fn decode_anchor(bytes: &[u8]) -> Result<Option<LifecycleCheckpointAnchor>, Chec
     let checkpoint_hash = bytes[8..]
         .try_into()
         .map_err(|_| CheckpointStoreError::Unavailable)?;
-    Ok(Some(LifecycleCheckpointAnchor {
+    Ok(LifecycleCheckpointAnchor {
         sequence,
         checkpoint_hash,
-    }))
+    })
 }
 
 /// Independent witness for a checkpoint head. A production implementation
