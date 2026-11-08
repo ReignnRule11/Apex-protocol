@@ -112,7 +112,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   │   ├── src/finality_journal.rs # Durable journal and process-recovery tests\n    │   │   ├── src/wal_preflight.rs    # Strict read-only WAL snapshot scanner\n    │   │   └── src/wal_snapshot.rs     # Quiesced bounded read-only file acquisition
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0058
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0059
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -171,3 +171,8 @@ Adds an APEX-owned scanner in the isolated Malachite spike. It parses the pinned
 ## Phase 20G2D2 — quiesced, read-only WAL snapshot acquisition (implementation submitted)
 
 Adds a bounded read-only file acquisition layer ahead of the Phase 20G2D1 scanner. It requires an explicit caller attestation that all WAL writers are stopped, opens the source read-only, enforces a caller-supplied byte cap, compares file metadata before and after reading (including Unix device/inode/change-time), rejects detectable drift and length mismatches, and hashes the captured bytes. Tests cover exact byte/hash fidelity, source non-mutation, size-limit rejection and empty snapshots. The quiescence token is only an operational assertion; metadata checks do not prove an atomic filesystem snapshot or exclude every same-metadata rewrite. No authenticated provenance, anti-rollback anchor, recovery manifest, custom WAL actor, reset authorization or engine startup is implemented. G2/G4 remain BLOCKED; release remains NO-GO. See the Phase 20G2D2 record and ADR-0058.
+
+
+## Phase 20G2D3 — authenticated recovery manifest design (proposed for review)
+
+Defines a versioned canonical manifest binding the exact WAL snapshot digest/length, scanner evidence, chain/protocol/genesis identity, pinned engine revision, signer/finality/application checkpoints and recovery generation. It requires a separately governed recovery-attestation identity and an anti-rollback anchor independent of the recovery data directory. A hash alone does not authenticate provenance; a signature alone does not prevent replay. The manifest is evidence for cross-store reconciliation, not permission to start the engine. This phase is design-only: no codec, signature suite, key custody, threshold, trust-root distribution, anti-rollback technology, WAL actor, reset authorization or startup implementation is selected. G2/G4 remain BLOCKED; release remains NO-GO. See `docs/protocol/phase-20g2d3-authenticated-recovery-manifest-design.md` and ADR-0059.
