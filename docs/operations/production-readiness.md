@@ -183,3 +183,8 @@ Specifies a canonical, versioned recovery-manifest contract binding the preserve
 ### Phase 20G2D4 — recovery evidence export capability audit (submitted)
 
 Current signer and finality APIs do not provide complete, non-mutating recovery exports. Their convenience open paths initialize tables through write transactions; the application projection lacks a proven canonical export tied to finality. The next gate requires bounded read-only enumeration, schema/chain binding, complete journal validation and a canonical application commitment. Audit/specification only; no runtime change. **G2/G4 remain BLOCKED; release remains NO-GO.** See Phase 20G2D4 and ADR-0060.
+
+
+### Phase 20G2D5 — redb read-only recovery access audit (submitted)
+
+The exact pinned redb 4.5.0 exposes `ReadOnlyDatabase::open` and `Builder::open_read_only`; upstream documents that read-only open does not modify the file and rejects a database requiring recovery rather than repairing it. This is a candidate evidence-reader boundary, not yet an APEX recovery exporter. Default `ExclusiveWriter` locking prevents a concurrent read-only handle alongside a writer on supported lock platforms; APEX has not selected alternate concurrency modes. The next implementation spike must test exact signer/finality schemas, bounded deterministic enumeration, source-file hash invariance, corrupt/recovery-required rejection and platform lock behavior. No application-state commitment or authenticated anti-rollback evidence is supplied. **G2/G4 remain BLOCKED; release remains NO-GO.** See Phase 20G2D5 and ADR-0061.
