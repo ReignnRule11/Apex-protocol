@@ -263,7 +263,11 @@ pub fn verify_lifecycle_startup(
         if !seen.insert(*network_id) {
             return Err(LifecycleStartupError::DuplicateNetwork);
         }
+    }
 
+    // Validate the complete configuration before touching either store. This
+    // ensures malformed later entries cannot be masked by an earlier outage.
+    for network_id in network_ids {
         let local_head =
             local
                 .load(*network_id)
@@ -351,7 +355,7 @@ mod startup_tests {
         let dir = tempfile::tempdir().unwrap();
         let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
         let witness = Witness::default();
-        for (network, head) in [([1; 32], anchor(4, 4)), ([2; 32], anchor(9, 9))] {
+        for (network, head) in [([1; 32], anchor(1, 4)), ([2; 32], anchor(1, 9))] {
             assert!(local.compare_and_advance(network, None, head).unwrap());
             witness.heads.lock().unwrap().insert(network, head);
         }
@@ -368,11 +372,11 @@ mod startup_tests {
         let network = [3; 32];
         assert!(
             local
-                .compare_and_advance(network, None, anchor(2, 2))
+                .compare_and_advance(network, None, anchor(1, 2))
                 .unwrap()
         );
         let witness = Witness::default();
-        witness.heads.lock().unwrap().insert(network, anchor(3, 3));
+        witness.heads.lock().unwrap().insert(network, anchor(1, 3));
         assert_eq!(
             verify_lifecycle_startup(&local, &witness, &[network]),
             Err(LifecycleStartupError::HeadMismatch {
