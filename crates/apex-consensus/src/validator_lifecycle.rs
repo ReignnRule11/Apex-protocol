@@ -347,6 +347,188 @@ impl LifecycleLedger {
     }
 }
 
+/// Computes a deterministic, domain-separated SHA-256 commitment to the
+/// audited lifecycle history. This is a local reference commitment, not a
+/// canonical wire encoding, authenticated checkpoint, or anti-rollback anchor.
+impl LifecycleLedger {
+    pub fn commitment(
+        &self,
+        verifier: &impl ProtocolTransitionVerifier,
+    ) -> Result<[u8; 32], LifecycleError> {
+        use sha2_11::{Digest, Sha256};
+
+        self.audit(verifier)?;
+        let mut hash = Sha256::new();
+        hash.update(b"APEX/validator-lifecycle-ledger-commitment/v1");
+        hash.update((self.history.len() as u64).to_be_bytes());
+
+        for (scope, records) in &self.history {
+            encode_scope(&mut hash, *scope);
+            hash.update((records.len() as u64).to_be_bytes());
+            for record in records {
+                hash.update(record.envelope.request_id);
+                encode_scope(&mut hash, record.envelope.scope);
+                hash.update(record.envelope.expected_revision.to_be_bytes());
+                encode_event(&mut hash, &record.envelope.event);
+                encode_state(&mut hash, record.resulting_state);
+            }
+        }
+
+        Ok(hash.finalize().into())
+    }
+}
+
+fn encode_scope(hash: &mut impl sha2_11::Digest, scope: LifecycleScope) {
+    hash.update(scope.chain_id);
+    hash.update(scope.protocol_version.to_be_bytes());
+    hash.update(scope.operator_id);
+    hash.update(scope.validator_id);
+}
+
+fn encode_state(hash: &mut impl sha2_11::Digest, state: LifecycleState) {
+    hash.update([match state.application {
+        ApplicationStatus::Unregistered => 0,
+        ApplicationStatus::Submitted => 1,
+        ApplicationStatus::UnderReview => 2,
+        ApplicationStatus::RemediationRequired => 3,
+        ApplicationStatus::Rejected => 4,
+        ApplicationStatus::Withdrawn => 5,
+    }]);
+    hash.update([match state.eligibility {
+        EligibilityStatus::Unknown => 0,
+        EligibilityStatus::Eligible => 1,
+        EligibilityStatus::Ineligible => 2,
+    }]);
+    hash.update([match state.disposition {
+        GovernanceDisposition::Undecided => 0,
+        GovernanceDisposition::Approved => 1,
+        GovernanceDisposition::Denied => 2,
+        GovernanceDisposition::Appealed => 3,
+        GovernanceDisposition::Suspended => 4,
+        GovernanceDisposition::Revoked => 5,
+    }]);
+    match state.membership {
+        ConsensusMembership::Inactive => hash.update([0]),
+        ConsensusMembership::ActivationPending { transition_id } => {
+            hash.update([1]);
+            hash.update(transition_id);
+        }
+        ConsensusMembership::Active {
+            activation_transition_id,
+            activation_height,
+        } => {
+            hash.update([2]);
+            hash.update(activation_transition_id);
+            hash.update(activation_height.to_be_bytes());
+        }
+        ConsensusMembership::ExitPending { transition_id } => {
+            hash.update([3]);
+            hash.update(transition_id);
+        }
+        ConsensusMembership::InactiveAfterExit {
+            exit_transition_id,
+            exit_height,
+        } => {
+            hash.update([4]);
+            hash.update(exit_transition_id);
+            hash.update(exit_height.to_be_bytes());
+        }
+    }
+    hash.update(state.evidence_revision.to_be_bytes());
+    hash.update(state.policy_revision.to_be_bytes());
+    hash.update(state.revision.to_be_bytes());
+}
+
+fn encode_event(hash: &mut impl sha2_11::Digest, event: &LifecycleEvent) {
+    match event {
+        LifecycleEvent::Submit {
+            evidence_revision,
+            policy_revision,
+        } => {
+            hash.update([0]);
+            hash.update(evidence_revision.to_be_bytes());
+            hash.update(policy_revision.to_be_bytes());
+        }
+        LifecycleEvent::StartReview => hash.update([1]),
+        LifecycleEvent::RequireRemediation => hash.update([2]),
+        LifecycleEvent::ResubmitEvidence { evidence_revision } => {
+            hash.update([3]);
+            hash.update(evidence_revision.to_be_bytes());
+        }
+        LifecycleEvent::AssessEligibility {
+            result,
+            policy_revision,
+        } => {
+            hash.update([4]);
+            hash.update([match result {
+                EligibilityStatus::Unknown => 0,
+                EligibilityStatus::Eligible => 1,
+                EligibilityStatus::Ineligible => 2,
+            }]);
+            hash.update(policy_revision.to_be_bytes());
+        }
+        LifecycleEvent::Approve {
+            decision_id,
+            policy_revision,
+        } => {
+            hash.update([5]);
+            hash.update(decision_id);
+            hash.update(policy_revision.to_be_bytes());
+        }
+        LifecycleEvent::Deny {
+            decision_id,
+            policy_revision,
+        } => {
+            hash.update([6]);
+            hash.update(decision_id);
+            hash.update(policy_revision.to_be_bytes());
+        }
+        LifecycleEvent::Appeal { appeal_id } => {
+            hash.update([7]);
+            hash.update(appeal_id);
+        }
+        LifecycleEvent::Withdraw => hash.update([8]),
+        LifecycleEvent::ProposeActivation { transition_id } => {
+            hash.update([9]);
+            hash.update(transition_id);
+        }
+        LifecycleEvent::ConfirmActivation {
+            transition_id,
+            committed_height,
+            proof,
+        } => {
+            hash.update([10]);
+            hash.update(transition_id);
+            hash.update(committed_height.to_be_bytes());
+            hash.update((proof.len() as u64).to_be_bytes());
+            hash.update(proof);
+        }
+        LifecycleEvent::ProposeExit { transition_id } => {
+            hash.update([11]);
+            hash.update(transition_id);
+        }
+        LifecycleEvent::ConfirmExit {
+            transition_id,
+            committed_height,
+            proof,
+        } => {
+            hash.update([12]);
+            hash.update(transition_id);
+            hash.update(committed_height.to_be_bytes());
+            hash.update((proof.len() as u64).to_be_bytes());
+            hash.update(proof);
+        }
+        LifecycleEvent::SuspendDisposition { decision_id } => {
+            hash.update([13]);
+            hash.update(decision_id);
+        }
+        LifecycleEvent::RevokeDisposition { decision_id } => {
+            hash.update([14]);
+            hash.update(decision_id);
+        }
+    }
+}
+
 fn apply_event(
     envelope: &TransitionEnvelope,
     state: &mut LifecycleState,
@@ -1155,6 +1337,93 @@ mod audit_tests {
         assert_eq!(
             ledger.audit(&RejectVerifier),
             Err(LifecycleError::ProtocolProof(ProtocolProofError::Invalid))
+        );
+    }
+}
+
+#[cfg(test)]
+mod commitment_tests {
+    use super::*;
+
+    struct AcceptVerifier;
+    impl ProtocolTransitionVerifier for AcceptVerifier {
+        fn verify_committed_transition(
+            &self,
+            _: LifecycleScope,
+            _: ProtocolTransitionId,
+            _: u64,
+            _: &[u8],
+        ) -> Result<(), ProtocolProofError> {
+            Ok(())
+        }
+    }
+
+    fn scope() -> LifecycleScope {
+        LifecycleScope {
+            chain_id: [1; 32],
+            protocol_version: 1,
+            operator_id: [2; 32],
+            validator_id: [3; 32],
+        }
+    }
+
+    fn submitted_ledger() -> LifecycleLedger {
+        let mut ledger = LifecycleLedger::default();
+        ledger
+            .apply(
+                TransitionEnvelope {
+                    request_id: [1; 32],
+                    scope: scope(),
+                    expected_revision: 0,
+                    event: LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                },
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger
+    }
+
+    #[test]
+    fn commitment_is_stable_for_identical_audited_ledgers() {
+        let first = submitted_ledger();
+        let second = submitted_ledger();
+        assert_eq!(
+            first.commitment(&AcceptVerifier),
+            second.commitment(&AcceptVerifier)
+        );
+    }
+
+    #[test]
+    fn commitment_changes_when_a_valid_history_changes() {
+        let first = submitted_ledger();
+        let mut second = submitted_ledger();
+        second
+            .apply(
+                TransitionEnvelope {
+                    request_id: [2; 32],
+                    scope: scope(),
+                    expected_revision: 1,
+                    event: LifecycleEvent::StartReview,
+                },
+                &AcceptVerifier,
+            )
+            .unwrap();
+        assert_ne!(
+            first.commitment(&AcceptVerifier),
+            second.commitment(&AcceptVerifier)
+        );
+    }
+
+    #[test]
+    fn commitment_fails_closed_when_ledger_audit_fails() {
+        let mut ledger = submitted_ledger();
+        ledger.requests.clear();
+        assert_eq!(
+            ledger.commitment(&AcceptVerifier),
+            Err(LifecycleError::RequestIndexInvariant)
         );
     }
 }
