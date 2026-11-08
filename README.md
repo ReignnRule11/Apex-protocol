@@ -109,7 +109,7 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   └── apex-types/
     ├── experiments/
     │   ├── malachite-spike/          # Pinned Malachite API and isolated finality research
-    │   │   └── src/finality_journal.rs # Durable journal and process-recovery tests
+    │   │   ├── src/finality_journal.rs # Durable journal and process-recovery tests\n    │   │   └── src/wal_preflight.rs    # Strict read-only WAL snapshot scanner
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
     │   ├── architecture/adr/            # ADR-0001 through ADR-0056
