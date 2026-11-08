@@ -53,9 +53,7 @@ fn digest(bytes: &[u8]) -> [u8; 32] {
 fn source_snapshot(path: &Path, max_source_bytes: u64) -> Result<(u64, [u8; 32]), InspectionError> {
     // Check the advertised size before allocating the file contents. Recheck
     // after the read because the file may have changed between metadata and read.
-    let advertised_len = fs::metadata(path)
-        .map_err(|_| InspectionError::Io)?
-        .len();
+    let advertised_len = fs::metadata(path).map_err(|_| InspectionError::Io)?.len();
     if advertised_len > max_source_bytes {
         return Err(InspectionError::SourceTooLarge);
     }
@@ -261,7 +259,9 @@ pub fn inspect_finality(
         {
             return Err(InspectionError::TipMismatch);
         }
-        seen_tips = seen_tips.checked_add(1).ok_or(InspectionError::RecordLimit)?;
+        seen_tips = seen_tips
+            .checked_add(1)
+            .ok_or(InspectionError::RecordLimit)?;
         if seen_tips as u64 > max_records {
             return Err(InspectionError::RecordLimit);
         }
