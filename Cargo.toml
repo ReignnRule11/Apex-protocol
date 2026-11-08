@@ -6,6 +6,7 @@ members = [
     "crates/apex-consensus",
     "crates/apex-state",
     "crates/apex-state-redb",
+    "crates/apex-lifecycle-redb",
     "crates/apex-commitments",
     "crates/apex-evm",
     "crates/apex-evm-redb",
