@@ -1,0 +1,9 @@
+# ADR-0060 — recovery evidence export boundary
+
+- **Status:** Proposed for review; audit/specification only.
+- **Date:** 2026-11-08
+- **Context:** ADR-0055 through ADR-0059 define the cross-subsystem recovery authority model, identify mutating Malachite WAL recovery paths, add a read-only WAL scanner/snapshot acquisition primitive, and specify an authenticated recovery manifest. That manifest cannot be authoritative unless signer, finality and application stores can independently supply complete, non-mutating evidence.
+- **Decision:** Treat current store APIs as insufficient for authoritative recovery export. The signer store exposes reservation writes but no read-only enumeration/checkpoint contract; its current open path initializes tables through a write transaction. The finality journal exposes point payload/tip reads but no full ordered audit or deterministic export, and its open path commits table initialization. The application projection has no proven cross-checked export contract. No existing convenience open path is approved as a forensic read-only path.
+- **Required boundary:** Future recovery exporters must be bounded, deterministic, complete, non-mutating, schema/chain bound, independently verifiable and explicit about coverage. They must validate all signer reservations, all finality rows and parent continuity, and a canonical application-state commitment tied to the finality identity. Their reports remain diagnostic until authenticated and anchored independently.
+- **Non-decisions:** No redb read-only strategy, codec, state-root algorithm, signature suite, key custody, trust root, anti-rollback service, custom WAL actor or startup implementation is selected.
+- **Consequences:** A manifest cannot yet be issued as authoritative from the current store APIs. Missing evidence, incomplete enumeration or ambiguous I/O leaves recovery locked. G2/G4 remain BLOCKED; release remains NO-GO.
