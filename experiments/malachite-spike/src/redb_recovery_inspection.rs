@@ -100,7 +100,9 @@ pub fn inspect_signer(
     let before = source_snapshot(path, max_source_bytes)?;
     let db = ReadOnlyDatabase::open(path).map_err(|_| InspectionError::DatabaseOpen)?;
     let txn = db.begin_read().map_err(|_| InspectionError::DatabaseOpen)?;
-    let meta = txn.open_table(META).map_err(|_| InspectionError::MissingTable)?;
+    let meta = txn
+        .open_table(META)
+        .map_err(|_| InspectionError::MissingTable)?;
     let mut meta_iter = meta.iter().map_err(|_| InspectionError::CorruptMetadata)?;
     let first = meta_iter
         .next()
