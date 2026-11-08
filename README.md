@@ -109,10 +109,10 @@ The production-readiness register defines G0–G7 and Phases 17–26: `docs/oper
     │   └── apex-types/
     ├── experiments/
     │   ├── malachite-spike/          # Pinned Malachite API and isolated finality research
-    │   │   ├── src/finality_journal.rs # Durable journal and process-recovery tests\n    │   │   └── src/wal_preflight.rs    # Strict read-only WAL snapshot scanner
+    │   │   ├── src/finality_journal.rs # Durable journal and process-recovery tests\n    │   │   ├── src/wal_preflight.rs    # Strict read-only WAL snapshot scanner\n    │   │   └── src/wal_snapshot.rs     # Quiesced bounded read-only file acquisition
     │   └── consensus-harness/       # Separate OS-process fault-injection fixture
     ├── docs/
-    │   ├── architecture/adr/            # ADR-0001 through ADR-0056
+    │   ├── architecture/adr/            # ADR-0001 through ADR-0058
     │   ├── protocol/                    # Specifications and phase records
     │   ├── operations/                  # Production readiness and release gates
     │   └── threat-model/
@@ -166,3 +166,8 @@ Adds isolated child-process tests that terminate abruptly after journal/tip rows
 ## Phase 20G2D1 — strict read-only Malachite WAL preflight scanner (implementation submitted)
 
 Adds an APEX-owned scanner in the isolated Malachite spike. It parses the pinned v1 WAL header and entry framing from an immutable byte slice, hashes the complete supplied snapshot with SHA-256, enforces the 1 GiB entry bound, and verifies CRC32 for uncompressed records. Partial headers/payloads, unsupported versions, oversized entries and CRC mismatches are reported without mutation. Compressed records are framed but explicitly unverified because their CRC covers decompressed bytes; no compressed integrity claim is made. The scanner never opens a file, locks, truncates, repairs or syncs storage. CI now formats and lints the isolated spike in addition to compile/tests. It is not a file acquisition or authenticated recovery solution, does not decode consensus entries, and does not authorize reset or validator startup. G2/G4 remain BLOCKED; release remains NO-GO. See the Phase 20G2D1 record and ADR-0057.
+
+
+## Phase 20G2D2 — quiesced, read-only WAL snapshot acquisition (implementation submitted)
+
+Adds a bounded read-only file acquisition layer ahead of the Phase 20G2D1 scanner. It requires an explicit caller attestation that all WAL writers are stopped, opens the source read-only, enforces a caller-supplied byte cap, compares file metadata before and after reading (including Unix device/inode/change-time), rejects detectable drift and length mismatches, and hashes the captured bytes. Tests cover exact byte/hash fidelity, source non-mutation, size-limit rejection and empty snapshots. The quiescence token is only an operational assertion; metadata checks do not prove an atomic filesystem snapshot or exclude every same-metadata rewrite. No authenticated provenance, anti-rollback anchor, recovery manifest, custom WAL actor, reset authorization or engine startup is implemented. G2/G4 remain BLOCKED; release remains NO-GO. See the Phase 20G2D2 record and ADR-0058.
