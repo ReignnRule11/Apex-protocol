@@ -66,7 +66,7 @@ pub enum GateDispatch<Ctx: Context> {
     Handled,
     /// The message is not a finality event and must be processed by the caller's
     /// ordinary application event handler.
-    Unhandled(AppMsg<Ctx>),
+    Unhandled(Box<AppMsg<Ctx>>),
 }
 
 /// Process one message from `Channels::consensus`.
