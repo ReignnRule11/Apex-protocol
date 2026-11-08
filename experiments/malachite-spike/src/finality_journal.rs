@@ -52,13 +52,19 @@ impl FinalityJournal {
     pub fn create(path: impl AsRef<Path>, max_payload_bytes: usize) -> Result<Self, JournalError> {
         let database = Database::create(path).map_err(|_| JournalError::DatabaseUnavailable)?;
         ensure_tables(&database)?;
-        Ok(Self { database, max_payload_bytes })
+        Ok(Self {
+            database,
+            max_payload_bytes,
+        })
     }
 
     pub fn open(path: impl AsRef<Path>, max_payload_bytes: usize) -> Result<Self, JournalError> {
         let database = Database::open(path).map_err(|_| JournalError::DatabaseUnavailable)?;
         ensure_tables(&database)?;
-        Ok(Self { database, max_payload_bytes })
+        Ok(Self {
+            database,
+            max_payload_bytes,
+        })
     }
 
     /// Atomically append one finalized state payload and advance the chain tip.
@@ -87,7 +93,9 @@ impl FinalityJournal {
         AfterCommit: FnOnce(),
     {
         let identity = key.identity();
-        identity.validate().map_err(|_| JournalError::InvalidIdentity)?;
+        identity
+            .validate()
+            .map_err(|_| JournalError::InvalidIdentity)?;
         if state_payload.len() > self.max_payload_bytes {
             return Err(JournalError::PayloadTooLarge);
         }
@@ -96,12 +104,22 @@ impl FinalityJournal {
         let height_key = encode_height_key(identity);
         let chain_key = encode_chain_key(identity);
 
-        let write_txn = self.database.begin_write().map_err(|_| JournalError::DatabaseUnavailable)?;
+        let write_txn = self
+            .database
+            .begin_write()
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
         {
-            let mut journal = write_txn.open_table(JOURNAL).map_err(|_| JournalError::DatabaseUnavailable)?;
-            let mut tips = write_txn.open_table(TIPS).map_err(|_| JournalError::DatabaseUnavailable)?;
+            let mut journal = write_txn
+                .open_table(JOURNAL)
+                .map_err(|_| JournalError::DatabaseUnavailable)?;
+            let mut tips = write_txn
+                .open_table(TIPS)
+                .map_err(|_| JournalError::DatabaseUnavailable)?;
 
-            if let Some(existing) = journal.get(height_key.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)? {
+            if let Some(existing) = journal
+                .get(height_key.as_slice())
+                .map_err(|_| JournalError::DatabaseUnavailable)?
+            {
                 let existing = existing.value();
                 if existing.len() < IDENTITY_LEN {
                     return Err(JournalError::CorruptJournal);
@@ -115,9 +133,15 @@ impl FinalityJournal {
                 return Ok(JournalCommit::AlreadyCommitted);
             }
 
-            if let Some(tip) = tips.get(chain_key.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)? {
+            if let Some(tip) = tips
+                .get(chain_key.as_slice())
+                .map_err(|_| JournalError::DatabaseUnavailable)?
+            {
                 let previous = decode_identity(tip.value())?;
-                let expected_height = previous.height.checked_add(1).ok_or(JournalError::HeightDiscontinuity)?;
+                let expected_height = previous
+                    .height
+                    .checked_add(1)
+                    .ok_or(JournalError::HeightDiscontinuity)?;
                 if identity.height != expected_height {
                     return Err(JournalError::HeightDiscontinuity);
                 }
@@ -138,8 +162,11 @@ impl FinalityJournal {
             let mut record = Vec::with_capacity(IDENTITY_LEN + state_payload.len());
             record.extend_from_slice(&encoded_identity);
             record.extend_from_slice(state_payload);
-            journal.insert(height_key.as_slice(), record.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)?;
-            tips.insert(chain_key.as_slice(), encoded_identity.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)?;
+            journal
+                .insert(height_key.as_slice(), record.as_slice())
+                .map_err(|_| JournalError::DatabaseUnavailable)?;
+            tips.insert(chain_key.as_slice(), encoded_identity.as_slice())
+                .map_err(|_| JournalError::DatabaseUnavailable)?;
         }
 
         // The staged transaction is dropped without commit if this process exits.
@@ -151,12 +178,25 @@ impl FinalityJournal {
     }
 
     /// Return the exact stored payload for a chain height, if present.
-    pub fn read_payload(&self, identity: ApexBlockIdentity) -> Result<Option<Vec<u8>>, JournalError> {
-        identity.validate().map_err(|_| JournalError::InvalidIdentity)?;
-        let read_txn = self.database.begin_read().map_err(|_| JournalError::DatabaseUnavailable)?;
-        let journal = read_txn.open_table(JOURNAL).map_err(|_| JournalError::DatabaseUnavailable)?;
+    pub fn read_payload(
+        &self,
+        identity: ApexBlockIdentity,
+    ) -> Result<Option<Vec<u8>>, JournalError> {
+        identity
+            .validate()
+            .map_err(|_| JournalError::InvalidIdentity)?;
+        let read_txn = self
+            .database
+            .begin_read()
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
+        let journal = read_txn
+            .open_table(JOURNAL)
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
         let height_key = encode_height_key(identity);
-        let Some(record) = journal.get(height_key.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)? else {
+        let Some(record) = journal
+            .get(height_key.as_slice())
+            .map_err(|_| JournalError::DatabaseUnavailable)?
+        else {
             return Ok(None);
         };
         let bytes = record.value();
@@ -170,16 +210,28 @@ impl FinalityJournal {
     }
 
     /// Return the latest committed identity for the chain, if one exists.
-    pub fn tip(&self, chain_id: [u8; 32], protocol_version: u32) -> Result<Option<ApexBlockIdentity>, JournalError> {
+    pub fn tip(
+        &self,
+        chain_id: [u8; 32],
+        protocol_version: u32,
+    ) -> Result<Option<ApexBlockIdentity>, JournalError> {
         if chain_id == [0; 32] || protocol_version == 0 {
             return Err(JournalError::InvalidIdentity);
         }
-        let read_txn = self.database.begin_read().map_err(|_| JournalError::DatabaseUnavailable)?;
-        let tips = read_txn.open_table(TIPS).map_err(|_| JournalError::DatabaseUnavailable)?;
+        let read_txn = self
+            .database
+            .begin_read()
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
+        let tips = read_txn
+            .open_table(TIPS)
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
         let mut key = Vec::with_capacity(CHAIN_KEY_LEN);
         key.extend_from_slice(&chain_id);
         key.extend_from_slice(&protocol_version.to_be_bytes());
-        match tips.get(key.as_slice()).map_err(|_| JournalError::DatabaseUnavailable)? {
+        match tips
+            .get(key.as_slice())
+            .map_err(|_| JournalError::DatabaseUnavailable)?
+        {
             Some(value) => Ok(Some(decode_identity(value.value())?)),
             None => Ok(None),
         }
@@ -187,13 +239,19 @@ impl FinalityJournal {
 }
 
 // Keep the empty schema durable before any finality append is attempted.
- // This ensures an aborted first append reopens as an empty journal rather than
- // appearing corrupt merely because its tables were created in that aborted txn.
+// This ensures an aborted first append reopens as an empty journal rather than
+// appearing corrupt merely because its tables were created in that aborted txn.
 fn ensure_tables(database: &Database) -> Result<(), JournalError> {
-    let write_txn = database.begin_write().map_err(|_| JournalError::DatabaseUnavailable)?;
+    let write_txn = database
+        .begin_write()
+        .map_err(|_| JournalError::DatabaseUnavailable)?;
     {
-        let _journal = write_txn.open_table(JOURNAL).map_err(|_| JournalError::DatabaseUnavailable)?;
-        let _tips = write_txn.open_table(TIPS).map_err(|_| JournalError::DatabaseUnavailable)?;
+        let _journal = write_txn
+            .open_table(JOURNAL)
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
+        let _tips = write_txn
+            .open_table(TIPS)
+            .map_err(|_| JournalError::DatabaseUnavailable)?;
     }
     write_txn.commit().map_err(|_| JournalError::Ambiguous)?;
     Ok(())
@@ -215,14 +273,30 @@ fn decode_identity(bytes: &[u8]) -> Result<ApexBlockIdentity, JournalError> {
     }
     let mut chain_id = [0; 32];
     chain_id.copy_from_slice(&bytes[..32]);
-    let protocol_version = u32::from_be_bytes(bytes[32..36].try_into().map_err(|_| JournalError::CorruptJournal)?);
-    let height = u64::from_be_bytes(bytes[36..44].try_into().map_err(|_| JournalError::CorruptJournal)?);
+    let protocol_version = u32::from_be_bytes(
+        bytes[32..36]
+            .try_into()
+            .map_err(|_| JournalError::CorruptJournal)?,
+    );
+    let height = u64::from_be_bytes(
+        bytes[36..44]
+            .try_into()
+            .map_err(|_| JournalError::CorruptJournal)?,
+    );
     let mut parent_hash = [0; 32];
     parent_hash.copy_from_slice(&bytes[44..76]);
     let mut block_hash = [0; 32];
     block_hash.copy_from_slice(&bytes[76..108]);
-    let identity = ApexBlockIdentity { chain_id, protocol_version, height, parent_hash, block_hash };
-    identity.validate().map_err(|_| JournalError::CorruptJournal)?;
+    let identity = ApexBlockIdentity {
+        chain_id,
+        protocol_version,
+        height,
+        parent_hash,
+        block_hash,
+    };
+    identity
+        .validate()
+        .map_err(|_| JournalError::CorruptJournal)?;
     Ok(identity)
 }
 
@@ -253,8 +327,13 @@ mod tests {
 
     fn verified(height: u64, parent_hash: [u8; 32], block_hash: [u8; 32]) -> FinalityCommitKey {
         VerifiedNativeFinality::test_only(ApexBlockIdentity {
-            chain_id: [1; 32], protocol_version: 1, height, parent_hash, block_hash,
-        }).commit_key()
+            chain_id: [1; 32],
+            protocol_version: 1,
+            height,
+            parent_hash,
+            block_hash,
+        })
+        .commit_key()
     }
 
     #[test]
@@ -263,12 +342,21 @@ mod tests {
         let path = file.path();
         let journal = FinalityJournal::create(path, 1024).unwrap();
         let key = verified(1, [0; 32], [2; 32]);
-        assert_eq!(journal.commit(key, b"state-one"), Ok(JournalCommit::Committed));
-        assert_eq!(journal.commit(key, b"state-one"), Ok(JournalCommit::AlreadyCommitted));
+        assert_eq!(
+            journal.commit(key, b"state-one"),
+            Ok(JournalCommit::Committed)
+        );
+        assert_eq!(
+            journal.commit(key, b"state-one"),
+            Ok(JournalCommit::AlreadyCommitted)
+        );
         drop(journal);
 
         let reopened = FinalityJournal::open(path, 1024).unwrap();
-        assert_eq!(reopened.read_payload(key.identity()), Ok(Some(b"state-one".to_vec())));
+        assert_eq!(
+            reopened.read_payload(key.identity()),
+            Ok(Some(b"state-one".to_vec()))
+        );
         assert_eq!(reopened.tip([1; 32], 1), Ok(Some(key.identity())));
     }
 
@@ -276,25 +364,46 @@ mod tests {
     fn different_identity_at_same_height_fails_closed() {
         let file = NamedTempFile::new().unwrap();
         let journal = FinalityJournal::create(file.path(), 1024).unwrap();
-        assert_eq!(journal.commit(verified(1, [0; 32], [2; 32]), b"a"), Ok(JournalCommit::Committed));
-        assert_eq!(journal.commit(verified(1, [0; 32], [3; 32]), b"b"), Err(JournalError::ConflictingFinality));
+        assert_eq!(
+            journal.commit(verified(1, [0; 32], [2; 32]), b"a"),
+            Ok(JournalCommit::Committed)
+        );
+        assert_eq!(
+            journal.commit(verified(1, [0; 32], [3; 32]), b"b"),
+            Err(JournalError::ConflictingFinality)
+        );
     }
 
     #[test]
     fn next_height_requires_parent_linkage() {
         let file = NamedTempFile::new().unwrap();
         let journal = FinalityJournal::create(file.path(), 1024).unwrap();
-        assert_eq!(journal.commit(verified(1, [0; 32], [2; 32]), b"a"), Ok(JournalCommit::Committed));
-        assert_eq!(journal.commit(verified(2, [9; 32], [3; 32]), b"b"), Err(JournalError::ParentMismatch));
-        assert_eq!(journal.commit(verified(2, [2; 32], [3; 32]), b"b"), Ok(JournalCommit::Committed));
+        assert_eq!(
+            journal.commit(verified(1, [0; 32], [2; 32]), b"a"),
+            Ok(JournalCommit::Committed)
+        );
+        assert_eq!(
+            journal.commit(verified(2, [9; 32], [3; 32]), b"b"),
+            Err(JournalError::ParentMismatch)
+        );
+        assert_eq!(
+            journal.commit(verified(2, [2; 32], [3; 32]), b"b"),
+            Ok(JournalCommit::Committed)
+        );
     }
 
     #[test]
     fn rejects_oversized_payload_and_height_gap() {
         let file = NamedTempFile::new().unwrap();
         let journal = FinalityJournal::create(file.path(), 4).unwrap();
-        assert_eq!(journal.commit(verified(1, [0; 32], [2; 32]), b"12345"), Err(JournalError::PayloadTooLarge));
-        assert_eq!(journal.commit(verified(2, [0; 32], [3; 32]), b"ok"), Err(JournalError::HeightDiscontinuity));
+        assert_eq!(
+            journal.commit(verified(1, [0; 32], [2; 32]), b"12345"),
+            Err(JournalError::PayloadTooLarge)
+        );
+        assert_eq!(
+            journal.commit(verified(2, [0; 32], [3; 32]), b"ok"),
+            Err(JournalError::HeightDiscontinuity)
+        );
     }
 
     // The child exits without running Rust destructors, approximating abrupt
@@ -344,7 +453,10 @@ mod tests {
         let identity = verified(1, [0; 32], [2; 32]).identity();
         assert_eq!(reopened.read_payload(identity), Ok(None));
         assert_eq!(reopened.tip([1; 32], 1), Ok(None));
-        assert_eq!(reopened.commit(verified(1, [0; 32], [2; 32]), b"crash-state"), Ok(JournalCommit::Committed));
+        assert_eq!(
+            reopened.commit(verified(1, [0; 32], [2; 32]), b"crash-state"),
+            Ok(JournalCommit::Committed)
+        );
     }
 
     #[test]
@@ -356,8 +468,14 @@ mod tests {
 
         let reopened = FinalityJournal::open(file.path(), 1024).unwrap();
         let key = verified(1, [0; 32], [2; 32]);
-        assert_eq!(reopened.read_payload(key.identity()), Ok(Some(b"crash-state".to_vec())));
+        assert_eq!(
+            reopened.read_payload(key.identity()),
+            Ok(Some(b"crash-state".to_vec()))
+        );
         assert_eq!(reopened.tip([1; 32], 1), Ok(Some(key.identity())));
-        assert_eq!(reopened.commit(key, b"crash-state"), Ok(JournalCommit::AlreadyCommitted));
+        assert_eq!(
+            reopened.commit(key, b"crash-state"),
+            Ok(JournalCommit::AlreadyCommitted)
+        );
     }
 }

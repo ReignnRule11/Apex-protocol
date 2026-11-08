@@ -71,13 +71,19 @@ pub struct VerifiedNativeFinality {
 impl VerifiedNativeFinality {
     /// Stable key for idempotent application commits and crash recovery.
     pub const fn commit_key(&self) -> FinalityCommitKey {
-        FinalityCommitKey { identity: self.identity }
+        FinalityCommitKey {
+            identity: self.identity,
+        }
     }
 
     /// Construct a verified token only inside deterministic gate tests.
     #[cfg(test)]
     pub(crate) fn test_only(identity: ApexBlockIdentity) -> Self {
-        Self { identity, native_height: identity.height, native_round: Round::new(0) }
+        Self {
+            identity,
+            native_height: identity.height,
+            native_round: Round::new(0),
+        }
     }
 
     pub const fn identity(&self) -> ApexBlockIdentity {
@@ -111,6 +117,18 @@ pub enum BridgeError {
     NativeCertificateRejected,
 }
 
+/// Height, round and APEX value binding expected for one native certificate.
+///
+/// Keeping these related expectations together prevents callers from
+/// accidentally mixing coordinates from different consensus decisions.
+pub struct NativeCertificateBinding<'a, Ctx: Context, B> {
+    pub expected_height: Ctx::Height,
+    pub expected_round: Round,
+    pub expected_value_id: &'a ValueId<Ctx>,
+    pub apex_identity: ApexBlockIdentity,
+    pub value_binding: &'a B,
+}
+
 /// Verify the exact native certificate and bind its decision to one APEX block.
 ///
 /// Callers must first obtain canonical block bytes from a bounded value store,
@@ -124,22 +142,24 @@ pub async fn verify_and_bind_native_certificate<Ctx, V, B>(
     certificate: &CommitCertificate<Ctx>,
     validator_set: &Ctx::ValidatorSet,
     thresholds: ThresholdParams,
-    expected_height: Ctx::Height,
-    expected_round: Round,
-    expected_value_id: &ValueId<Ctx>,
-    apex_identity: ApexBlockIdentity,
-    value_binding: &B,
+    binding: NativeCertificateBinding<'_, Ctx, B>,
 ) -> Result<VerifiedNativeFinality, BridgeError>
 where
     Ctx: Context,
     V: VerifierExt<Ctx> + Sync,
     B: ApexValueIdBinding<Ctx>,
 {
+    let NativeCertificateBinding {
+        expected_height,
+        expected_round,
+        expected_value_id,
+        apex_identity,
+        value_binding,
+    } = binding;
+
     apex_identity.validate()?;
 
-    if certificate.height != expected_height
-        || apex_identity.height != expected_height.as_u64()
-    {
+    if certificate.height != expected_height || apex_identity.height != expected_height.as_u64() {
         return Err(BridgeError::WrongNativeHeight);
     }
     if certificate.round != expected_round {
@@ -181,15 +201,27 @@ mod tests {
         assert_eq!(valid.validate(), Ok(()));
 
         assert_eq!(
-            ApexBlockIdentity { chain_id: [0; 32], ..valid }.validate(),
+            ApexBlockIdentity {
+                chain_id: [0; 32],
+                ..valid
+            }
+            .validate(),
             Err(BridgeError::InvalidApexContext)
         );
         assert_eq!(
-            ApexBlockIdentity { protocol_version: 0, ..valid }.validate(),
+            ApexBlockIdentity {
+                protocol_version: 0,
+                ..valid
+            }
+            .validate(),
             Err(BridgeError::InvalidApexContext)
         );
         assert_eq!(
-            ApexBlockIdentity { block_hash: [0; 32], ..valid }.validate(),
+            ApexBlockIdentity {
+                block_hash: [0; 32],
+                ..valid
+            }
+            .validate(),
             Err(BridgeError::NilApexBlockHash)
         );
     }

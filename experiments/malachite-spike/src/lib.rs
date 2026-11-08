@@ -26,7 +26,10 @@ pub async fn build_engine<Ctx, Config, Wal, Net, Sync>(
     consensus: ConsensusContext<Ctx>,
     sync: SyncContext<Sync>,
     request: RequestContext,
-) -> eyre::Result<(malachitebft_app_channel::Channels<Ctx>, malachitebft_app_channel::EngineHandle)>
+) -> eyre::Result<(
+    malachitebft_app_channel::Channels<Ctx>,
+    malachitebft_app_channel::EngineHandle,
+)>
 where
     Ctx: malachitebft_app_channel::app::types::core::Context,
     Config: malachitebft_app_channel::app::config::NodeConfig,
@@ -48,6 +51,6 @@ where
 }
 
 pub mod finality_event_loop;
-pub mod native_finality_bridge;
-
 pub mod finality_journal;
+pub mod native_finality_bridge;
+pub mod wal_preflight;

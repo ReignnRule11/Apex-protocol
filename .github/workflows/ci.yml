@@ -34,9 +34,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.91.0
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: experiments/malachite-spike -> target
+      - name: Format isolated Malachite spike
+        run: cargo fmt --all -- --check
+      - name: Clippy isolated Malachite spike
+        run: cargo clippy --all-targets -- -D warnings
       - name: Generate isolated lockfile
         run: cargo generate-lockfile
       - name: Compile pinned Malachite API and typed EngineBuilder adapter
