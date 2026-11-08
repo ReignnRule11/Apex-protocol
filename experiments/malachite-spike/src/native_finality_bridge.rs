@@ -117,6 +117,18 @@ pub enum BridgeError {
     NativeCertificateRejected,
 }
 
+/// Height, round and APEX value binding expected for one native certificate.
+///
+/// Keeping these related expectations together prevents callers from
+/// accidentally mixing coordinates from different consensus decisions.
+pub struct NativeCertificateBinding<'a, Ctx: Context, B> {
+    pub expected_height: Ctx::Height,
+    pub expected_round: Round,
+    pub expected_value_id: &'a ValueId<Ctx>,
+    pub apex_identity: ApexBlockIdentity,
+    pub value_binding: &'a B,
+}
+
 /// Verify the exact native certificate and bind its decision to one APEX block.
 ///
 /// Callers must first obtain canonical block bytes from a bounded value store,
@@ -130,17 +142,21 @@ pub async fn verify_and_bind_native_certificate<Ctx, V, B>(
     certificate: &CommitCertificate<Ctx>,
     validator_set: &Ctx::ValidatorSet,
     thresholds: ThresholdParams,
-    expected_height: Ctx::Height,
-    expected_round: Round,
-    expected_value_id: &ValueId<Ctx>,
-    apex_identity: ApexBlockIdentity,
-    value_binding: &B,
+    binding: NativeCertificateBinding<'_, Ctx, B>,
 ) -> Result<VerifiedNativeFinality, BridgeError>
 where
     Ctx: Context,
     V: VerifierExt<Ctx> + Sync,
     B: ApexValueIdBinding<Ctx>,
 {
+    let NativeCertificateBinding {
+        expected_height,
+        expected_round,
+        expected_value_id,
+        apex_identity,
+        value_binding,
+    } = binding;
+
     apex_identity.validate()?;
 
     if certificate.height != expected_height || apex_identity.height != expected_height.as_u64() {

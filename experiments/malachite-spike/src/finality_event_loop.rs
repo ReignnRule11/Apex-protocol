@@ -89,12 +89,11 @@ where
         AppMsg::Decided {
             certificate, reply, ..
         } => {
-            if let Ok(verified) = app.verify_certificate(&certificate).await {
-                if verified.identity().height == certificate.height.as_u64()
-                    && app.stage_decided(&verified).await.is_ok()
-                {
-                    let _ = reply.send(());
-                }
+            if let Ok(verified) = app.verify_certificate(&certificate).await
+                && verified.identity().height == certificate.height.as_u64()
+                && app.stage_decided(&verified).await.is_ok()
+            {
+                let _ = reply.send(());
             }
             GateDispatch::Handled
         }
@@ -138,10 +137,10 @@ where
                     true
                 };
 
-            if restart_is_safe {
-                if let Ok(params) = app.restart_params(height).await {
-                    let _ = reply.send(Next::Restart(height, params));
-                }
+            if restart_is_safe
+                && let Ok(params) = app.restart_params(height).await
+            {
+                let _ = reply.send(Next::Restart(height, params));
             }
             GateDispatch::Handled
         }

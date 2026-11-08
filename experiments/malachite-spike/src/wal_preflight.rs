@@ -187,15 +187,15 @@ pub fn scan_wal_snapshot(bytes: &[u8]) -> WalPreflightReport {
             crc_verified: crc_verified && actual_crc == Some(expected_crc),
         });
 
-        if let Some(actual) = actual_crc {
-            if actual != expected_crc {
-                report.issues.push(WalScanIssue::CrcMismatch {
-                    offset: offset as u64,
-                    expected: expected_crc,
-                    actual,
-                });
-                break;
-            }
+        if let Some(actual) = actual_crc
+            && actual != expected_crc
+        {
+            report.issues.push(WalScanIssue::CrcMismatch {
+                offset: offset as u64,
+                expected: expected_crc,
+                actual,
+            });
+            break;
         }
         offset = payload_end;
     }
