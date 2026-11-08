@@ -48,6 +48,6 @@ where
 }
 
 pub mod finality_event_loop;
-pub mod native_finality_bridge;
-
 pub mod finality_journal;
+pub mod native_finality_bridge;
+pub mod wal_preflight;
