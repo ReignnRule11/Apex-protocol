@@ -378,8 +378,13 @@ mod tests {
         let store = MemoryStore::default();
         let first = checkpoint(1, [0; 32], commitment);
         let anchor = accept_lifecycle_checkpoint(
-            &ledger, &first, &AcceptAuthenticator, &store, &AcceptVerifier,
-        ).unwrap();
+            &ledger,
+            &first,
+            &AcceptAuthenticator,
+            &store,
+            &AcceptVerifier,
+        )
+        .unwrap();
         let stale = checkpoint(1, [0; 32], commitment);
         assert_eq!(
             accept_lifecycle_checkpoint(
