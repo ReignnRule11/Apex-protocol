@@ -264,11 +264,12 @@ pub fn verify_lifecycle_startup(
             return Err(LifecycleStartupError::DuplicateNetwork);
         }
 
-        let local_head = local
-            .load(*network_id)
-            .map_err(|_| LifecycleStartupError::LocalUnavailable {
-                network_id: *network_id,
-            })?;
+        let local_head =
+            local
+                .load(*network_id)
+                .map_err(|_| LifecycleStartupError::LocalUnavailable {
+                    network_id: *network_id,
+                })?;
         let trusted_head = witness.trusted_head(*network_id).map_err(|_| {
             LifecycleStartupError::WitnessUnavailable {
                 network_id: *network_id,
@@ -365,12 +366,18 @@ mod startup_tests {
         let dir = tempfile::tempdir().unwrap();
         let local = RedbLifecycleCheckpointStore::open(dir.path().join("local.redb")).unwrap();
         let network = [3; 32];
-        assert!(local.compare_and_advance(network, None, anchor(2, 2)).unwrap());
+        assert!(
+            local
+                .compare_and_advance(network, None, anchor(2, 2))
+                .unwrap()
+        );
         let witness = Witness::default();
         witness.heads.lock().unwrap().insert(network, anchor(3, 3));
         assert_eq!(
             verify_lifecycle_startup(&local, &witness, &[network]),
-            Err(LifecycleStartupError::HeadMismatch { network_id: network })
+            Err(LifecycleStartupError::HeadMismatch {
+                network_id: network
+            })
         );
     }
 
@@ -381,10 +388,15 @@ mod startup_tests {
         let network = [4; 32];
         let head = anchor(1, 1);
         assert!(local.compare_and_advance(network, None, head).unwrap());
-        let witness = Witness { heads: Mutex::new(BTreeMap::from([(network, head)])), unavailable: true };
+        let witness = Witness {
+            heads: Mutex::new(BTreeMap::from([(network, head)])),
+            unavailable: true,
+        };
         assert_eq!(
             verify_lifecycle_startup(&local, &witness, &[network]),
-            Err(LifecycleStartupError::WitnessUnavailable { network_id: network })
+            Err(LifecycleStartupError::WitnessUnavailable {
+                network_id: network
+            })
         );
     }
 
@@ -395,7 +407,9 @@ mod startup_tests {
         let network = [5; 32];
         assert_eq!(
             verify_lifecycle_startup(&local, &Witness::default(), &[network]),
-            Err(LifecycleStartupError::UninitializedNetwork { network_id: network })
+            Err(LifecycleStartupError::UninitializedNetwork {
+                network_id: network
+            })
         );
     }
 }
