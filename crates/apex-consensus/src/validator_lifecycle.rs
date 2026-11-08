@@ -1,15 +1,14 @@
 //! Executable, policy-neutral validator lifecycle reference state machine.
 //!
-//! This module enforces local transition ordering and state-domain separation.
-//! It is not a governance authority, canonical wire codec, durable registry,
-//! consensus validator-set updater, or production authorization system.
-//! Protocol commit evidence is accepted only through an injected verifier;
-//! no production implementation of that verifier exists in this phase.
+//! This in-memory model enforces local transition ordering and state-domain
+//! separation. It is not a governance authority, durable registry, consensus
+//! validator-set updater, canonical wire codec, or production authorization
+//! system. Membership confirmation requires an injected proof verifier.
 
 use std::collections::BTreeMap;
 use thiserror::Error;
 
-/// Exact chain/operator/validator namespace for one lifecycle record.
+/// Chain/operator/validator namespace for one lifecycle record.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct LifecycleScope {
     pub chain_id: [u8; 32],
@@ -18,7 +17,6 @@ pub struct LifecycleScope {
     pub validator_id: [u8; 32],
 }
 
-/// Stable caller-supplied idempotency key. It is not a cryptographic proof.
 pub type TransitionRequestId = [u8; 32];
 pub type ProtocolTransitionId = [u8; 32];
 
@@ -52,19 +50,23 @@ pub enum GovernanceDisposition {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ConsensusMembership {
     Inactive,
-    ActivationPending { transition_id: ProtocolTransitionId },
+    ActivationPending {
+        transition_id: ProtocolTransitionId,
+    },
     Active {
         activation_transition_id: ProtocolTransitionId,
         activation_height: u64,
     },
-    ExitPending { transition_id: ProtocolTransitionId },
+    ExitPending {
+        transition_id: ProtocolTransitionId,
+    },
     InactiveAfterExit {
         exit_transition_id: ProtocolTransitionId,
         exit_height: u64,
     },
 }
 
-/// The four state domains are deliberately represented independently.
+/// Application, eligibility, governance and consensus are separate domains.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LifecycleState {
     pub application: ApplicationStatus,
@@ -90,33 +92,55 @@ impl Default for LifecycleState {
     }
 }
 
-/// Events are proposals/observations. Only the protocol verifier can authorize
-/// the two membership-changing observations.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LifecycleEvent {
-    Submit { evidence_revision: u64, policy_revision: u64 },
+    Submit {
+        evidence_revision: u64,
+        policy_revision: u64,
+    },
     StartReview,
     RequireRemediation,
-    ResubmitEvidence { evidence_revision: u64 },
-    AssessEligibility { result: EligibilityStatus, policy_revision: u64 },
-    Approve { decision_id: [u8; 32], policy_revision: u64 },
-    Deny { decision_id: [u8; 32], policy_revision: u64 },
-    Appeal { appeal_id: [u8; 32] },
+    ResubmitEvidence {
+        evidence_revision: u64,
+    },
+    AssessEligibility {
+        result: EligibilityStatus,
+        policy_revision: u64,
+    },
+    Approve {
+        decision_id: [u8; 32],
+        policy_revision: u64,
+    },
+    Deny {
+        decision_id: [u8; 32],
+        policy_revision: u64,
+    },
+    Appeal {
+        appeal_id: [u8; 32],
+    },
     Withdraw,
-    ProposeActivation { transition_id: ProtocolTransitionId },
+    ProposeActivation {
+        transition_id: ProtocolTransitionId,
+    },
     ConfirmActivation {
         transition_id: ProtocolTransitionId,
         committed_height: u64,
         proof: Vec<u8>,
     },
-    ProposeExit { transition_id: ProtocolTransitionId },
+    ProposeExit {
+        transition_id: ProtocolTransitionId,
+    },
     ConfirmExit {
         transition_id: ProtocolTransitionId,
         committed_height: u64,
         proof: Vec<u8>,
     },
-    SuspendDisposition { decision_id: [u8; 32] },
-    RevokeDisposition { decision_id: [u8; 32] },
+    SuspendDisposition {
+        decision_id: [u8; 32],
+    },
+    RevokeDisposition {
+        decision_id: [u8; 32],
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -127,9 +151,7 @@ pub struct TransitionEnvelope {
     pub event: LifecycleEvent,
 }
 
-/// A verifier must validate the actual protocol proof against the exact scope,
-/// transition identity and committed height. This crate supplies no production
-/// verifier; callers must not substitute an administrative status or API result.
+/// Production callers must verify a real protocol commit, not an API status.
 pub trait ProtocolTransitionVerifier {
     fn verify_committed_transition(
         &self,
@@ -162,13 +184,13 @@ pub enum LifecycleError {
     RevisionOverflow,
     #[error("request ID was reused for a different transition envelope")]
     RequestIdConflict,
-    #[error("transition is not valid from the current application state")]
+    #[error("invalid application transition")]
     InvalidApplicationTransition,
-    #[error("transition is not valid from the current eligibility state")]
+    #[error("invalid eligibility transition")]
     InvalidEligibilityTransition,
-    #[error("transition is not valid from the current governance disposition")]
+    #[error("invalid governance disposition transition")]
     InvalidDispositionTransition,
-    #[error("transition is not valid from the current consensus membership state")]
+    #[error("invalid consensus membership transition")]
     InvalidMembershipTransition,
     #[error("evidence revision must be non-zero and strictly increase")]
     InvalidEvidenceRevision,
@@ -194,12 +216,15 @@ pub struct LifecycleRecord {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApplyOutcome {
-    Applied { revision: u64 },
-    Duplicate { original_revision: u64 },
+    Applied {
+        revision: u64,
+    },
+    Duplicate {
+        original_revision: u64,
+    },
 }
 
-/// In-memory deterministic reference ledger. It is intentionally not durable,
-/// distributed, authenticated, or wired to consensus or signer enablement.
+/// In-memory reference ledger; not durable, distributed or authenticated.
 #[derive(Clone, Debug, Default)]
 pub struct LifecycleLedger {
     states: BTreeMap<LifecycleScope, LifecycleState>,
@@ -213,7 +238,10 @@ impl LifecycleLedger {
     }
 
     pub fn history(&self, scope: LifecycleScope) -> &[LifecycleRecord] {
-        self.history.get(&scope).map(Vec::as_slice).unwrap_or(&[])
+        self.history
+            .get(&scope)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     pub fn apply(
@@ -227,16 +255,18 @@ impl LifecycleLedger {
         }
 
         if let Some(existing) = self.requests.get(&envelope.request_id) {
-            if existing == &envelope {
-                let revision = self
-                    .history(existing.scope)
-                    .iter()
-                    .find(|record| record.envelope.request_id == envelope.request_id)
-                    .map(|record| record.resulting_state.revision)
-                    .ok_or(LifecycleError::HistoryInvariant)?;
-                return Ok(ApplyOutcome::Duplicate { original_revision: revision });
+            if existing != &envelope {
+                return Err(LifecycleError::RequestIdConflict);
             }
-            return Err(LifecycleError::RequestIdConflict);
+            let revision = self
+                .history(existing.scope)
+                .iter()
+                .find(|record| record.envelope.request_id == envelope.request_id)
+                .map(|record| record.resulting_state.revision)
+                .ok_or(LifecycleError::HistoryInvariant)?;
+            return Ok(ApplyOutcome::Duplicate {
+                original_revision: revision,
+            });
         }
 
         let current = self.state(envelope.scope);
@@ -245,7 +275,7 @@ impl LifecycleLedger {
         }
 
         let mut next = current;
-        self.apply_event(&envelope, &mut next, verifier)?;
+        apply_event(&envelope, &mut next, verifier)?;
         next.revision = current
             .revision
             .checked_add(1)
@@ -256,173 +286,242 @@ impl LifecycleLedger {
             resulting_state: next,
         };
         self.states.insert(envelope.scope, next);
-        self.history.entry(envelope.scope).or_default().push(record);
+        self.history
+            .entry(envelope.scope)
+            .or_default()
+            .push(record);
         self.requests.insert(envelope.request_id, envelope);
-        Ok(ApplyOutcome::Applied { revision: next.revision })
-    }
 
-    fn apply_event(
-        &self,
-        envelope: &TransitionEnvelope,
-        state: &mut LifecycleState,
-        verifier: &impl ProtocolTransitionVerifier,
-    ) -> Result<(), LifecycleError> {
-        match &envelope.event {
-            LifecycleEvent::Submit { evidence_revision, policy_revision } => {
-                if state.application != ApplicationStatus::Unregistered {
-                    return Err(LifecycleError::InvalidApplicationTransition);
-                }
-                require_evidence(*evidence_revision)?;
-                require_policy(*policy_revision)?;
-                state.application = ApplicationStatus::Submitted;
-                state.evidence_revision = *evidence_revision;
-                state.policy_revision = *policy_revision;
-            }
-            LifecycleEvent::StartReview => {
-                if !matches!(state.application, ApplicationStatus::Submitted | ApplicationStatus::RemediationRequired) {
-                    return Err(LifecycleError::InvalidApplicationTransition);
-                }
-                state.application = ApplicationStatus::UnderReview;
-            }
-            LifecycleEvent::RequireRemediation => {
-                if state.application != ApplicationStatus::UnderReview {
-                    return Err(LifecycleError::InvalidApplicationTransition);
-                }
-                state.application = ApplicationStatus::RemediationRequired;
-                state.eligibility = EligibilityStatus::Unknown;
-            }
-            LifecycleEvent::ResubmitEvidence { evidence_revision } => {
-                if state.application != ApplicationStatus::RemediationRequired {
-                    return Err(LifecycleError::InvalidApplicationTransition);
-                }
-                require_evidence(*evidence_revision)?;
-                if *evidence_revision <= state.evidence_revision {
-                    return Err(LifecycleError::InvalidEvidenceRevision);
-                }
-                state.evidence_revision = *evidence_revision;
-                state.eligibility = EligibilityStatus::Unknown;
-                state.application = ApplicationStatus::UnderReview;
-            }
-            LifecycleEvent::AssessEligibility { result, policy_revision } => {
-                if state.application != ApplicationStatus::UnderReview || *result == EligibilityStatus::Unknown {
-                    return Err(LifecycleError::InvalidEligibilityTransition);
-                }
-                require_policy(*policy_revision)?;
-                if *policy_revision != state.policy_revision {
-                    return Err(LifecycleError::InvalidPolicyRevision);
-                }
-                state.eligibility = *result;
-                if *result == EligibilityStatus::Ineligible {
-                    state.disposition = GovernanceDisposition::Undecided;
-                }
-            }
-            LifecycleEvent::Approve { decision_id, policy_revision } => {
-                require_reference(decision_id)?;
-                require_policy(*policy_revision)?;
-                if state.eligibility != EligibilityStatus::Eligible
-                    || *policy_revision != state.policy_revision
-                    || !matches!(state.disposition, GovernanceDisposition::Undecided | GovernanceDisposition::Appealed)
-                {
-                    return Err(LifecycleError::InvalidDispositionTransition);
-                }
-                state.disposition = GovernanceDisposition::Approved;
-            }
-            LifecycleEvent::Deny { decision_id, policy_revision } => {
-                require_reference(decision_id)?;
-                require_policy(*policy_revision)?;
-                if state.eligibility != EligibilityStatus::Eligible
-                    || *policy_revision != state.policy_revision
-                    || !matches!(state.disposition, GovernanceDisposition::Undecided | GovernanceDisposition::Appealed)
-                {
-                    return Err(LifecycleError::InvalidDispositionTransition);
-                }
-                state.disposition = GovernanceDisposition::Denied;
-            }
-            LifecycleEvent::Appeal { appeal_id } => {
-                require_reference(appeal_id)?;
-                if state.disposition != GovernanceDisposition::Denied {
-                    return Err(LifecycleError::InvalidDispositionTransition);
-                }
-                state.disposition = GovernanceDisposition::Appealed;
-            }
-            LifecycleEvent::Withdraw => {
-                if !matches!(state.application, ApplicationStatus::Submitted | ApplicationStatus::UnderReview | ApplicationStatus::RemediationRequired) {
-                    return Err(LifecycleError::InvalidApplicationTransition);
-                }
-                state.application = ApplicationStatus::Withdrawn;
-            }
-            LifecycleEvent::ProposeActivation { transition_id } => {
-                require_reference(transition_id)?;
-                if state.eligibility != EligibilityStatus::Eligible
-                    || state.disposition != GovernanceDisposition::Approved
-                    || state.membership != ConsensusMembership::Inactive
-                {
-                    return Err(LifecycleError::InvalidMembershipTransition);
-                }
-                state.membership = ConsensusMembership::ActivationPending { transition_id: *transition_id };
-            }
-            LifecycleEvent::ConfirmActivation { transition_id, committed_height, proof } => {
-                require_reference(transition_id)?;
-                require_height(*committed_height)?;
-                if proof.is_empty() {
-                    return Err(LifecycleError::EmptyProtocolProof);
-                }
-                if state.membership != (ConsensusMembership::ActivationPending { transition_id: *transition_id }) {
-                    return Err(LifecycleError::InvalidMembershipTransition);
-                }
-                verifier.verify_committed_transition(envelope.scope, *transition_id, *committed_height, proof)
-                    .map_err(LifecycleError::ProtocolProof)?;
-                state.membership = ConsensusMembership::Active {
-                    activation_transition_id: *transition_id,
-                    activation_height: *committed_height,
-                };
-            }
-            LifecycleEvent::ProposeExit { transition_id } => {
-                require_reference(transition_id)?;
-                if !matches!(state.membership, ConsensusMembership::Active { .. }) {
-                    return Err(LifecycleError::InvalidMembershipTransition);
-                }
-                state.membership = ConsensusMembership::ExitPending { transition_id: *transition_id };
-            }
-            LifecycleEvent::ConfirmExit { transition_id, committed_height, proof } => {
-                require_reference(transition_id)?;
-                require_height(*committed_height)?;
-                if proof.is_empty() {
-                    return Err(LifecycleError::EmptyProtocolProof);
-                }
-                if state.membership != (ConsensusMembership::ExitPending { transition_id: *transition_id }) {
-                    return Err(LifecycleError::InvalidMembershipTransition);
-                }
-                verifier.verify_committed_transition(envelope.scope, *transition_id, *committed_height, proof)
-                    .map_err(LifecycleError::ProtocolProof)?;
-                state.membership = ConsensusMembership::InactiveAfterExit {
-                    exit_transition_id: *transition_id,
-                    exit_height: *committed_height,
-                };
-            }
-            LifecycleEvent::SuspendDisposition { decision_id } => {
-                require_reference(decision_id)?;
-                if !matches!(state.disposition, GovernanceDisposition::Approved | GovernanceDisposition::Suspended) {
-                    return Err(LifecycleError::InvalidDispositionTransition);
-                }
-                state.disposition = GovernanceDisposition::Suspended;
-            }
-            LifecycleEvent::RevokeDisposition { decision_id } => {
-                require_reference(decision_id)?;
-                if !matches!(state.disposition, GovernanceDisposition::Approved | GovernanceDisposition::Suspended) {
-                    return Err(LifecycleError::InvalidDispositionTransition);
-                }
-                // Revocation changes only governance disposition. Membership remains
-                // a protocol fact until a separately verified protocol transition.
-                state.disposition = GovernanceDisposition::Revoked;
-            }
-        }
-        Ok(())
+        Ok(ApplyOutcome::Applied {
+            revision: next.revision,
+        })
     }
 }
 
+fn apply_event(
+    envelope: &TransitionEnvelope,
+    state: &mut LifecycleState,
+    verifier: &impl ProtocolTransitionVerifier,
+) -> Result<(), LifecycleError> {
+    match &envelope.event {
+        LifecycleEvent::Submit {
+            evidence_revision,
+            policy_revision,
+        } => {
+            if state.application != ApplicationStatus::Unregistered {
+                return Err(LifecycleError::InvalidApplicationTransition);
+            }
+            require_evidence(*evidence_revision)?;
+            require_policy(*policy_revision)?;
+            state.application = ApplicationStatus::Submitted;
+            state.evidence_revision = *evidence_revision;
+            state.policy_revision = *policy_revision;
+        }
+        LifecycleEvent::StartReview => {
+            if !matches!(
+                state.application,
+                ApplicationStatus::Submitted | ApplicationStatus::RemediationRequired
+            ) {
+                return Err(LifecycleError::InvalidApplicationTransition);
+            }
+            state.application = ApplicationStatus::UnderReview;
+        }
+        LifecycleEvent::RequireRemediation => {
+            if state.application != ApplicationStatus::UnderReview {
+                return Err(LifecycleError::InvalidApplicationTransition);
+            }
+            state.application = ApplicationStatus::RemediationRequired;
+            state.eligibility = EligibilityStatus::Unknown;
+        }
+        LifecycleEvent::ResubmitEvidence { evidence_revision } => {
+            if state.application != ApplicationStatus::RemediationRequired {
+                return Err(LifecycleError::InvalidApplicationTransition);
+            }
+            require_evidence(*evidence_revision)?;
+            if *evidence_revision <= state.evidence_revision {
+                return Err(LifecycleError::InvalidEvidenceRevision);
+            }
+            state.evidence_revision = *evidence_revision;
+            state.eligibility = EligibilityStatus::Unknown;
+            state.application = ApplicationStatus::UnderReview;
+        }
+        LifecycleEvent::AssessEligibility {
+            result,
+            policy_revision,
+        } => {
+            if state.application != ApplicationStatus::UnderReview
+                || *result == EligibilityStatus::Unknown
+            {
+                return Err(LifecycleError::InvalidEligibilityTransition);
+            }
+            require_policy(*policy_revision)?;
+            if *policy_revision != state.policy_revision {
+                return Err(LifecycleError::InvalidPolicyRevision);
+            }
+            state.eligibility = *result;
+            if *result == EligibilityStatus::Ineligible {
+                state.disposition = GovernanceDisposition::Undecided;
+            }
+        }
+        LifecycleEvent::Approve {
+            decision_id,
+            policy_revision,
+        }
+        | LifecycleEvent::Deny {
+            decision_id,
+            policy_revision,
+        } => {
+            require_reference(decision_id)?;
+            require_policy(*policy_revision)?;
+            if state.eligibility != EligibilityStatus::Eligible
+                || *policy_revision != state.policy_revision
+                || !matches!(
+                    state.disposition,
+                    GovernanceDisposition::Undecided | GovernanceDisposition::Appealed
+                )
+            {
+                return Err(LifecycleError::InvalidDispositionTransition);
+            }
+            state.disposition = if matches!(&envelope.event, LifecycleEvent::Approve { .. }) {
+                GovernanceDisposition::Approved
+            } else {
+                GovernanceDisposition::Denied
+            };
+        }
+        LifecycleEvent::Appeal { appeal_id } => {
+            require_reference(appeal_id)?;
+            if state.disposition != GovernanceDisposition::Denied {
+                return Err(LifecycleError::InvalidDispositionTransition);
+            }
+            state.disposition = GovernanceDisposition::Appealed;
+        }
+        LifecycleEvent::Withdraw => {
+            if !matches!(
+                state.application,
+                ApplicationStatus::Submitted
+                    | ApplicationStatus::UnderReview
+                    | ApplicationStatus::RemediationRequired
+            ) {
+                return Err(LifecycleError::InvalidApplicationTransition);
+            }
+            state.application = ApplicationStatus::Withdrawn;
+        }
+        LifecycleEvent::ProposeActivation { transition_id } => {
+            require_reference(transition_id)?;
+            if state.eligibility != EligibilityStatus::Eligible
+                || state.disposition != GovernanceDisposition::Approved
+                || state.membership != ConsensusMembership::Inactive
+            {
+                return Err(LifecycleError::InvalidMembershipTransition);
+            }
+            state.membership = ConsensusMembership::ActivationPending {
+                transition_id: *transition_id,
+            };
+        }
+        LifecycleEvent::ConfirmActivation {
+            transition_id,
+            committed_height,
+            proof,
+        } => {
+            verify_membership_transition(
+                envelope.scope,
+                *transition_id,
+                *committed_height,
+                proof,
+                state.membership
+                    == (ConsensusMembership::ActivationPending {
+                        transition_id: *transition_id,
+                    }),
+                verifier,
+            )?;
+            state.membership = ConsensusMembership::Active {
+                activation_transition_id: *transition_id,
+                activation_height: *committed_height,
+            };
+        }
+        LifecycleEvent::ProposeExit { transition_id } => {
+            require_reference(transition_id)?;
+            if !matches!(state.membership, ConsensusMembership::Active { .. }) {
+                return Err(LifecycleError::InvalidMembershipTransition);
+            }
+            state.membership = ConsensusMembership::ExitPending {
+                transition_id: *transition_id,
+            };
+        }
+        LifecycleEvent::ConfirmExit {
+            transition_id,
+            committed_height,
+            proof,
+        } => {
+            verify_membership_transition(
+                envelope.scope,
+                *transition_id,
+                *committed_height,
+                proof,
+                state.membership
+                    == (ConsensusMembership::ExitPending {
+                        transition_id: *transition_id,
+                    }),
+                verifier,
+            )?;
+            state.membership = ConsensusMembership::InactiveAfterExit {
+                exit_transition_id: *transition_id,
+                exit_height: *committed_height,
+            };
+        }
+        LifecycleEvent::SuspendDisposition { decision_id } => {
+            require_reference(decision_id)?;
+            if !matches!(
+                state.disposition,
+                GovernanceDisposition::Approved | GovernanceDisposition::Suspended
+            ) {
+                return Err(LifecycleError::InvalidDispositionTransition);
+            }
+            state.disposition = GovernanceDisposition::Suspended;
+        }
+        LifecycleEvent::RevokeDisposition { decision_id } => {
+            require_reference(decision_id)?;
+            if !matches!(
+                state.disposition,
+                GovernanceDisposition::Approved | GovernanceDisposition::Suspended
+            ) {
+                return Err(LifecycleError::InvalidDispositionTransition);
+            }
+            // Governance revocation never directly rewrites consensus membership.
+            state.disposition = GovernanceDisposition::Revoked;
+        }
+    }
+    Ok(())
+}
+
+fn verify_membership_transition(
+    scope: LifecycleScope,
+    transition_id: ProtocolTransitionId,
+    committed_height: u64,
+    proof: &[u8],
+    expected_state: bool,
+    verifier: &impl ProtocolTransitionVerifier,
+) -> Result<(), LifecycleError> {
+    require_reference(&transition_id)?;
+    if committed_height == 0 {
+        return Err(LifecycleError::InvalidCommittedHeight);
+    }
+    if proof.is_empty() {
+        return Err(LifecycleError::EmptyProtocolProof);
+    }
+    if !expected_state {
+        return Err(LifecycleError::InvalidMembershipTransition);
+    }
+    verifier
+        .verify_committed_transition(scope, transition_id, committed_height, proof)
+        .map_err(LifecycleError::ProtocolProof)
+}
+
 fn validate_scope(scope: LifecycleScope) -> Result<(), LifecycleError> {
-    if is_zero(&scope.chain_id) || is_zero(&scope.operator_id) || is_zero(&scope.validator_id) {
+    if is_zero(&scope.chain_id)
+        || is_zero(&scope.operator_id)
+        || is_zero(&scope.validator_id)
+    {
         return Err(LifecycleError::InvalidScope);
     }
     if scope.protocol_version == 0 {
@@ -436,26 +535,37 @@ fn is_zero(value: &[u8; 32]) -> bool {
 }
 
 fn require_reference(value: &[u8; 32]) -> Result<(), LifecycleError> {
-    if is_zero(value) { Err(LifecycleError::InvalidReference) } else { Ok(()) }
+    if is_zero(value) {
+        Err(LifecycleError::InvalidReference)
+    } else {
+        Ok(())
+    }
 }
 
 fn require_evidence(value: u64) -> Result<(), LifecycleError> {
-    if value == 0 { Err(LifecycleError::InvalidEvidenceRevision) } else { Ok(()) }
+    if value == 0 {
+        Err(LifecycleError::InvalidEvidenceRevision)
+    } else {
+        Ok(())
+    }
 }
 
 fn require_policy(value: u64) -> Result<(), LifecycleError> {
-    if value == 0 { Err(LifecycleError::InvalidPolicyRevision) } else { Ok(()) }
-}
-
-fn require_height(value: u64) -> Result<(), LifecycleError> {
-    if value == 0 { Err(LifecycleError::InvalidCommittedHeight) } else { Ok(()) }
+    if value == 0 {
+        Err(LifecycleError::InvalidPolicyRevision)
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    struct TestVerifier { accept: bool }
+    struct TestVerifier {
+        accept: bool,
+    }
+
     impl ProtocolTransitionVerifier for TestVerifier {
         fn verify_committed_transition(
             &self,
@@ -464,25 +574,77 @@ mod tests {
             _committed_height: u64,
             _proof: &[u8],
         ) -> Result<(), ProtocolProofError> {
-            if self.accept { Ok(()) } else { Err(ProtocolProofError::Invalid) }
+            if self.accept {
+                Ok(())
+            } else {
+                Err(ProtocolProofError::Invalid)
+            }
         }
     }
 
     fn scope() -> LifecycleScope {
-        LifecycleScope { chain_id: [1; 32], protocol_version: 1, operator_id: [2; 32], validator_id: [3; 32] }
+        LifecycleScope {
+            chain_id: [1; 32],
+            protocol_version: 1,
+            operator_id: [2; 32],
+            validator_id: [3; 32],
+        }
     }
-    fn envelope(request: u8, revision: u64, event: LifecycleEvent) -> TransitionEnvelope {
-        TransitionEnvelope { request_id: [request; 32], scope: scope(), expected_revision: revision, event }
+
+    fn envelope(
+        request: u8,
+        revision: u64,
+        event: LifecycleEvent,
+    ) -> TransitionEnvelope {
+        TransitionEnvelope {
+            request_id: [request; 32],
+            scope: scope(),
+            expected_revision: revision,
+            event,
+        }
     }
-    fn apply(ledger: &mut LifecycleLedger, request: u8, event: LifecycleEvent) -> Result<ApplyOutcome, LifecycleError> {
+
+    fn apply(
+        ledger: &mut LifecycleLedger,
+        request: u8,
+        event: LifecycleEvent,
+    ) -> Result<ApplyOutcome, LifecycleError> {
         let revision = ledger.state(scope()).revision;
-        ledger.apply(envelope(request, revision, event), &TestVerifier { accept: true })
+        ledger.apply(
+            envelope(request, revision, event),
+            &TestVerifier { accept: true },
+        )
     }
+
     fn reach_eligible(ledger: &mut LifecycleLedger) {
-        apply(ledger, 1, LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 }).unwrap();
+        apply(
+            ledger,
+            1,
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
+        )
+        .unwrap();
         apply(ledger, 2, LifecycleEvent::StartReview).unwrap();
-        apply(ledger, 3, LifecycleEvent::AssessEligibility { result: EligibilityStatus::Eligible, policy_revision: 1 }).unwrap();
-        apply(ledger, 4, LifecycleEvent::Approve { decision_id: [4; 32], policy_revision: 1 }).unwrap();
+        apply(
+            ledger,
+            3,
+            LifecycleEvent::AssessEligibility {
+                result: EligibilityStatus::Eligible,
+                policy_revision: 1,
+            },
+        )
+        .unwrap();
+        apply(
+            ledger,
+            4,
+            LifecycleEvent::Approve {
+                decision_id: [4; 32],
+                policy_revision: 1,
+            },
+        )
+        .unwrap();
     }
 
     #[test]
@@ -490,6 +652,7 @@ mod tests {
         let mut ledger = LifecycleLedger::default();
         reach_eligible(&mut ledger);
         let state = ledger.state(scope());
+
         assert_eq!(state.application, ApplicationStatus::UnderReview);
         assert_eq!(state.eligibility, EligibilityStatus::Eligible);
         assert_eq!(state.disposition, GovernanceDisposition::Approved);
@@ -500,60 +663,175 @@ mod tests {
     fn activation_requires_pending_transition_and_verified_commit() {
         let mut ledger = LifecycleLedger::default();
         reach_eligible(&mut ledger);
-        apply(&mut ledger, 5, LifecycleEvent::ProposeActivation { transition_id: [5; 32] }).unwrap();
+        apply(
+            &mut ledger,
+            5,
+            LifecycleEvent::ProposeActivation {
+                transition_id: [5; 32],
+            },
+        )
+        .unwrap();
 
         let failed = ledger.apply(
-            envelope(6, 5, LifecycleEvent::ConfirmActivation { transition_id: [5; 32], committed_height: 10, proof: vec![9] }),
+            envelope(
+                6,
+                5,
+                LifecycleEvent::ConfirmActivation {
+                    transition_id: [5; 32],
+                    committed_height: 10,
+                    proof: vec![9],
+                },
+            ),
             &TestVerifier { accept: false },
         );
-        assert_eq!(failed, Err(LifecycleError::ProtocolProof(ProtocolProofError::Invalid)));
-        assert_eq!(ledger.state(scope()).membership, ConsensusMembership::ActivationPending { transition_id: [5; 32] });
+        assert_eq!(
+            failed,
+            Err(LifecycleError::ProtocolProof(ProtocolProofError::Invalid))
+        );
+        assert_eq!(
+            ledger.state(scope()).membership,
+            ConsensusMembership::ActivationPending {
+                transition_id: [5; 32],
+            }
+        );
 
-        apply(&mut ledger, 7, LifecycleEvent::ConfirmActivation { transition_id: [5; 32], committed_height: 10, proof: vec![9] }).unwrap();
-        assert_eq!(ledger.state(scope()).membership, ConsensusMembership::Active { activation_transition_id: [5; 32], activation_height: 10 });
+        apply(
+            &mut ledger,
+            7,
+            LifecycleEvent::ConfirmActivation {
+                transition_id: [5; 32],
+                committed_height: 10,
+                proof: vec![9],
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            ledger.state(scope()).membership,
+            ConsensusMembership::Active {
+                activation_transition_id: [5; 32],
+                activation_height: 10,
+            }
+        );
     }
 
     #[test]
     fn revocation_does_not_rewrite_consensus_membership() {
         let mut ledger = LifecycleLedger::default();
         reach_eligible(&mut ledger);
-        apply(&mut ledger, 5, LifecycleEvent::ProposeActivation { transition_id: [5; 32] }).unwrap();
-        apply(&mut ledger, 6, LifecycleEvent::ConfirmActivation { transition_id: [5; 32], committed_height: 10, proof: vec![9] }).unwrap();
-        apply(&mut ledger, 7, LifecycleEvent::RevokeDisposition { decision_id: [7; 32] }).unwrap();
+        apply(
+            &mut ledger,
+            5,
+            LifecycleEvent::ProposeActivation {
+                transition_id: [5; 32],
+            },
+        )
+        .unwrap();
+        apply(
+            &mut ledger,
+            6,
+            LifecycleEvent::ConfirmActivation {
+                transition_id: [5; 32],
+                committed_height: 10,
+                proof: vec![9],
+            },
+        )
+        .unwrap();
+        apply(
+            &mut ledger,
+            7,
+            LifecycleEvent::RevokeDisposition {
+                decision_id: [7; 32],
+            },
+        )
+        .unwrap();
 
-        assert_eq!(ledger.state(scope()).disposition, GovernanceDisposition::Revoked);
-        assert_eq!(ledger.state(scope()).membership, ConsensusMembership::Active { activation_transition_id: [5; 32], activation_height: 10 });
+        assert_eq!(
+            ledger.state(scope()).disposition,
+            GovernanceDisposition::Revoked
+        );
+        assert_eq!(
+            ledger.state(scope()).membership,
+            ConsensusMembership::Active {
+                activation_transition_id: [5; 32],
+                activation_height: 10,
+            }
+        );
     }
 
     #[test]
-    fn duplicate_request_is_idempotent_but_reused_id_with_changed_payload_fails() {
+    fn duplicate_request_is_idempotent_and_conflicting_reuse_fails() {
         let mut ledger = LifecycleLedger::default();
-        let first = envelope(1, 0, LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 });
-        assert_eq!(ledger.apply(first.clone(), &TestVerifier { accept: true }), Ok(ApplyOutcome::Applied { revision: 1 }));
-        assert_eq!(ledger.apply(first, &TestVerifier { accept: true }), Ok(ApplyOutcome::Duplicate { original_revision: 1 }));
+        let first = envelope(
+            1,
+            0,
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
+        );
+
+        assert_eq!(
+            ledger.apply(first.clone(), &TestVerifier { accept: true }),
+            Ok(ApplyOutcome::Applied { revision: 1 })
+        );
+        assert_eq!(
+            ledger.apply(first, &TestVerifier { accept: true }),
+            Ok(ApplyOutcome::Duplicate {
+                original_revision: 1,
+            })
+        );
+
         let conflict = envelope(1, 1, LifecycleEvent::StartReview);
-        assert_eq!(ledger.apply(conflict, &TestVerifier { accept: true }), Err(LifecycleError::RequestIdConflict));
+        assert_eq!(
+            ledger.apply(conflict, &TestVerifier { accept: true }),
+            Err(LifecycleError::RequestIdConflict)
+        );
         assert_eq!(ledger.history(scope()).len(), 1);
     }
 
     #[test]
-    fn stale_revision_and_invalid_evidence_revision_fail_without_mutation() {
+    fn stale_revision_fails_without_mutation() {
         let mut ledger = LifecycleLedger::default();
-        apply(&mut ledger, 1, LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 }).unwrap();
+        apply(
+            &mut ledger,
+            1,
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
+        )
+        .unwrap();
+
         let stale = envelope(2, 0, LifecycleEvent::StartReview);
-        assert_eq!(ledger.apply(stale, &TestVerifier { accept: true }), Err(LifecycleError::StaleRevision));
-        let invalid = envelope(3, 1, LifecycleEvent::ResubmitEvidence { evidence_revision: 1 });
-        assert_eq!(ledger.apply(invalid, &TestVerifier { accept: true }), Err(LifecycleError::InvalidApplicationTransition));
+        assert_eq!(
+            ledger.apply(stale, &TestVerifier { accept: true }),
+            Err(LifecycleError::StaleRevision)
+        );
         assert_eq!(ledger.state(scope()).revision, 1);
     }
 
     #[test]
     fn evidence_revision_must_advance_after_remediation() {
         let mut ledger = LifecycleLedger::default();
-        apply(&mut ledger, 1, LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 }).unwrap();
-        apply(&mut ledger, 2, LifecycleEvent::StartReview).unwrap();
+        apply(
+            &mut ledger,
+            1,
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
+        )
+        .unwrap();
+        apply( &mut ledger, 2, LifecycleEvent::StartReview).unwrap();
         apply(&mut ledger, 3, LifecycleEvent::RequireRemediation).unwrap();
-        let result = apply(&mut ledger, 4, LifecycleEvent::ResubmitEvidence { evidence_revision: 1 });
+
+        let result = apply(
+            &mut ledger,
+            4,
+            LifecycleEvent::ResubmitEvidence {
+                evidence_revision: 1,
+            },
+        );
         assert_eq!(result, Err(LifecycleError::InvalidEvidenceRevision));
         assert_eq!(ledger.state(scope()).evidence_revision, 1);
     }
@@ -562,11 +840,50 @@ mod tests {
     fn exit_requires_its_own_verified_protocol_transition() {
         let mut ledger = LifecycleLedger::default();
         reach_eligible(&mut ledger);
-        apply(&mut ledger, 5, LifecycleEvent::ProposeActivation { transition_id: [5; 32] }).unwrap();
-        apply(&mut ledger, 6, LifecycleEvent::ConfirmActivation { transition_id: [5; 32], committed_height: 10, proof: vec![9] }).unwrap();
-        apply(&mut ledger, 7, LifecycleEvent::ProposeExit { transition_id: [8; 32] }).unwrap();
-        apply(&mut ledger, 8, LifecycleEvent::ConfirmExit { transition_id: [8; 32], committed_height: 12, proof: vec![8] }).unwrap();
-        assert_eq!(ledger.state(scope()).membership, ConsensusMembership::InactiveAfterExit { exit_transition_id: [8; 32], exit_height: 12 });
+        apply(
+            &mut ledger,
+            5,
+            LifecycleEvent::ProposeActivation {
+                transition_id: [5; 32],
+            },
+        )
+        .unwrap();
+        apply(
+            &mut ledger,
+            6,
+            LifecycleEvent::ConfirmActivation {
+                transition_id: [5; 32],
+                committed_height: 10,
+                proof: vec![9],
+            },
+        )
+        .unwrap();
+        apply(
+            &mut ledger,
+            7,
+            LifecycleEvent::ProposeExit {
+                transition_id: [8; 32],
+            },
+        )
+        .unwrap();
+        apply(
+            &mut ledger,
+            8,
+            LifecycleEvent::ConfirmExit {
+                transition_id: [8; 32],
+                committed_height: 12,
+                proof: vec![8],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            ledger.state(scope()).membership,
+            ConsensusMembership::InactiveAfterExit {
+                exit_transition_id: [8; 32],
+                exit_height: 12,
+            }
+        );
     }
 
     #[test]
@@ -574,6 +891,7 @@ mod tests {
         let mut ledger = LifecycleLedger::default();
         reach_eligible(&mut ledger);
         let history = ledger.history(scope());
+
         assert_eq!(history.len(), 4);
         for (index, record) in history.iter().enumerate() {
             assert_eq!(record.resulting_state.revision, index as u64 + 1);
@@ -583,8 +901,20 @@ mod tests {
     #[test]
     fn scopes_are_isolated() {
         let mut ledger = LifecycleLedger::default();
-        apply(&mut ledger, 1, LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 }).unwrap();
-        let other = LifecycleScope { validator_id: [4; 32], ..scope() };
+        apply(
+            &mut ledger,
+            1,
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
+        )
+        .unwrap();
+
+        let other = LifecycleScope {
+            validator_id: [4; 32],
+            ..scope()
+        };
         assert_eq!(ledger.state(other), LifecycleState::default());
     }
 }
