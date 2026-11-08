@@ -74,9 +74,15 @@ impl WalSnapshot {
 #[derive(Debug)]
 pub enum SnapshotAcquisitionError {
     Io(io::Error),
-    SnapshotTooLarge { observed_at_least: u64, max_bytes: u64 },
+    SnapshotTooLarge {
+        observed_at_least: u64,
+        max_bytes: u64,
+    },
     SourceChangedDuringRead,
-    LengthMismatch { metadata_bytes: u64, read_bytes: u64 },
+    LengthMismatch {
+        metadata_bytes: u64,
+        read_bytes: u64,
+    },
 }
 
 impl From<io::Error> for SnapshotAcquisitionError {
@@ -147,9 +153,7 @@ pub fn capture_quiesced_wal_snapshot(
     }
 
     let read_limit = max_bytes.saturating_add(1);
-    let mut bytes = Vec::with_capacity(
-        usize::try_from(before.len.min(max_bytes)).unwrap_or(0),
-    );
+    let mut bytes = Vec::with_capacity(usize::try_from(before.len.min(max_bytes)).unwrap_or(0));
     file.by_ref().take(read_limit).read_to_end(&mut bytes)?;
 
     if bytes.len() as u64 > max_bytes {
