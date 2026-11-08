@@ -234,13 +234,21 @@ mod tests {
         {
             let store = RedbLifecycleCheckpointStore::open(&path).unwrap();
             assert_eq!(store.load(network).unwrap(), None);
-            assert!(store.compare_and_advance(network, None, anchor(1, 1)).unwrap());
+            assert!(
+                store
+                    .compare_and_advance(network, None, anchor(1, 1))
+                    .unwrap()
+            );
             assert_eq!(store.load(network).unwrap(), Some(anchor(1, 1)));
         }
         {
             let store = RedbLifecycleCheckpointStore::open(&path).unwrap();
             assert_eq!(store.load(network).unwrap(), Some(anchor(1, 1)));
-            assert!(store.compare_and_advance(network, Some(anchor(1, 1)), anchor(2, 2)).unwrap());
+            assert!(
+                store
+                    .compare_and_advance(network, Some(anchor(1, 1)), anchor(2, 2))
+                    .unwrap()
+            );
             store.check_integrity().unwrap();
         }
     }
@@ -250,9 +258,21 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = RedbLifecycleCheckpointStore::open(dir.path().join("lifecycle.redb")).unwrap();
         let network = [8; 32];
-        assert!(store.compare_and_advance(network, None, anchor(1, 1)).unwrap());
-        assert!(store.compare_and_advance(network, Some(anchor(1, 1)), anchor(2, 2)).unwrap());
-        assert!(!store.compare_and_advance(network, Some(anchor(1, 1)), anchor(2, 3)).unwrap());
+        assert!(
+            store
+                .compare_and_advance(network, None, anchor(1, 1))
+                .unwrap()
+        );
+        assert!(
+            store
+                .compare_and_advance(network, Some(anchor(1, 1)), anchor(2, 2))
+                .unwrap()
+        );
+        assert!(
+            !store
+                .compare_and_advance(network, Some(anchor(1, 1)), anchor(2, 3))
+                .unwrap()
+        );
         assert_eq!(store.load(network).unwrap(), Some(anchor(2, 2)));
     }
 
