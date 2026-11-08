@@ -206,6 +206,10 @@ pub enum LifecycleError {
     ProtocolProof(ProtocolProofError),
     #[error("history revision does not match its append position")]
     HistoryInvariant,
+    #[error("request index does not match the append-only history")]
+    RequestIndexInvariant,
+    #[error("current-state index does not match replayed history")]
+    StateIndexInvariant,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -285,6 +289,61 @@ impl LifecycleLedger {
         Ok(ApplyOutcome::Applied {
             revision: next.revision,
         })
+    }
+}
+
+/// Deterministically replays every lifecycle history and checks all derived indexes.
+///
+/// The supplied verifier must be deterministic for the same committed proof.
+/// This audit detects internal/index divergence; it does not authenticate the
+/// history source, provide durable storage, or establish distributed ordering.
+impl LifecycleLedger {
+    pub fn audit(&self, verifier: &impl ProtocolTransitionVerifier) -> Result<(), LifecycleError> {
+        let mut replayed_states = BTreeMap::new();
+        let mut replayed_requests = BTreeMap::new();
+
+        for (scope, records) in &self.history {
+            validate_scope(*scope)?;
+            let mut replayed = LifecycleState::default();
+
+            for record in records {
+                let envelope = &record.envelope;
+                if envelope.scope != *scope
+                    || envelope.expected_revision != replayed.revision
+                    || is_zero(&envelope.request_id)
+                {
+                    return Err(LifecycleError::HistoryInvariant);
+                }
+                if replayed_requests
+                    .insert(envelope.request_id, envelope.clone())
+                    .is_some()
+                {
+                    return Err(LifecycleError::RequestIndexInvariant);
+                }
+
+                apply_event(envelope, &mut replayed, verifier)?;
+                replayed.revision = replayed
+                    .revision
+                    .checked_add(1)
+                    .ok_or(LifecycleError::RevisionOverflow)?;
+
+                if record.resulting_state != replayed {
+                    return Err(LifecycleError::HistoryInvariant);
+                }
+            }
+
+            if !records.is_empty() {
+                replayed_states.insert(*scope, replayed);
+            }
+        }
+
+        if replayed_states != self.states {
+            return Err(LifecycleError::StateIndexInvariant);
+        }
+        if replayed_requests != self.requests {
+            return Err(LifecycleError::RequestIndexInvariant);
+        }
+        Ok(())
     }
 }
 
@@ -899,5 +958,203 @@ mod tests {
             ..scope()
         };
         assert_eq!(ledger.state(other), LifecycleState::default());
+    }
+}
+
+#[cfg(test)]
+mod audit_tests {
+    use super::*;
+
+    struct AcceptVerifier;
+
+    impl ProtocolTransitionVerifier for AcceptVerifier {
+        fn verify_committed_transition(
+            &self,
+            _scope: LifecycleScope,
+            _transition_id: ProtocolTransitionId,
+            _committed_height: u64,
+            _proof: &[u8],
+        ) -> Result<(), ProtocolProofError> {
+            Ok(())
+        }
+    }
+
+    fn scope() -> LifecycleScope {
+        LifecycleScope {
+            chain_id: [1; 32],
+            protocol_version: 1,
+            operator_id: [2; 32],
+            validator_id: [3; 32],
+        }
+    }
+
+    fn envelope(request: u8, revision: u64, event: LifecycleEvent) -> TransitionEnvelope {
+        TransitionEnvelope {
+            request_id: [request; 32],
+            scope: scope(),
+            expected_revision: revision,
+            event,
+        }
+    }
+
+    #[test]
+    fn audit_accepts_a_consistent_replayable_history() {
+        let mut ledger = LifecycleLedger::default();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger
+            .apply(envelope(2, 1, LifecycleEvent::StartReview), &AcceptVerifier)
+            .unwrap();
+        ledger
+            .apply(
+                envelope(
+                    3,
+                    2,
+                    LifecycleEvent::AssessEligibility {
+                        result: EligibilityStatus::Eligible,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+
+        assert_eq!(ledger.audit(&AcceptVerifier), Ok(()));
+    }
+
+    #[test]
+    fn audit_rejects_tampered_history_result() {
+        let mut ledger = LifecycleLedger::default();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger.history.get_mut(&scope()).unwrap()[0]
+            .resulting_state
+            .revision = 99;
+
+        assert_eq!(
+            ledger.audit(&AcceptVerifier),
+            Err(LifecycleError::HistoryInvariant)
+        );
+    }
+
+    #[test]
+    fn audit_rejects_missing_request_index_entry() {
+        let mut ledger = LifecycleLedger::default();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger.requests.clear();
+
+        assert_eq!(
+            ledger.audit(&AcceptVerifier),
+            Err(LifecycleError::RequestIndexInvariant)
+        );
+    }
+
+    #[test]
+    fn audit_rejects_current_state_index_divergence() {
+        let mut ledger = LifecycleLedger::default();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger.states.get_mut(&scope()).unwrap().revision = 7;
+
+        assert_eq!(
+            ledger.audit(&AcceptVerifier),
+            Err(LifecycleError::StateIndexInvariant)
+        );
+    }
+
+    #[test]
+    fn audit_rechecks_protocol_commit_proofs_during_replay() {
+        struct RejectVerifier;
+        impl ProtocolTransitionVerifier for RejectVerifier {
+            fn verify_committed_transition(
+                &self,
+                _scope: LifecycleScope,
+                _transition_id: ProtocolTransitionId,
+                _committed_height: u64,
+                _proof: &[u8],
+            ) -> Result<(), ProtocolProofError> {
+                Err(ProtocolProofError::Invalid)
+            }
+        }
+
+        let mut ledger = LifecycleLedger::default();
+        let events = [
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
+            LifecycleEvent::StartReview,
+            LifecycleEvent::AssessEligibility {
+                result: EligibilityStatus::Eligible,
+                policy_revision: 1,
+            },
+            LifecycleEvent::Approve {
+                decision_id: [4; 32],
+                policy_revision: 1,
+            },
+            LifecycleEvent::ProposeActivation {
+                transition_id: [5; 32],
+            },
+            LifecycleEvent::ConfirmActivation {
+                transition_id: [5; 32],
+                committed_height: 10,
+                proof: vec![1],
+            },
+        ];
+        for (i, event) in events.into_iter().enumerate() {
+            ledger
+                .apply(envelope((i + 1) as u8, i as u64, event), &AcceptVerifier)
+                .unwrap();
+        }
+
+        assert_eq!(
+            ledger.audit(&RejectVerifier),
+            Err(LifecycleError::ProtocolProof(ProtocolProofError::Invalid))
+        );
     }
 }
