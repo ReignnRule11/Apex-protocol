@@ -137,9 +137,7 @@ where
                     true
                 };
 
-            if restart_is_safe
-                && let Ok(params) = app.restart_params(height).await
-            {
+            if restart_is_safe && let Ok(params) = app.restart_params(height).await {
                 let _ = reply.send(Next::Restart(height, params));
             }
             GateDispatch::Handled
