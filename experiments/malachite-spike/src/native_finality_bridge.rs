@@ -71,13 +71,19 @@ pub struct VerifiedNativeFinality {
 impl VerifiedNativeFinality {
     /// Stable key for idempotent application commits and crash recovery.
     pub const fn commit_key(&self) -> FinalityCommitKey {
-        FinalityCommitKey { identity: self.identity }
+        FinalityCommitKey {
+            identity: self.identity,
+        }
     }
 
     /// Construct a verified token only inside deterministic gate tests.
     #[cfg(test)]
     pub(crate) fn test_only(identity: ApexBlockIdentity) -> Self {
-        Self { identity, native_height: identity.height, native_round: Round::new(0) }
+        Self {
+            identity,
+            native_height: identity.height,
+            native_round: Round::new(0),
+        }
     }
 
     pub const fn identity(&self) -> ApexBlockIdentity {
@@ -137,9 +143,7 @@ where
 {
     apex_identity.validate()?;
 
-    if certificate.height != expected_height
-        || apex_identity.height != expected_height.as_u64()
-    {
+    if certificate.height != expected_height || apex_identity.height != expected_height.as_u64() {
         return Err(BridgeError::WrongNativeHeight);
     }
     if certificate.round != expected_round {
@@ -181,15 +185,27 @@ mod tests {
         assert_eq!(valid.validate(), Ok(()));
 
         assert_eq!(
-            ApexBlockIdentity { chain_id: [0; 32], ..valid }.validate(),
+            ApexBlockIdentity {
+                chain_id: [0; 32],
+                ..valid
+            }
+            .validate(),
             Err(BridgeError::InvalidApexContext)
         );
         assert_eq!(
-            ApexBlockIdentity { protocol_version: 0, ..valid }.validate(),
+            ApexBlockIdentity {
+                protocol_version: 0,
+                ..valid
+            }
+            .validate(),
             Err(BridgeError::InvalidApexContext)
         );
         assert_eq!(
-            ApexBlockIdentity { block_hash: [0; 32], ..valid }.validate(),
+            ApexBlockIdentity {
+                block_hash: [0; 32],
+                ..valid
+            }
+            .validate(),
             Err(BridgeError::NilApexBlockHash)
         );
     }

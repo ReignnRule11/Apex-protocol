@@ -26,7 +26,10 @@ pub async fn build_engine<Ctx, Config, Wal, Net, Sync>(
     consensus: ConsensusContext<Ctx>,
     sync: SyncContext<Sync>,
     request: RequestContext,
-) -> eyre::Result<(malachitebft_app_channel::Channels<Ctx>, malachitebft_app_channel::EngineHandle)>
+) -> eyre::Result<(
+    malachitebft_app_channel::Channels<Ctx>,
+    malachitebft_app_channel::EngineHandle,
+)>
 where
     Ctx: malachitebft_app_channel::app::types::core::Context,
     Config: malachitebft_app_channel::app::config::NodeConfig,

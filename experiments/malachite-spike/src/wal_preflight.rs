@@ -47,13 +47,33 @@ pub struct WalEntryReport {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum WalScanIssue {
     EmptySnapshot,
-    IncompleteHeader { available_bytes: u64 },
-    UnsupportedVersion { version: u32 },
-    IncompleteEntryHeader { offset: u64, available_bytes: u64 },
-    EntryTooLarge { offset: u64, declared_bytes: u64 },
-    IncompleteEntryPayload { offset: u64, declared_bytes: u64, available_bytes: u64 },
-    CrcMismatch { offset: u64, expected: u32, actual: u32 },
-    CompressionNotVerified { offset: u64 },
+    IncompleteHeader {
+        available_bytes: u64,
+    },
+    UnsupportedVersion {
+        version: u32,
+    },
+    IncompleteEntryHeader {
+        offset: u64,
+        available_bytes: u64,
+    },
+    EntryTooLarge {
+        offset: u64,
+        declared_bytes: u64,
+    },
+    IncompleteEntryPayload {
+        offset: u64,
+        declared_bytes: u64,
+        available_bytes: u64,
+    },
+    CrcMismatch {
+        offset: u64,
+        expected: u32,
+        actual: u32,
+    },
+    CompressionNotVerified {
+        offset: u64,
+    },
 }
 
 /// Scan an immutable snapshot using the pinned upstream v1 framing.
@@ -87,7 +107,9 @@ pub fn scan_wal_snapshot(bytes: &[u8]) -> WalPreflightReport {
     report.version = Some(version);
     report.sequence = Some(sequence);
     if version != WAL_VERSION_V1 {
-        report.issues.push(WalScanIssue::UnsupportedVersion { version });
+        report
+            .issues
+            .push(WalScanIssue::UnsupportedVersion { version });
         return report;
     }
 
@@ -105,10 +127,14 @@ pub fn scan_wal_snapshot(bytes: &[u8]) -> WalPreflightReport {
         // Malachite v0.8.2 interprets any nonzero compression byte as true.
         let compressed = bytes[offset] != 0;
         let payload_len = u64::from_be_bytes(
-            bytes[offset + 1..offset + 9].try_into().expect("fixed entry length slice"),
+            bytes[offset + 1..offset + 9]
+                .try_into()
+                .expect("fixed entry length slice"),
         );
         let expected_crc = u32::from_be_bytes(
-            bytes[offset + 9..offset + 13].try_into().expect("fixed entry CRC slice"),
+            bytes[offset + 9..offset + 13]
+                .try_into()
+                .expect("fixed entry CRC slice"),
         );
 
         if payload_len > MAX_ENTRY_SIZE {
@@ -213,13 +239,22 @@ mod tests {
 
     #[test]
     fn empty_and_incomplete_headers_are_reported_without_mutation() {
-        assert_eq!(scan_wal_snapshot(&[]).issues, vec![WalScanIssue::EmptySnapshot]);
+        assert_eq!(
+            scan_wal_snapshot(&[]).issues,
+            vec![WalScanIssue::EmptySnapshot]
+        );
         let input = vec![0, 0, 0, 1, 0, 0];
         let before = input.clone();
         let report = scan_wal_snapshot(&input);
-        assert_eq!(report.issues, vec![WalScanIssue::IncompleteHeader { available_bytes: 6 }]);
+        assert_eq!(
+            report.issues,
+            vec![WalScanIssue::IncompleteHeader { available_bytes: 6 }]
+        );
         assert_eq!(input, before);
-        assert_eq!(report.snapshot_sha256, <[u8; 32]>::from(Sha256::digest(&input)));
+        assert_eq!(
+            report.snapshot_sha256,
+            <[u8; 32]>::from(Sha256::digest(&input))
+        );
     }
 
     #[test]
@@ -255,7 +290,11 @@ mod tests {
         payload_tail.extend_from_slice(b"xy");
         assert!(matches!(
             scan_wal_snapshot(&payload_tail).issues[0],
-            WalScanIssue::IncompleteEntryPayload { declared_bytes: 5, available_bytes: 2, .. }
+            WalScanIssue::IncompleteEntryPayload {
+                declared_bytes: 5,
+                available_bytes: 2,
+                ..
+            }
         ));
     }
 
@@ -287,7 +326,10 @@ mod tests {
         assert_eq!(report.entries.len(), 2);
         assert!(!report.entries[0].crc_verified);
         assert!(report.entries[1].crc_verified);
-        assert_eq!(report.issues, vec![WalScanIssue::CompressionNotVerified { offset: 12 }]);
+        assert_eq!(
+            report.issues,
+            vec![WalScanIssue::CompressionNotVerified { offset: 12 }]
+        );
         assert!(!report.is_fully_verified());
     }
 
