@@ -1,0 +1,9 @@
+# ADR-0059 — authenticated recovery manifest design
+
+- **Status:** Proposed for review; design only.
+- **Date:** 2026-11-08
+- **Context:** ADR-0056 through ADR-0058 establish that Malachite's default WAL recovery paths can mutate evidence, a strict byte-slice scanner is required, and bounded read-only acquisition still lacks provenance authentication and anti-rollback protection. ADR-0055 defines the proposed cross-subsystem recovery authority model.
+- **Decision:** Specify a versioned canonical recovery-manifest envelope binding the exact WAL snapshot digest/length, scanner evidence, chain/protocol/genesis identity, exact engine revision, signer/finality/application store checkpoints, recovery generation and previous-manifest digest. The manifest must be authenticated by a separately governed recovery-attestation identity and checked against a monotonic trust anchor independent of the recovery data directory.
+- **Security rules:** A hash identifies bytes but does not authenticate provenance. A signature authenticates an authorized attestation but does not prevent replay. The verifier must use an independently provisioned trust policy and anti-rollback anchor, reject unknown/non-canonical encodings and remain fail-closed on any mismatch. A valid manifest is evidence for reconciliation, not authorization to start the engine.
+- **Non-decisions:** No serialization format, cryptographic suite, recovery key custody, threshold, key-rotation mechanism, trust-root distribution or anti-rollback technology is selected. No manifest implementation, store adapter, WAL actor, reset authorization or engine startup is approved.
+- **Consequences:** Recovery tooling must preserve evidence and distinguish diagnostic manifests from authoritative ones. If quiescence, store evidence, signature trust or freshness cannot be established, startup remains RECOVERY_LOCKED. G2/G4 remain BLOCKED; release remains NO-GO.
