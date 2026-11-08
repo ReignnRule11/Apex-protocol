@@ -1148,10 +1148,7 @@ mod audit_tests {
         ];
         for (i, event) in events.into_iter().enumerate() {
             ledger
-                .apply(
-                    envelope((i + 1) as u8, i as u64, event),
-                    &AcceptVerifier,
-                )
+                .apply(envelope((i + 1) as u8, i as u64, event), &AcceptVerifier)
                 .unwrap();
         }
 
