@@ -360,7 +360,7 @@ mod tests {
         assert!(report.schema_explicitly_versioned);
         assert_eq!(fs::read(file.path()).unwrap(), before);
         assert_eq!(
-            inspect_signer(file.path(), 1_000_000, 0, 1_000),
+            inspect_signer(file.path(), 16_777_216, 0, 1_000),
             Err(InspectionError::RecordLimit)
         );
     }
@@ -371,7 +371,7 @@ mod tests {
         signer_fixture(file.path(), false);
         let before = fs::read(file.path()).unwrap();
         assert_eq!(
-            inspect_signer(file.path(), 1_000_000, 10, 1_000),
+            inspect_signer(file.path(), 16_777_216, 10, 1_000),
             Err(InspectionError::InvalidSignerRecord)
         );
         assert_eq!(fs::read(file.path()).unwrap(), before);
@@ -382,7 +382,7 @@ mod tests {
         let file = NamedTempFile::new().unwrap();
         finality_fixture(file.path(), true);
         let before = fs::read(file.path()).unwrap();
-        let report = inspect_finality(file.path(), 1_000_000, 10, 1_000, 100).unwrap();
+        let report = inspect_finality(file.path(), 16_777_216, 10, 1_000, 100).unwrap();
         assert_eq!(report.records, 1);
         assert!(!report.schema_explicitly_versioned);
         assert_eq!(fs::read(file.path()).unwrap(), before);
@@ -394,7 +394,7 @@ mod tests {
         finality_fixture(file.path(), false);
         let before = fs::read(file.path()).unwrap();
         assert_eq!(
-            inspect_finality(file.path(), 1_000_000, 10, 1_000, 100),
+            inspect_finality(file.path(), 16_777_216, 10, 1_000, 100),
             Err(InspectionError::InvalidFinalityRecord)
         );
         assert_eq!(fs::read(file.path()).unwrap(), before);
