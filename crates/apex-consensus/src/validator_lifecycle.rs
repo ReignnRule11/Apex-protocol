@@ -292,7 +292,6 @@ impl LifecycleLedger {
     }
 }
 
-
 /// Deterministically replays every lifecycle history and checks all derived indexes.
 ///
 /// The supplied verifier must be deterministic for the same committed proof.
@@ -1001,29 +1000,35 @@ mod audit_tests {
     #[test]
     fn audit_accepts_a_consistent_replayable_history() {
         let mut ledger = LifecycleLedger::default();
-        ledger.apply(
-            envelope(
-                1,
-                0,
-                LifecycleEvent::Submit {
-                    evidence_revision: 1,
-                    policy_revision: 1,
-                },
-            ),
-            &AcceptVerifier,
-        ).unwrap();
-        ledger.apply(envelope(2, 1, LifecycleEvent::StartReview), &AcceptVerifier).unwrap();
-        ledger.apply(
-            envelope(
-                3,
-                2,
-                LifecycleEvent::AssessEligibility {
-                    result: EligibilityStatus::Eligible,
-                    policy_revision: 1,
-                },
-            ),
-            &AcceptVerifier,
-        ).unwrap();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger
+            .apply(envelope(2, 1, LifecycleEvent::StartReview), &AcceptVerifier)
+            .unwrap();
+        ledger
+            .apply(
+                envelope(
+                    3,
+                    2,
+                    LifecycleEvent::AssessEligibility {
+                        result: EligibilityStatus::Eligible,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
 
         assert_eq!(ledger.audit(&AcceptVerifier), Ok(()));
     }
@@ -1031,58 +1036,75 @@ mod audit_tests {
     #[test]
     fn audit_rejects_tampered_history_result() {
         let mut ledger = LifecycleLedger::default();
-        ledger.apply(
-            envelope(
-                1,
-                0,
-                LifecycleEvent::Submit {
-                    evidence_revision: 1,
-                    policy_revision: 1,
-                },
-            ),
-            &AcceptVerifier,
-        ).unwrap();
-        ledger.history.get_mut(&scope()).unwrap()[0].resulting_state.revision = 99;
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
+        ledger.history.get_mut(&scope()).unwrap()[0]
+            .resulting_state
+            .revision = 99;
 
-        assert_eq!(ledger.audit(&AcceptVerifier), Err(LifecycleError::HistoryInvariant));
+        assert_eq!(
+            ledger.audit(&AcceptVerifier),
+            Err(LifecycleError::HistoryInvariant)
+        );
     }
 
     #[test]
     fn audit_rejects_missing_request_index_entry() {
         let mut ledger = LifecycleLedger::default();
-        ledger.apply(
-            envelope(
-                1,
-                0,
-                LifecycleEvent::Submit {
-                    evidence_revision: 1,
-                    policy_revision: 1,
-                },
-            ),
-            &AcceptVerifier,
-        ).unwrap();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
         ledger.requests.clear();
 
-        assert_eq!(ledger.audit(&AcceptVerifier), Err(LifecycleError::RequestIndexInvariant));
+        assert_eq!(
+            ledger.audit(&AcceptVerifier),
+            Err(LifecycleError::RequestIndexInvariant)
+        );
     }
 
     #[test]
     fn audit_rejects_current_state_index_divergence() {
         let mut ledger = LifecycleLedger::default();
-        ledger.apply(
-            envelope(
-                1,
-                0,
-                LifecycleEvent::Submit {
-                    evidence_revision: 1,
-                    policy_revision: 1,
-                },
-            ),
-            &AcceptVerifier,
-        ).unwrap();
+        ledger
+            .apply(
+                envelope(
+                    1,
+                    0,
+                    LifecycleEvent::Submit {
+                        evidence_revision: 1,
+                        policy_revision: 1,
+                    },
+                ),
+                &AcceptVerifier,
+            )
+            .unwrap();
         ledger.states.get_mut(&scope()).unwrap().revision = 7;
 
-        assert_eq!(ledger.audit(&AcceptVerifier), Err(LifecycleError::StateIndexInvariant));
+        assert_eq!(
+            ledger.audit(&AcceptVerifier),
+            Err(LifecycleError::StateIndexInvariant)
+        );
     }
 
     #[test]
@@ -1102,15 +1124,35 @@ mod audit_tests {
 
         let mut ledger = LifecycleLedger::default();
         let events = [
-            LifecycleEvent::Submit { evidence_revision: 1, policy_revision: 1 },
+            LifecycleEvent::Submit {
+                evidence_revision: 1,
+                policy_revision: 1,
+            },
             LifecycleEvent::StartReview,
-            LifecycleEvent::AssessEligibility { result: EligibilityStatus::Eligible, policy_revision: 1 },
-            LifecycleEvent::Approve { decision_id: [4; 32], policy_revision: 1 },
-            LifecycleEvent::ProposeActivation { transition_id: [5; 32] },
-            LifecycleEvent::ConfirmActivation { transition_id: [5; 32], committed_height: 10, proof: vec![1] },
+            LifecycleEvent::AssessEligibility {
+                result: EligibilityStatus::Eligible,
+                policy_revision: 1,
+            },
+            LifecycleEvent::Approve {
+                decision_id: [4; 32],
+                policy_revision: 1,
+            },
+            LifecycleEvent::ProposeActivation {
+                transition_id: [5; 32],
+            },
+            LifecycleEvent::ConfirmActivation {
+                transition_id: [5; 32],
+                committed_height: 10,
+                proof: vec![1],
+            },
         ];
         for (i, event) in events.into_iter().enumerate() {
-            ledger.apply(envelope((i + 1) as u8, i as u64, event), &AcceptVerifier).unwrap();
+            ledger
+                .apply(
+                    envelope((i + 1) as u8, i as u64, event),
+                    &AcceptVerifier,
+                )
+                .unwrap();
         }
 
         assert_eq!(
