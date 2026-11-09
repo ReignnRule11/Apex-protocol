@@ -10,14 +10,20 @@ atomic compare-and-advance; the service process never accepts a stale writer.
   `/var/lib/apex-witness/lifecycle.redb`.
 - `APEX_WITNESS_LISTEN`: loopback socket only. Default:
   `127.0.0.1:8787`. Non-loopback addresses are rejected.
+- `APEX_WITNESS_API_TOKEN`: required random secret of at least 32 bytes. Every
+  API request must include it as a bearer token. The mTLS proxy remains
+  mandatory; the token also prevents unauthenticated local callers from
+  bypassing the proxy.
 
-The service deliberately has no public plaintext listener. Put it behind an
-independently administered TLS reverse proxy that requires mutual TLS.
+The service deliberately has no public plaintext listener. It requires both a
+high-entropy bearer token and an independently administered TLS reverse proxy
+that requires mutual TLS.
 
 ## API
 
 - `GET /v1/networks/{64-lowercase-hex-network-id}/head`
-  returns `{"head":null}` before initialization or the current anchor.
+  returns `{"head":null}` before initialization or the current anchor. Every
+  request must include `Authorization: Bearer <APEX_WITNESS_API_TOKEN>`.
 - `POST /v1/networks/{network-id}/head` accepts
   `{"expected":null,"next":{"sequence":1,"checkpoint_hash":[...32 bytes...]}}`.
   Subsequent updates must supply the exact current `expected` anchor and
