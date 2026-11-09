@@ -13,15 +13,17 @@ use apex_lifecycle_redb::RedbLifecycleCheckpointStore;
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::StatusCode,
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     routing::get,
 };
 use serde::{Deserialize, Serialize};
 use std::{net::IpAddr, sync::Arc};
+use subtle::ConstantTimeEq;
 
 #[derive(Clone)]
 struct AppState {
     store: Arc<RedbLifecycleCheckpointStore>,
+    api_token: Arc<[u8]>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -70,9 +72,10 @@ pub struct ErrorResponse {
 }
 
 /// Build the production witness API around a real durable redb store.
-pub fn router(store: RedbLifecycleCheckpointStore) -> Router {
+pub fn router(store: RedbLifecycleCheckpointStore, api_token: String) -> Router {
     let state = AppState {
         store: Arc::new(store),
+        api_token: Arc::from(api_token.into_bytes()),
     };
     Router::new()
         .route(
@@ -84,8 +87,10 @@ pub fn router(store: RedbLifecycleCheckpointStore) -> Router {
 
 async fn read_head(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(network_id): Path<String>,
 ) -> Result<Json<HeadResponse>, (StatusCode, Json<ErrorResponse>)> {
+    authorize(&state, &headers)?;
     let network_id = parse_network_id(&network_id)?;
     let head = state
         .store
@@ -97,9 +102,11 @@ async fn read_head(
 
 async fn advance_head(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path(network_id): Path<String>,
     Json(request): Json<AdvanceRequest>,
 ) -> Result<(StatusCode, Json<AdvanceResponse>), (StatusCode, Json<ErrorResponse>)> {
+    authorize(&state, &headers)?;
     let network_id = parse_network_id(&network_id)?;
     let expected = request.expected.map(LifecycleCheckpointAnchor::from);
     let next = LifecycleCheckpointAnchor::from(request.next);
@@ -129,6 +136,28 @@ async fn advance_head(
         StatusCode::CONFLICT
     };
     Ok((status, Json(AdvanceResponse { advanced })))
+}
+
+fn authorize(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    let supplied = headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::as_bytes);
+    let authorized = supplied
+        .map(|value| value.ct_eq(state.api_token.as_ref()).into())
+        .unwrap_or(false);
+    if authorized && state.api_token.len() >= 32 {
+        Ok(())
+    } else {
+        Err((
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse { error: "unauthorized" }),
+        ))
+    }
 }
 
 fn parse_network_id(value: &str) -> Result<[u8; 32], (StatusCode, Json<ErrorResponse>)> {
@@ -181,7 +210,7 @@ mod tests {
         let directory = tempdir().unwrap();
         let store = RedbLifecycleCheckpointStore::open(directory.path().join("witness.redb"))
             .unwrap();
-        let app = router(store);
+        let app = router(store, "test-only-token-with-at-least-32-bytes".to_owned());
         let network = [0x2a; 32];
         let path = format!("/v1/networks/{}/head", hex::encode(network));
 
@@ -190,6 +219,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri(&path)
+                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -216,6 +246,7 @@ mod tests {
                     .method("POST")
                     .uri(&path)
                     .header("content-type", "application/json")
+                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
                     .body(Body::from(request.to_string()))
                     .unwrap(),
             )
@@ -237,6 +268,7 @@ mod tests {
                     .method("POST")
                     .uri(&path)
                     .header("content-type", "application/json")
+                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
                     .body(Body::from(stale.to_string()))
                     .unwrap(),
             )
