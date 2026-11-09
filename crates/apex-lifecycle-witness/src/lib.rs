@@ -148,9 +148,8 @@ fn authorize(
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .map(str::as_bytes);
-    let authorized = supplied.is_some_and(|value| {
-        bool::from(value.ct_eq(state.api_token.as_ref()))
-    });
+    let authorized =
+        supplied.is_some_and(|value| bool::from(value.ct_eq(state.api_token.as_ref())));
     if authorized && state.api_token.len() >= 32 {
         Ok(())
     } else {
