@@ -280,6 +280,7 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri(&path)
+                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
                     .body(Body::empty())
                     .unwrap(),
             )
