@@ -1,5 +1,5 @@
 use apex_lifecycle_redb::RedbLifecycleCheckpointStore;
-use std::{env, error::Error, net::SocketAddr};
+use std::{env, error::Error, io, net::SocketAddr};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -9,8 +9,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|_| "127.0.0.1:8787".to_owned())
         .parse()?;
 
-    apex_lifecycle_witness::validate_listen_address(listen.ip())?;
-    let store = RedbLifecycleCheckpointStore::open(database_path)?;
+    apex_lifecycle_witness::validate_listen_address(listen.ip())
+        .map_err(io::Error::other)?;
+    let store = RedbLifecycleCheckpointStore::open(database_path)
+        .map_err(io::Error::other)?;
     let app = apex_lifecycle_witness::router(store);
 
     eprintln!("APEX lifecycle witness listening on {listen}");
