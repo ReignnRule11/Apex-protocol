@@ -64,7 +64,7 @@ pub struct AdvanceResponse {
     pub advanced: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: &'static str,
 }
