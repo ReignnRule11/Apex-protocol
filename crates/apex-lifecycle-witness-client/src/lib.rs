@@ -51,7 +51,10 @@ impl From<LifecycleCheckpointAnchor> for WireAnchor {
 
 impl From<WireAnchor> for LifecycleCheckpointAnchor {
     fn from(value: WireAnchor) -> Self {
-        Self { sequence: value.sequence, checkpoint_hash: value.checkpoint_hash }
+        Self {
+            sequence: value.sequence,
+            checkpoint_hash: value.checkpoint_hash,
+        }
     }
 }
 
