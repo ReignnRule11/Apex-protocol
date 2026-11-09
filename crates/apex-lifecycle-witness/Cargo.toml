@@ -1,0 +1,20 @@
+[package]
+name = "apex-lifecycle-witness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+apex-consensus = { path = "../apex-consensus" }
+apex-lifecycle-redb = { path = "../apex-lifecycle-redb" }
+axum = "0.8"
+hex = "0.4"
+serde = { workspace = true }
+serde_json = "1"
+subtle = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
