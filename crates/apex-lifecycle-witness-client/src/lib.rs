@@ -90,6 +90,7 @@ impl HttpLifecycleWitnessClient {
             || !base_url.username().is_empty()
             || base_url.password().is_some()
             || base_url.fragment().is_some()
+            || base_url.query().is_some()
         {
             return Err(WitnessClientConfigError::InsecureEndpoint);
         }
