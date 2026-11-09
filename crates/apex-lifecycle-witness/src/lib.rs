@@ -271,7 +271,7 @@ mod tests {
             "expected": null,
             "next": {
                 "sequence": 1,
-                "checkpoint_hash": [0x22; 32]
+                "checkpoint_hash": vec![0x22; 32]
             }
         });
         let conflict = app
