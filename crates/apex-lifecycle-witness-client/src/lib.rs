@@ -9,7 +9,11 @@ use apex_consensus::validator_lifecycle_checkpoint::{
     CheckpointStoreError, LifecycleCheckpointAnchor, MonotonicLifecycleCheckpointStore,
 };
 use apex_lifecycle_redb::{ExternalLifecycleRollbackWitness, RollbackWitnessError};
-use reqwest::{blocking::Client, Certificate, Identity, StatusCode, Url};
+use reqwest::{
+    blocking::Client,
+    header::{AUTHORIZATION, HeaderValue},
+    Certificate, Identity, StatusCode, Url,
+};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
@@ -24,6 +28,8 @@ pub enum WitnessClientConfigError {
     InvalidClientIdentity,
     #[error("witness CA certificate is invalid")]
     InvalidWitnessCa,
+    #[error("witness API token must contain at least 32 bytes and valid header characters")]
+    InvalidApiToken,
     #[error("HTTP client could not be configured")]
     HttpClient,
 }
@@ -77,6 +83,7 @@ impl HttpLifecycleWitnessClient {
         base_url: &str,
         client_identity_pem: &[u8],
         witness_ca_pem: &[u8],
+        api_token: &str,
     ) -> Result<Self, WitnessClientConfigError> {
         let base_url = Url::parse(base_url).map_err(|_| WitnessClientConfigError::InvalidUrl)?;
         if base_url.scheme() != "https"
@@ -87,6 +94,13 @@ impl HttpLifecycleWitnessClient {
             return Err(WitnessClientConfigError::InsecureEndpoint);
         }
 
+        if api_token.len() < 32 {
+            return Err(WitnessClientConfigError::InvalidApiToken);
+        }
+        let mut authorization = HeaderValue::from_str(&format!("Bearer {api_token}"))
+            .map_err(|_| WitnessClientConfigError::InvalidApiToken)?;
+        authorization.set_sensitive(true);
+
         let identity = Identity::from_pem(client_identity_pem)
             .map_err(|_| WitnessClientConfigError::InvalidClientIdentity)?;
         let witness_ca = Certificate::from_pem(witness_ca_pem)
@@ -95,6 +109,7 @@ impl HttpLifecycleWitnessClient {
             .https_only(true)
             .identity(identity)
             .add_root_certificate(witness_ca)
+            .default_headers(std::iter::once((AUTHORIZATION, authorization)).collect())
             .connect_timeout(Duration::from_secs(3))
             .timeout(Duration::from_secs(5))
             .build()
@@ -180,7 +195,7 @@ mod tests {
             "https://witness.example.net/#fragment",
         ] {
             assert!(matches!(
-                HttpLifecycleWitnessClient::from_pem(endpoint, b"", b""),
+                HttpLifecycleWitnessClient::from_pem(endpoint, b"", b"", "test-token-with-at-least-32-bytes"),
                 Err(WitnessClientConfigError::InsecureEndpoint)
             ));
         }
@@ -189,7 +204,7 @@ mod tests {
     #[test]
     fn refuses_invalid_endpoint_syntax() {
         assert!(matches!(
-            HttpLifecycleWitnessClient::from_pem("not a URL", b"", b""),
+            HttpLifecycleWitnessClient::from_pem("not a URL", b"", b"", "test-token-with-at-least-32-bytes"),
             Err(WitnessClientConfigError::InvalidUrl)
         ));
     }
