@@ -12,7 +12,7 @@ use apex_consensus::validator_lifecycle_checkpoint::{
 use apex_lifecycle_redb::RedbLifecycleCheckpointStore;
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     routing::get,
 };
@@ -82,6 +82,7 @@ pub fn router(store: RedbLifecycleCheckpointStore, api_token: String) -> Router 
             "/v1/networks/{network_id}/head",
             get(read_head).post(advance_head),
         )
+        .layer(DefaultBodyLimit::max(4096))
         .with_state(state)
 }
 
@@ -213,6 +214,18 @@ mod tests {
         let app = router(store, "test-only-token-with-at-least-32-bytes".to_owned());
         let network = [0x2a; 32];
         let path = format!("/v1/networks/{}/head", hex::encode(network));
+
+        let unauthorized = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&path)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
 
         let missing = app
             .clone()
