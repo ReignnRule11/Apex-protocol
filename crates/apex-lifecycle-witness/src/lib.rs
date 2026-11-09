@@ -7,7 +7,7 @@
 //! the validator host.
 
 use apex_consensus::validator_lifecycle_checkpoint::{
-    CheckpointStoreError, LifecycleCheckpointAnchor, MonotonicLifecycleCheckpointStore,
+    LifecycleCheckpointAnchor, MonotonicLifecycleCheckpointStore,
 };
 use apex_lifecycle_redb::RedbLifecycleCheckpointStore;
 use axum::{
