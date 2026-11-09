@@ -257,7 +257,10 @@ mod tests {
                     .method("POST")
                     .uri(&path)
                     .header("content-type", "application/json")
-                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
+                    .header(
+                        "authorization",
+                        "Bearer test-only-token-with-at-least-32-bytes",
+                    )
                     .body(Body::from(request.to_string()))
                     .unwrap(),
             )
@@ -279,7 +282,10 @@ mod tests {
                     .method("POST")
                     .uri(&path)
                     .header("content-type", "application/json")
-                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
+                    .header(
+                        "authorization",
+                        "Bearer test-only-token-with-at-least-32-bytes",
+                    )
                     .body(Body::from(stale.to_string()))
                     .unwrap(),
             )
@@ -291,7 +297,10 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri(&path)
-                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
+                    .header(
+                        "authorization",
+                        "Bearer test-only-token-with-at-least-32-bytes",
+                    )
                     .body(Body::empty())
                     .unwrap(),
             )
