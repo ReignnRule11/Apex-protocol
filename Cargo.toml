@@ -8,6 +8,7 @@ members = [
     "crates/apex-state-redb",
     "crates/apex-lifecycle-redb",
     "crates/apex-lifecycle-witness",
+    "crates/apex-lifecycle-witness-client",
     "crates/apex-commitments",
     "crates/apex-evm",
     "crates/apex-evm-redb",
