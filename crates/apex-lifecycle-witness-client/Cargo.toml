@@ -1,0 +1,14 @@
+[package]
+name = "apex-lifecycle-witness-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+apex-consensus = { path = "../apex-consensus" }
+apex-lifecycle-redb = { path = "../apex-lifecycle-redb" }
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { workspace = true }
+thiserror = { workspace = true }
