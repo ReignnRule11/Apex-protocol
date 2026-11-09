@@ -13,7 +13,7 @@ use apex_lifecycle_redb::RedbLifecycleCheckpointStore;
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Path, State},
-    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header::AUTHORIZATION},
     routing::get,
 };
 use serde::{Deserialize, Serialize};
@@ -156,16 +156,16 @@ fn authorize(
     } else {
         Err((
             StatusCode::UNAUTHORIZED,
-            Json(ErrorResponse { error: "unauthorized" }),
+            Json(ErrorResponse {
+                error: "unauthorized",
+            }),
         ))
     }
 }
 
 fn parse_network_id(value: &str) -> Result<[u8; 32], (StatusCode, Json<ErrorResponse>)> {
     let decoded = hex::decode(value).map_err(|_| invalid_network())?;
-    decoded
-        .try_into()
-        .map_err(|_| invalid_network())
+    decoded.try_into().map_err(|_| invalid_network())
 }
 
 fn invalid_network() -> (StatusCode, Json<ErrorResponse>) {
@@ -209,20 +209,15 @@ mod tests {
     #[tokio::test]
     async fn real_redb_service_reads_and_atomically_advances_heads() {
         let directory = tempdir().unwrap();
-        let store = RedbLifecycleCheckpointStore::open(directory.path().join("witness.redb"))
-            .unwrap();
+        let store =
+            RedbLifecycleCheckpointStore::open(directory.path().join("witness.redb")).unwrap();
         let app = router(store, "test-only-token-with-at-least-32-bytes".to_owned());
         let network = [0x2a; 32];
         let path = format!("/v1/networks/{}/head", hex::encode(network));
 
         let unauthorized = app
             .clone()
-            .oneshot(
-                Request::builder()
-                    .uri(&path)
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::builder().uri(&path).body(Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(unauthorized.status(), StatusCode::UNAUTHORIZED);
@@ -232,7 +227,10 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri(&path)
-                    .header("authorization", "Bearer test-only-token-with-at-least-32-bytes")
+                    .header(
+                        "authorization",
+                        "Bearer test-only-token-with-at-least-32-bytes",
+                    )
                     .body(Body::empty())
                     .unwrap(),
             )
