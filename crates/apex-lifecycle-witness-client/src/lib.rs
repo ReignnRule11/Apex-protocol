@@ -10,9 +10,9 @@ use apex_consensus::validator_lifecycle_checkpoint::{
 };
 use apex_lifecycle_redb::{ExternalLifecycleRollbackWitness, RollbackWitnessError};
 use reqwest::{
+    Certificate, Identity, StatusCode, Url,
     blocking::Client,
     header::{AUTHORIZATION, HeaderValue},
-    Certificate, Identity, StatusCode, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -42,7 +42,10 @@ struct WireAnchor {
 
 impl From<LifecycleCheckpointAnchor> for WireAnchor {
     fn from(value: LifecycleCheckpointAnchor) -> Self {
-        Self { sequence: value.sequence, checkpoint_hash: value.checkpoint_hash }
+        Self {
+            sequence: value.sequence,
+            checkpoint_hash: value.checkpoint_hash,
+        }
     }
 }
 
@@ -120,20 +123,27 @@ impl HttpLifecycleWitnessClient {
     }
 
     fn endpoint(&self, network_id: [u8; 32]) -> String {
-        format!("{}/v1/networks/{}/head",
-            self.base_url.as_str().trim_end_matches('/'), hex::encode(network_id))
+        format!(
+            "{}/v1/networks/{}/head",
+            self.base_url.as_str().trim_end_matches('/'),
+            hex::encode(network_id)
+        )
     }
 
     fn read_head(
         &self,
         network_id: [u8; 32],
     ) -> Result<Option<LifecycleCheckpointAnchor>, CheckpointStoreError> {
-        let response = self.client.get(self.endpoint(network_id)).send()
+        let response = self
+            .client
+            .get(self.endpoint(network_id))
+            .send()
             .map_err(|_| CheckpointStoreError::Unavailable)?;
         if !response.status().is_success() {
             return Err(CheckpointStoreError::Unavailable);
         }
-        let body: HeadResponse = response.json()
+        let body: HeadResponse = response
+            .json()
             .map_err(|_| CheckpointStoreError::Unavailable)?;
         Ok(body.head.map(LifecycleCheckpointAnchor::from))
     }
@@ -157,7 +167,11 @@ impl MonotonicLifecycleCheckpointStore for HttpLifecycleWitnessClient {
             expected: expected.map(WireAnchor::from),
             next: WireAnchor::from(next),
         };
-        let response = self.client.post(self.endpoint(network_id)).json(&request).send()
+        let response = self
+            .client
+            .post(self.endpoint(network_id))
+            .json(&request)
+            .send()
             .map_err(|_| CheckpointStoreError::Unavailable)?;
 
         if response.status() == StatusCode::CONFLICT {
@@ -169,7 +183,8 @@ impl MonotonicLifecycleCheckpointStore for HttpLifecycleWitnessClient {
         if !response.status().is_success() {
             return Err(CheckpointStoreError::Unavailable);
         }
-        let body: AdvanceResponse = response.json()
+        let body: AdvanceResponse = response
+            .json()
             .map_err(|_| CheckpointStoreError::Unavailable)?;
         Ok(body.advanced)
     }
@@ -180,7 +195,8 @@ impl ExternalLifecycleRollbackWitness for HttpLifecycleWitnessClient {
         &self,
         network_id: [u8; 32],
     ) -> Result<Option<LifecycleCheckpointAnchor>, RollbackWitnessError> {
-        self.read_head(network_id).map_err(|_| RollbackWitnessError::Unavailable)
+        self.read_head(network_id)
+            .map_err(|_| RollbackWitnessError::Unavailable)
     }
 }
 
@@ -196,7 +212,12 @@ mod tests {
             "https://witness.example.net/#fragment",
         ] {
             assert!(matches!(
-                HttpLifecycleWitnessClient::from_pem(endpoint, b"", b"", "test-token-with-at-least-32-bytes"),
+                HttpLifecycleWitnessClient::from_pem(
+                    endpoint,
+                    b"",
+                    b"",
+                    "test-token-with-at-least-32-bytes"
+                ),
                 Err(WitnessClientConfigError::InsecureEndpoint)
             ));
         }
@@ -205,7 +226,12 @@ mod tests {
     #[test]
     fn refuses_invalid_endpoint_syntax() {
         assert!(matches!(
-            HttpLifecycleWitnessClient::from_pem("not a URL", b"", b"", "test-token-with-at-least-32-bytes"),
+            HttpLifecycleWitnessClient::from_pem(
+                "not a URL",
+                b"",
+                b"",
+                "test-token-with-at-least-32-bytes"
+            ),
             Err(WitnessClientConfigError::InvalidUrl)
         ));
     }
