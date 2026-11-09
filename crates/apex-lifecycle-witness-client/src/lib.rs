@@ -104,7 +104,8 @@ impl HttpLifecycleWitnessClient {
         if api_token.len() < 32 {
             return Err(WitnessClientConfigError::InvalidApiToken);
         }
-        let mut authorization = HeaderValue::from_str(&format!("Bearer {api_token}"))
+        let authorization_value = format!("Bearer {api_token}");
+        let mut authorization = HeaderValue::from_bytes(authorization_value.as_bytes())
             .map_err(|_| WitnessClientConfigError::InvalidApiToken)?;
         authorization.set_sensitive(true);
 
