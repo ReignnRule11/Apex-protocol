@@ -32,6 +32,7 @@ Configure a systemd unit with:
 - Group=apex-witness
 - Environment=APEX_WITNESS_DB_PATH=/var/lib/apex-witness/lifecycle.redb
 - Environment=APEX_WITNESS_LISTEN=127.0.0.1:8787
+- EnvironmentFile=/etc/apex-witness/witness.env (mode 0600, root-owned; contains APEX_WITNESS_API_TOKEN generated from at least 32 random bytes)
 - NoNewPrivileges=true
 - ProtectSystem=strict
 - ProtectHome=true
@@ -56,6 +57,7 @@ Construct HttpLifecycleWitnessClient::from_pem with:
 1. The HTTPS witness endpoint.
 2. The validator's client certificate chain and private key in PEM format.
 3. The CA certificate used to validate the witness server.
+4. The bearer token configured on the witness service.
 
 The constructor rejects HTTP endpoints and does not disable certificate
 validation. The client implements both MonotonicLifecycleCheckpointStore
