@@ -53,7 +53,7 @@ where
 pub mod finality_event_loop;
 pub mod finality_journal;
 pub mod native_finality_bridge;
+pub mod redb_recovery_inspection;
+pub mod reserved_signer;
 pub mod wal_preflight;
 pub mod wal_snapshot;
-
-pub mod redb_recovery_inspection;
