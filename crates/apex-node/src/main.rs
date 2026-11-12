@@ -1,12 +1,15 @@
 //! APEX node lifecycle safety preflight.
 //!
-//! This executable deliberately does not start networking or consensus. It
-//! verifies that every configured network has an initialized local lifecycle
-//! checkpoint matching an independently operated HTTPS/mTLS witness. Runtime
-//! services must remain disabled until a real consensus runtime is integrated.
+//! This executable validates protocol identity and candidate validator
+//! configuration, then verifies that every configured network has an
+//! initialized local lifecycle checkpoint matching an independently operated
+//! HTTPS/mTLS witness. It deliberately does not start consensus or networking.
+
+mod protocol_config;
 
 use apex_lifecycle_redb::{RedbLifecycleCheckpointStore, verify_lifecycle_startup};
 use apex_lifecycle_witness_client::HttpLifecycleWitnessClient;
+use protocol_config::NodeProtocolConfig;
 use std::{env, fs, process::ExitCode};
 
 fn required_env(name: &str) -> Result<String, String> {
@@ -42,6 +45,8 @@ fn parse_network_ids(value: &str) -> Result<Vec<[u8; 32]>, String> {
 }
 
 fn run_preflight() -> Result<(), String> {
+    let protocol = NodeProtocolConfig::from_env()
+        .map_err(|error| format!("protocol configuration rejected: {error}"))?;
     let network_ids = parse_network_ids(&required_env("APEX_LIFECYCLE_NETWORK_IDS")?)?;
 
     let database_path = required_env("APEX_LIFECYCLE_DB_PATH")?;
@@ -68,11 +73,18 @@ fn run_preflight() -> Result<(), String> {
         .map_err(|error| format!("lifecycle startup verification rejected: {error}"))?;
 
     println!(
+        "APEX protocol configuration validated: chain ID {}, protocol version {}, {} candidate validator(s), total voting power {}.",
+        hex::encode(protocol.chain_id.to_be_bytes()),
+        protocol.protocol_version,
+        protocol.validators.validators().len(),
+        protocol.validators.total_voting_power()
+    );
+    println!(
         "APEX lifecycle preflight passed for {} configured network(s).",
         network_ids.len()
     );
     println!(
-        "No networking or consensus services were started; this binary remains a safety preflight only."
+        "No networking, consensus, signing, or transaction services were started; this binary remains a safety preflight only."
     );
     Ok(())
 }
