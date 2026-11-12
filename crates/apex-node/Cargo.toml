@@ -8,3 +8,6 @@ rust-version.workspace = true
 [dependencies]
 apex-types = { path = "../apex-types" }
 apex-codec = { path = "../apex-codec" }
+apex-lifecycle-redb = { path = "../apex-lifecycle-redb" }
+apex-lifecycle-witness-client = { path = "../apex-lifecycle-witness-client" }
+hex = "0.4"
