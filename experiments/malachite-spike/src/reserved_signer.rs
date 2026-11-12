@@ -5,7 +5,7 @@
 
 use apex_signer_safety::{ConsensusStep, SigningIntent, SigningSafetyError, SigningSafetyStore};
 use async_trait::async_trait;
-use malachitebft_core_types::{Context, VoteExtensionScope};
+use malachitebft_core_types::{Context, Vote, VoteExtensionScope};
 use malachitebft_signing::{Error, Signer};
 use std::marker::PhantomData;
 use std::sync::Mutex;
