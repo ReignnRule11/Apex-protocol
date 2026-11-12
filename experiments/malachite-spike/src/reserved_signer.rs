@@ -3,9 +3,7 @@
 //! This remains in the isolated Malachite spike until application-specific
 //! canonical-byte adapters and durable rollback protection are reviewed.
 
-use apex_signer_safety::{
-    ConsensusStep, SigningIntent, SigningSafetyError, SigningSafetyStore,
-};
+use apex_signer_safety::{ConsensusStep, SigningIntent, SigningSafetyError, SigningSafetyStore};
 use async_trait::async_trait;
 use malachitebft_core_types::{Context, VoteExtensionScope};
 use malachitebft_signing::{Error, Signer};
@@ -20,8 +18,10 @@ use std::sync::Mutex;
 /// scope and use the same domain-separated envelope as the configured verifier.
 pub trait SigningIntentFactory<Ctx: Context>: Send + Sync {
     fn vote_intent(&self, vote: &Ctx::Vote) -> Result<SigningIntent, SigningSafetyError>;
-    fn proposal_intent(&self, proposal: &Ctx::Proposal)
-        -> Result<SigningIntent, SigningSafetyError>;
+    fn proposal_intent(
+        &self,
+        proposal: &Ctx::Proposal,
+    ) -> Result<SigningIntent, SigningSafetyError>;
     fn vote_extension_intent(
         &self,
         scope: &VoteExtensionScope<Ctx>,
@@ -84,8 +84,7 @@ where
 }
 
 #[async_trait]
-impl<Ctx, Inner, Store, Factory> Signer<Ctx>
-    for ReservedMalachiteSigner<Ctx, Inner, Store, Factory>
+impl<Ctx, Inner, Store, Factory> Signer<Ctx> for ReservedMalachiteSigner<Ctx, Inner, Store, Factory>
 where
     Ctx: Context,
     Inner: Signer<Ctx>,
