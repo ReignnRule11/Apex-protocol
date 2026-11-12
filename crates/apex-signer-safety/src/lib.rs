@@ -210,6 +210,49 @@ impl SigningSafetyStore for InMemorySigningSafetyStore {
     }
 }
 
+/// External key-custody boundary. Production implementations should call a
+/// remote signer, HSM, or hardware-backed key provider; private keys never
+/// enter this crate.
+pub trait ExternalConsensusSigner {
+    type Error;
+
+    fn sign(&mut self, canonical_message: &[u8]) -> Result<Vec<u8>, Self::Error>;
+}
+
+/// Errors preserve the distinction between durable reservation failure and
+/// external signer failure. A signer is never invoked unless reservation
+/// persistence has returned successfully.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReserveThenSignError<SignerError> {
+    Reservation(SigningSafetyError),
+    Signer(SignerError),
+}
+
+/// Persist the exact consensus signing intent before invoking external key
+/// custody. Conflicting bytes at the same (chain, version, height, round,
+/// step, signer) coordinate are rejected before the signer is contacted.
+///
+/// IMPORTANT: this protects only calls routed through this function and the
+/// supplied durable store. Production integration must intercept every
+/// consensus signing path and use storage protected against rollback.
+pub fn reserve_then_sign<S, K>(
+    store: &mut S,
+    signer: &mut K,
+    intent: &SigningIntent,
+) -> Result<(ReservationOutcome, Vec<u8>), ReserveThenSignError<K::Error>>
+where
+    S: SigningSafetyStore,
+    K: ExternalConsensusSigner,
+{
+    let reservation = store
+        .reserve(intent)
+        .map_err(ReserveThenSignError::Reservation)?;
+    let signature = signer
+        .sign(intent.message())
+        .map_err(ReserveThenSignError::Signer)?;
+    Ok((reservation, signature))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
