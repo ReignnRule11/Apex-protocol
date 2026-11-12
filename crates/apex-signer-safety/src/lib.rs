@@ -355,3 +355,99 @@ mod tests {
         assert_eq!(first.len(), 81);
     }
 }
+
+
+#[cfg(test)]
+mod reserve_then_sign_tests {
+    use super::*;
+    use apex_types::ChainId256;
+
+    #[derive(Default)]
+    struct RecordingSigner {
+        calls: usize,
+    }
+
+    impl ExternalConsensusSigner for RecordingSigner {
+        type Error = ();
+
+        fn sign(&mut self, message: &[u8]) -> Result<Vec<u8>, Self::Error> {
+            self.calls += 1;
+            Ok(message.iter().map(|byte| byte ^ 0xA5).collect())
+        }
+    }
+
+    fn intent(message: &[u8]) -> SigningIntent {
+        let signer = SignerId::new([9; 32]).unwrap();
+        let coordinate = SigningCoordinate::new(
+            ChainId256::from_u64(9001),
+            1,
+            44,
+            2,
+            ConsensusStep::Precommit,
+            signer,
+        )
+        .unwrap();
+        SigningIntent::new(coordinate, message.to_vec(), 4096).unwrap()
+    }
+
+    #[test]
+    fn reservation_precedes_external_signer_invocation() {
+        let mut store = InMemorySigningSafetyStore::default();
+        let mut signer = RecordingSigner::default();
+        let request = intent(b"canonical-precommit");
+
+        let (outcome, signature) = reserve_then_sign(&mut store, &mut signer, &request).unwrap();
+
+        assert_eq!(outcome, ReservationOutcome::Reserved);
+        assert_eq!(signer.calls, 1);
+        assert_eq!(
+            signature,
+            request.message().iter().map(|byte| byte ^ 0xA5).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn conflicting_intent_is_rejected_without_calling_signer() {
+        let mut store = InMemorySigningSafetyStore::default();
+        let mut signer = RecordingSigner::default();
+        reserve_then_sign(&mut store, &mut signer, &intent(b"block-a")).unwrap();
+
+        let result = reserve_then_sign(&mut store, &mut signer, &intent(b"block-b"));
+
+        assert_eq!(
+            result,
+            Err(ReserveThenSignError::Reservation(
+                SigningSafetyError::DoubleSignPrevented
+            ))
+        );
+        assert_eq!(signer.calls, 1);
+    }
+
+    #[test]
+    fn signer_failure_keeps_the_reservation_in_place() {
+        struct FailingSigner;
+        impl ExternalConsensusSigner for FailingSigner {
+            type Error = &'static str;
+
+            fn sign(&mut self, _: &[u8]) -> Result<Vec<u8>, Self::Error> {
+                Err("HSM unavailable")
+            }
+        }
+
+        let mut store = InMemorySigningSafetyStore::default();
+        let request = intent(b"reserved-before-hsm");
+        assert_eq!(
+            reserve_then_sign(&mut store, &mut FailingSigner, &request),
+            Err(ReserveThenSignError::Signer("HSM unavailable"))
+        );
+
+        let mut available = RecordingSigner::default();
+        assert_eq!(
+            reserve_then_sign(&mut store, &mut available, &request)
+                .unwrap()
+                .0,
+            ReservationOutcome::ExistingIdentical
+        );
+        assert_eq!(available.calls, 1);
+    }
+}
