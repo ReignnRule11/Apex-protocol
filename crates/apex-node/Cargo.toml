@@ -12,3 +12,4 @@ apex-consensus = { path = "../apex-consensus" }
 apex-lifecycle-redb = { path = "../apex-lifecycle-redb" }
 apex-lifecycle-witness-client = { path = "../apex-lifecycle-witness-client" }
 hex = "0.4"
+thiserror.workspace = true
