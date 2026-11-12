@@ -86,7 +86,8 @@ fn run_preflight() -> Result<(), String> {
         protocol_version: protocol.protocol_version,
         validators: protocol.validators.clone(),
     };
-    let commitment = genesis.commitment()
+    let commitment = genesis
+        .commitment()
         .map_err(|error| format!("genesis protocol commitment rejected: {error}"))?;
 
     println!(
