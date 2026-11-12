@@ -54,8 +54,12 @@ impl GenesisProtocolConfig {
         let count = u32::try_from(validators.len())
             .map_err(|_| GenesisCommitmentError::TooManyValidators)?;
         let capacity = HEADER_LEN
-            .checked_add(validators.len().checked_mul(VALIDATOR_LEN)
-                .ok_or(GenesisCommitmentError::TooManyValidators)?)
+            .checked_add(
+                validators
+                    .len()
+                    .checked_mul(VALIDATOR_LEN)
+                    .ok_or(GenesisCommitmentError::TooManyValidators)?,
+            )
             .ok_or(GenesisCommitmentError::TooManyValidators)?;
         let mut out = Vec::with_capacity(capacity);
         out.extend_from_slice(MAGIC);
@@ -77,7 +81,10 @@ impl GenesisProtocolConfig {
         hasher.update(DOMAIN);
         hasher.update(&canonical_bytes);
         let digest: [u8; 32] = hasher.finalize().into();
-        Ok(GenesisProtocolCommitment { canonical_bytes, digest })
+        Ok(GenesisProtocolCommitment {
+            canonical_bytes,
+            digest,
+        })
     }
 }
 
@@ -87,10 +94,16 @@ mod tests {
     use apex_consensus::validator_set::{Validator, ValidatorId};
 
     fn config(chain: [u8; 32], version: u32, entries: &[(u8, u64)]) -> GenesisProtocolConfig {
-        let validators = ValidatorSet::new(entries.iter().map(|(id, voting_power)| Validator {
-            id: ValidatorId([*id; 32]),
-            voting_power: *voting_power,
-        }).collect()).unwrap();
+        let validators = ValidatorSet::new(
+            entries
+                .iter()
+                .map(|(id, voting_power)| Validator {
+                    id: ValidatorId([*id; 32]),
+                    voting_power: *voting_power,
+                })
+                .collect(),
+        )
+        .unwrap();
         GenesisProtocolConfig {
             chain_id: ChainId256::from_be_bytes(chain),
             protocol_version: version,
@@ -134,10 +147,14 @@ mod tests {
 
     #[test]
     fn rejects_zero_chain_and_protocol_version() {
-        assert_eq!(config([0; 32], 1, &[(1, 1)]).encode_canonical(),
-            Err(GenesisCommitmentError::ZeroChainId));
-        assert_eq!(config([1; 32], 0, &[(1, 1)]).encode_canonical(),
-            Err(GenesisCommitmentError::InvalidProtocolVersion));
+        assert_eq!(
+            config([0; 32], 1, &[(1, 1)]).encode_canonical(),
+            Err(GenesisCommitmentError::ZeroChainId)
+        );
+        assert_eq!(
+            config([1; 32], 0, &[(1, 1)]).encode_canonical(),
+            Err(GenesisCommitmentError::InvalidProtocolVersion)
+        );
     }
 
     #[test]
