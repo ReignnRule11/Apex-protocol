@@ -5,9 +5,7 @@
 //! checkpoint matching an independently operated HTTPS/mTLS witness. Runtime
 //! services must remain disabled until a real consensus runtime is integrated.
 
-use apex_lifecycle_redb::{
-    RedbLifecycleCheckpointStore, verify_lifecycle_startup,
-};
+use apex_lifecycle_redb::{RedbLifecycleCheckpointStore, verify_lifecycle_startup};
 use apex_lifecycle_witness_client::HttpLifecycleWitnessClient;
 use std::{env, fs, process::ExitCode};
 
@@ -30,7 +28,9 @@ fn parse_network_ids(value: &str) -> Result<Vec<[u8; 32]>, String> {
         .split(',')
         .map(|entry| {
             if entry.len() != 64 {
-                return Err("each lifecycle network ID must contain exactly 64 hex characters".to_owned());
+                return Err(
+                    "each lifecycle network ID must contain exactly 64 hex characters".to_owned(),
+                );
             }
             let decoded = hex::decode(entry)
                 .map_err(|_| "lifecycle network ID contains invalid hexadecimal".to_owned())?;
@@ -71,7 +71,9 @@ fn run_preflight() -> Result<(), String> {
         "APEX lifecycle preflight passed for {} configured network(s).",
         network_ids.len()
     );
-    println!("No networking or consensus services were started; this binary remains a safety preflight only.");
+    println!(
+        "No networking or consensus services were started; this binary remains a safety preflight only."
+    );
     Ok(())
 }
 
@@ -92,8 +94,7 @@ mod tests {
 
     #[test]
     fn parses_one_and_multiple_network_ids() {
-        let ids = parse_network_ids(&format!("{},{}", "01".repeat(32), "ab".repeat(32)))
-            .unwrap();
+        let ids = parse_network_ids(&format!("{},{}", "01".repeat(32), "ab".repeat(32))).unwrap();
         assert_eq!(ids, vec![[1; 32], [0xab; 32]]);
     }
 
