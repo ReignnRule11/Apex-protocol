@@ -99,8 +99,8 @@ impl NodeProtocolConfig {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let validators = ValidatorSet::new(entries)
-            .map_err(NodeProtocolConfigError::InvalidValidatorSet)?;
+        let validators =
+            ValidatorSet::new(entries).map_err(NodeProtocolConfigError::InvalidValidatorSet)?;
 
         Ok(Self {
             chain_id,
@@ -175,11 +175,7 @@ mod tests {
             Err(NodeProtocolConfigError::InvalidValidatorEntry)
         ));
         assert_eq!(
-            NodeProtocolConfig::parse(
-                &"01".repeat(32),
-                "1",
-                &format!("{id}:1,{id}:2")
-            ),
+            NodeProtocolConfig::parse(&"01".repeat(32), "1", &format!("{id}:1,{id}:2")),
             Err(NodeProtocolConfigError::InvalidValidatorSet(
                 ValidatorSetError::DuplicateIdentity
             ))
@@ -189,11 +185,7 @@ mod tests {
     #[test]
     fn rejects_zero_identity_and_voting_power_overflow() {
         assert_eq!(
-            NodeProtocolConfig::parse(
-                &"01".repeat(32),
-                "1",
-                &format!("{}:1", "00".repeat(32))
-            ),
+            NodeProtocolConfig::parse(&"01".repeat(32), "1", &format!("{}:1", "00".repeat(32))),
             Err(NodeProtocolConfigError::InvalidValidatorSet(
                 ValidatorSetError::InvalidIdentity
             ))
