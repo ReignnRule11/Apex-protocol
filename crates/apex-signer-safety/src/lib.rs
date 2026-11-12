@@ -356,7 +356,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod reserve_then_sign_tests {
     use super::*;
@@ -402,7 +401,11 @@ mod reserve_then_sign_tests {
         assert_eq!(signer.calls, 1);
         assert_eq!(
             signature,
-            request.message().iter().map(|byte| byte ^ 0xA5).collect::<Vec<_>>()
+            request
+                .message()
+                .iter()
+                .map(|byte| byte ^ 0xA5)
+                .collect::<Vec<_>>()
         );
     }
 
