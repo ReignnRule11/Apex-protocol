@@ -14,3 +14,4 @@ apex-lifecycle-witness-client = { path = "../apex-lifecycle-witness-client" }
 hex = "0.4"
 thiserror.workspace = true
 sha2.workspace = true
+ed25519-dalek.workspace = true
