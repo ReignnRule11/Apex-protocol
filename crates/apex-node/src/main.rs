@@ -5,7 +5,7 @@
 //! initialized local lifecycle checkpoint matching an independently operated
 //! HTTPS/mTLS witness. It deliberately does not start consensus or networking.
 
-mod genesis_commitment;
+pub mod genesis_commitment;
 mod protocol_config;
 pub mod validator_key_proof;
 
