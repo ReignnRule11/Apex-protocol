@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use thiserror::Error;
 
-const ID_DOMAIN: &[u8] = b"APEX::ED25519_VALIDATOR_ID::V1\\0";
+const ID_DOMAIN: &[u8] = b"APEX::ED25519_VALIDATOR_ID::V1\0";
 const PROOF_DOMAIN: &[u8] = b"APEX::ED25519_VALIDATOR_KEY_PROOF::V1\\0";
 
 /// A validator's signed response to a fresh genesis-scoped challenge.
