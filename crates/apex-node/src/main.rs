@@ -5,8 +5,9 @@
 //! initialized local lifecycle checkpoint matching an independently operated
 //! HTTPS/mTLS witness. It deliberately does not start consensus or networking.
 
-mod genesis_commitment;
-mod protocol_config;
+pub mod genesis_commitment;
+pub mod protocol_config;
+pub mod validator_key_proof;
 
 use apex_lifecycle_redb::{RedbLifecycleCheckpointStore, verify_lifecycle_startup};
 use apex_lifecycle_witness_client::HttpLifecycleWitnessClient;
