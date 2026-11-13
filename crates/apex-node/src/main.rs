@@ -6,7 +6,7 @@
 //! HTTPS/mTLS witness. It deliberately does not start consensus or networking.
 
 pub mod genesis_commitment;
-mod protocol_config;
+pub mod protocol_config;
 pub mod validator_key_proof;
 
 use apex_lifecycle_redb::{RedbLifecycleCheckpointStore, verify_lifecycle_startup};
