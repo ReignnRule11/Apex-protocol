@@ -119,7 +119,10 @@ pub fn verify_validator_key_proofs(
             .map_err(|_| ValidatorKeyProofError::InvalidSignature)?;
     }
 
-    if validators.iter().any(|validator| !seen.contains(&validator.id)) {
+    if validators
+        .iter()
+        .any(|validator| !seen.contains(&validator.id))
+    {
         return Err(ValidatorKeyProofError::ProofCountMismatch);
     }
     Ok(())
@@ -180,7 +183,10 @@ mod tests {
             .iter()
             .map(|key| proof(&genesis, &nonce, key))
             .collect::<Vec<_>>();
-        assert_eq!(verify_validator_key_proofs(&genesis, &nonce, &proofs), Ok(()));
+        assert_eq!(
+            verify_validator_key_proofs(&genesis, &nonce, &proofs),
+            Ok(())
+        );
     }
 
     #[test]
