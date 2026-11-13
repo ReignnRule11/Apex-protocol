@@ -7,7 +7,7 @@
 
 use crate::genesis_commitment::{GenesisCommitmentError, GenesisProtocolConfig};
 use apex_consensus::validator_set::ValidatorId;
-use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
+use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use thiserror::Error;
@@ -131,7 +131,7 @@ mod tests {
     use crate::genesis_commitment::GenesisProtocolConfig;
     use apex_consensus::validator_set::{Validator, ValidatorSet};
     use apex_types::ChainId256;
-    use ed25519_dalek::Signer;
+    use ed25519_dalek::{Signer, SigningKey};
 
     fn fixture() -> (GenesisProtocolConfig, [SigningKey; 2], [u8; 32]) {
         let keys = [
