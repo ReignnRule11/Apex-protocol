@@ -5,10 +5,12 @@
 //! initialized local lifecycle checkpoint matching an independently operated
 //! HTTPS/mTLS witness. It deliberately does not start consensus or networking.
 
+mod genesis_commitment;
 mod protocol_config;
 
 use apex_lifecycle_redb::{RedbLifecycleCheckpointStore, verify_lifecycle_startup};
 use apex_lifecycle_witness_client::HttpLifecycleWitnessClient;
+use genesis_commitment::GenesisProtocolConfig;
 use protocol_config::NodeProtocolConfig;
 use std::{env, fs, process::ExitCode};
 
@@ -78,6 +80,19 @@ fn run_preflight() -> Result<(), String> {
         protocol.protocol_version,
         protocol.validators.validators().len(),
         protocol.validators.total_voting_power()
+    );
+    let genesis = GenesisProtocolConfig {
+        chain_id: protocol.chain_id,
+        protocol_version: protocol.protocol_version,
+        validators: protocol.validators.clone(),
+    };
+    let commitment = genesis
+        .commitment()
+        .map_err(|error| format!("genesis protocol commitment rejected: {error}"))?;
+
+    println!(
+        "Canonical genesis protocol commitment (SHA-256): {}",
+        hex::encode(commitment.digest)
     );
     println!(
         "APEX lifecycle preflight passed for {} configured network(s).",
